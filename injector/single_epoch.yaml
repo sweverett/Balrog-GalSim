@@ -168,19 +168,7 @@ star:
 #        type: PowerSpectrumMagnification
 
 psf:
-    type: DES_PSFEx
-
-input: 
-    des_psfex :
-        dir:
-            type: Catalog
-            col: 0
-        file_name:
-            type: FormattedStr
-            format: "%s_%02d_psfcat.psf"
-            items:
-            - { type: Catalog, col: 1 }
-            - "$chip_num + 1"
+    type : DES_PSFEx
 
 stamp:
     # A custom stamp type in galsim_extra that lets you have multiple kinds of
@@ -200,8 +188,7 @@ stamp:
         faint_gal:  0.80
         # Note: it's fine that these don't add to 1.  They will be renormalized automatically
 
-    #draw_method: phot
-    draw_method : no_pixel  # The PSFs here already include the pixel response.
+    draw_method: phot
 
     shear:
         type: G1G2
@@ -234,8 +221,9 @@ image:
     type: AddOn
     initial_image:
             type: FormattedStr
-            format: "%s_%02d.fits.fz"
+            format: "%s/%s_%02d.fits.fz"
             items:
+            - { type: Catalog, col: 0 }
             - { type: Catalog, col: 1 }
             - "$chip_num + 1"
  
@@ -307,6 +295,19 @@ input:
         # exposure listed).  It would need to be changed to run at scale e.g. at BNL.
         file_name: exp_list 
 
+
+    des_psfex :
+        dir:
+            type: Catalog
+            col: 0
+        file_name:
+            type: FormattedStr
+            format: "%s/%s_%02d_psfcat.psf"
+            items:
+            - { type: Catalog, col: 0 }
+            - { type: Catalog, col: 1 }
+            - "$chip_num + 1"
+        
         
 meta_params:
     # This field has information *about* the PSF (or the exposure in general), which will be used
