@@ -215,13 +215,19 @@ stamp:
 
 image:
     type: AddOn
-
+    initial_image:
+            type: FormattedStr
+            format: "%s_%02d.fits.fz"
+            items:
+            - { type: Catalog, col: 1 }
+            - "$chip_num + 1"
+ 
     noise:
         type: Poisson
 
     # Note: The real distribution of sky levels probably isn't flat.  It's probably bimodal,
     # depending on whether the moon is up.  But this is probably ok for now.
-    sky_level: { type: Random, min: 5000, max: 15000, index_key: exp_num }
+    sky_level: { type: Random, min: 0, max: 0, index_key: exp_num }
 
     random_seed: 8675309
 
@@ -303,7 +309,7 @@ output:
     # also access it in eval statements as just exp_num.
     nexp: '$(@input.catalog).getNObjects()'
 
-    nchips: 5  # The number of chips per exposure
+    nchips: 2  # The number of chips per exposure
 
     dir: output
     file_name:
