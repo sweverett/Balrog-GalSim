@@ -10,6 +10,7 @@
 modules:
     - galsim_extra
     - injector
+    - galsim.des
 
 
 # Some variable definitions that let us define things here and then use them again later
@@ -157,14 +158,29 @@ star:
 # The size has a polynomial component where it gets larger near the edges to
 # simulate a defocus kind of optical feature.  There is also an atmospheric
 # part using a Gaussian process power spectrum model for the shape and size.
+#psf:
+#    type: Moffat
+#    beta: 2.5
+#    fwhm: '$fwhm_central + fwhm_a * (focal_r/focal_rmax)**2'
+#    ellip:
+#        type: PowerSpectrumShear
+#    magnify:
+#        type: PowerSpectrumMagnification
+
 psf:
-    type: Moffat
-    beta: 2.5
-    fwhm: '$fwhm_central + fwhm_a * (focal_r/focal_rmax)**2'
-    ellip:
-        type: PowerSpectrumShear
-    magnify:
-        type: PowerSpectrumMagnification
+    type: DES_PSFEx
+
+input: 
+    des_psfex :
+        dir:
+            type: Catalog
+            col: 0
+        file_name:
+            type: FormattedStr
+            format: "%s_%02d_psfcat.psf"
+            items:
+            - { type: Catalog, col: 1 }
+            - "$chip_num + 1"
 
 stamp:
     # A custom stamp type in galsim_extra that lets you have multiple kinds of
@@ -184,7 +200,8 @@ stamp:
         faint_gal:  0.80
         # Note: it's fine that these don't add to 1.  They will be renormalized automatically
 
-    draw_method: phot
+    #draw_method: phot
+    draw_method : no_pixel  # The PSFs here already include the pixel response.
 
     shear:
         type: G1G2
@@ -215,13 +232,19 @@ stamp:
 
 image:
     type: AddOn
-
+    initial_image:
+            type: FormattedStr
+            format: "%s_%02d.fits.fz"
+            items:
+            - { type: Catalog, col: 1 }
+            - "$chip_num + 1"
+ 
     noise:
         type: Poisson
 
     # Note: The real distribution of sky levels probably isn't flat.  It's probably bimodal,
     # depending on whether the moon is up.  But this is probably ok for now.
-    sky_level: { type: Random, min: 5000, max: 15000, index_key: exp_num }
+    sky_level: { type: Random, min: 0, max: 0, index_key: exp_num }
 
     random_seed: 8675309
 
@@ -284,6 +307,7 @@ input:
         # exposure listed).  It would need to be changed to run at scale e.g. at BNL.
         # file_name: exp_list 
 
+        
 meta_params:
     # This field has information *about* the PSF (or the exposure in general), which will be used
     # by the psf field to generate the specific PSFs at the location of each galaxy.
@@ -303,7 +327,7 @@ output:
     # also access it in eval statements as just exp_num.
     nexp: '$(@input.catalog).getNObjects()'
 
-    nchips: 5  # The number of chips per exposure
+    nchips: 2  # The number of chips per exposure
 
     dir: output
     file_name:
