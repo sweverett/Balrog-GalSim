@@ -282,7 +282,7 @@ input:
         # the _chipnum.fits.fz suffix).
         # The version of this in the current directory works on my laptop (and just has one
         # exposure listed).  It would need to be changed to run at scale e.g. at BNL.
-        file_name: exp_list 
+        # file_name: exp_list 
 
 meta_params:
     # This field has information *about* the PSF (or the exposure in general), which will be used
