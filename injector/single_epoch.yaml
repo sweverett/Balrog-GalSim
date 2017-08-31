@@ -327,9 +327,6 @@ output:
     # Note: the FocalPlane output type adds another available index key, exp_num.  This can
     # be used as an index_key instead of the usual file_num, image_num, or obj_num.  You can
     # also access it in eval statements as just exp_num.
-    #nexp: '$(@input.catalog).getNObjects()'
-    nexp: 1
-
     nchips: 2  # The number of chips per exposure
 
     dir: output
@@ -352,6 +349,10 @@ output:
             num: obj_num
             x: "$image_pos.x"
             y: "$image_pos.y"
+
+            #psf_fwhm: psf.fwhm
+            #psf_e1: '$(@psf.ellip).e1'
+            #psf_e2: '$(@psf.ellip).e2'
 
             obj_type: '@current_obj_type'
             obj_type_index: '@current_obj_type_index'
