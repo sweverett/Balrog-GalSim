@@ -232,7 +232,8 @@ image:
 
     # Note: The real distribution of sky levels probably isn't flat.  It's probably bimodal,
     # depending on whether the moon is up.  But this is probably ok for now.
-    sky_level: { type: Random, min: 0, max: 0, index_key: exp_num }
+    # sky_level: { type: Constant, min: 0, max: 0, index_key: exp_num }
+    sky_level: { type: Eval, str: '0'}
 
     random_seed: 8675309
 
@@ -293,7 +294,7 @@ input:
         # the _chipnum.fits.fz suffix).
         # The version of this in the current directory works on my laptop (and just has one
         # exposure listed).  It would need to be changed to run at scale e.g. at BNL.
-        # file_name: exp_list 
+        file_name: exp_list 
 
 
     des_psfex :
@@ -326,7 +327,8 @@ output:
     # Note: the FocalPlane output type adds another available index key, exp_num.  This can
     # be used as an index_key instead of the usual file_num, image_num, or obj_num.  You can
     # also access it in eval statements as just exp_num.
-    nexp: '$(@input.catalog).getNObjects()'
+    #nexp: '$(@input.catalog).getNObjects()'
+    nexp: 1
 
     nchips: 2  # The number of chips per exposure
 
@@ -350,10 +352,6 @@ output:
             num: obj_num
             x: "$image_pos.x"
             y: "$image_pos.y"
-
-            psf_fwhm: psf.fwhm
-            psf_e1: '$(@psf.ellip).e1'
-            psf_e2: '$(@psf.ellip).e2'
 
             obj_type: '@current_obj_type'
             obj_type_index: '@current_obj_type_index'
