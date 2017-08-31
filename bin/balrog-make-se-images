@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 """
-get all the inputs for balrog
-
+- get all the inputs for balrog
+- add objects to the single-epoch images, for input to
+  the coadd
 """
 from argparse import ArgumentParser
 import balrog
