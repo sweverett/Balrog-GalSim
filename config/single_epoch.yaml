@@ -7,9 +7,12 @@
 #     CosmosR50, CosmosFlux value types along with cosmos_sampler input type
 #     LogNormal value type
 #     OffChip value type
+some_variables :
+    - &BALROG_DIR $os.environ['BALROG_DIR'] # Set env variable before running this config
+    
 modules:
     - galsim_extra
-    - injector
+    - balrog
     - galsim.des
 
 
@@ -297,11 +300,27 @@ input:
         # the _chipnum.fits.fz suffix).
         # The version of this in the current directory works on my laptop (and just has one
         # exposure listed).  It would need to be changed to run at scale e.g. at BNL.
-        [
-        { dir: ./ , file_name: exp_list },
-        { dir: /Users/amichoi/src/GalSim/examples/input , file_name: galsim_default_input.asc },
-        { dir: ./ , file_name: radec.asc }
-        ]
+        -
+          dir:
+            type: FormattedStr
+            format: "%s/inputs"
+            items:
+              - *BALROG_DIR
+          file_name: exp_list
+        -
+          dir:
+            type: FormattedStr
+            format: "%s/inputs"
+            items:
+              - *BALROG_DIR
+          file_name: temp_input.asc
+        -
+          dir:
+            type: FormattedStr
+            format: "%s/inputs"
+            items:
+              - *BALROG_DIR
+          file_name: radec.asc
 
     des_psfex :
         dir:
