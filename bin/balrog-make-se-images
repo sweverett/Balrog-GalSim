@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+"""
+- get all the inputs for balrog
+- add objects to the single-epoch images, for input to
+  the coadd
+"""
+from argparse import ArgumentParser
+import balrog
+
+parser=ArgumentParser()
+
+parser.add_argument(
+    'conf',
+    help='configuration file',
+)
+parser.add_argument(
+    'tilename',
+    help='tilename to download',
+)
+parser.add_argument(
+    'band',
+    default=None,
+    help='band to download',
+)
+
+parser.add_argument(
+    '--clean',
+    action='store_true',
+    help=('remove all the generated nullwt files'),
+)
+
+
+def main():
+    args = parser.parse_args()
+
+    conf = balrog.files.read_yaml(args.conf)
+
+    # download inputs and make nullweight files
+    prep = balrog.prep.prepare_tile(
+        conf,
+        args.tilename,
+        args.band,
+        clean=args.clean,
+    )
+
+    if args.clean:
+        return
+
+    # currenly does nothing
+    balrog.sim.make_images(conf, prep)
+
+if __name__=="__main__":
+    main()
