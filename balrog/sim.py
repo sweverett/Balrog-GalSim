@@ -24,3 +24,4 @@ class ImageMaker(dict):
         """
         make the images
         """
+        pass
