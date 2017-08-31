@@ -32,9 +32,11 @@ parser.add_argument(
 def main():
     args = parser.parse_args()
 
+    conf = balrog.files.read_yaml(args.conf)
+
     # download inputs and make nullweight files
     prep = balrog.prep.prepare_tile(
-        args.conf,
+        conf,
         args.tilename,
         args.band,
         clean=args.clean,
@@ -44,7 +46,7 @@ def main():
         return
 
     # currenly does nothing
-    balrog.sim.make_images(prep)
+    balrog.sim.make_images(conf, prep)
 
 if __name__=="__main__":
     main()

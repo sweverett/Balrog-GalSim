@@ -1,24 +1,34 @@
-def make_images(prep):
+def make_images(conf, prep):
     """
     parameters
     -----------
-    prep: a preparator objects
-        prep is a preparator object.  It contains the config info and can be
-        used as a dict, in addition to methods
+    conf: dict
+        The configuration dictionary.
 
-        e.g. it has prep['nwgint_flist'] available
+    prep: obj
+        A Preparator object
 
+        It contains the info about the  null weight files,
+        psfs, etc.
+
+        It can be used like a dict, e.g. it has prep['nwgint_flist'] available
 
     """
-    maker=ImageMaker(prep)
+    maker=ImageMaker(conf, prep)
     maker.go()
 
 class ImageMaker(dict):
     """
     class to run galsim and make the new images
+
+    parameters
+    ----------
+    config: dict
+        The configuration dictionary
     """
-    def __init__(self, prep):
-        self.update(prep)
+    def __init__(self, conf, prep):
+        self.update(conf)
+        self.prep=prep
 
     def go(self):
         """
