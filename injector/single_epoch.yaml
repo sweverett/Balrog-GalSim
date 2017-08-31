@@ -326,7 +326,7 @@ output:
     # Note: the FocalPlane output type adds another available index key, exp_num.  This can
     # be used as an index_key instead of the usual file_num, image_num, or obj_num.  You can
     # also access it in eval statements as just exp_num.
-    nexp: 1 # '$(@input.catalog).getNObjects()'
+    nexp:  '$(@input.catalog).getNObjects()'
 
     nchips: 2  # The number of chips per exposure
 
