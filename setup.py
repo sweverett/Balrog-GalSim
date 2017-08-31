@@ -3,7 +3,7 @@ import glob
 from distutils.core import setup
 
 scripts=[
-    'balrog',
+    'balrog-make-se-images',
 ]
 scripts=[os.path.join('bin',s) for s in scripts]
 
