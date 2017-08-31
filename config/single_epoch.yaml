@@ -123,8 +123,8 @@ bright_gal:
             ellip: '@bright_gal.items.1.ellip'
     flux:
         type: Eval
-        # Scale flux up by a factor of 250
-        str: "250.0 * cosmos_flux"
+        # Scale flux up by a factor of 10 (this number was originally 250)
+        str: "10 * cosmos_flux"
         fcosmos_flux: { type: CosmosFlux }
 
 # Faint galaxies use the same population as the bright sample, but scaled
