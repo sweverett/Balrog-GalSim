@@ -8,11 +8,12 @@
 #     LogNormal value type
 #     OffChip value type
 some_variables :
-    - &BALROG_DIR $os.environ['BALROG_DIR'] # Set env variable before running this config
+    - &BALROG_DIR /Users/amichoi/src/Balrog-GalSim
+#    - &BALROG_DIR $os.environ['BALROG_DIR'] # Set env variable before running this config
     
 modules:
     - galsim_extra
-    - balrog
+    - balrog.injector
     - galsim.des
 
 
@@ -21,7 +22,7 @@ modules:
 eval_variables:
 
     srun: &run "001"
-
+        
     # These make it easier to include the right value in the truth catalog.
     fgal_hlr:
         type: List
@@ -354,7 +355,8 @@ output:
     # be used as an index_key instead of the usual file_num, image_num, or obj_num.  You can
     # also access it in eval statements as just exp_num.
     nchips: 2  # The number of chips per exposure
-
+    nexp : 1
+    
     dir: output
     file_name:
         type: FormattedStr
