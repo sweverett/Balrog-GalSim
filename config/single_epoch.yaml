@@ -1,5 +1,5 @@
 # Mostly stolen from Niall's galsim_extra.focal_plane class
-
+# Adding on capability to read in further inputs
 
 # This example config file uses a number of the custom modules available in galsim_extra including
 #     FocalPlane output type
@@ -7,9 +7,13 @@
 #     CosmosR50, CosmosFlux value types along with cosmos_sampler input type
 #     LogNormal value type
 #     OffChip value type
+some_variables :
+    - &BALROG_DIR /Users/amichoi/src/Balrog-GalSim
+#    - &BALROG_DIR $os.environ['BALROG_DIR'] # Set env variable before running this config
+    
 modules:
     - galsim_extra
-    - injector
+    - balrog.injector
     - galsim.des
 
 
@@ -18,7 +22,7 @@ modules:
 eval_variables:
 
     srun: &run "001"
-
+        
     # These make it easier to include the right value in the truth catalog.
     fgal_hlr:
         type: List
@@ -96,7 +100,7 @@ bright_gal:
         -
             type: DeVaucouleurs
             half_light_radius: 
-                type: CosmosR50
+                { type : Catalog , num : 1 , col : 8 }
             flux: { type: Random, min: 0, max: 1 }
             ellip:
                 type: Eta1Eta2
@@ -105,7 +109,7 @@ bright_gal:
                 eta2: { type: RandomGaussian, sigma: 0.2 }
         -
             type: Exponential
-            half_light_radius: '@bright_gal.items.0.half_light_radius'
+            half_light_radius: { type : Catalog , num : 1, col : 5 }
             flux: 
                 type: Eval
                 str: 'smooth_frac * (1. - @bright_gal.items.0.flux)'
@@ -123,8 +127,8 @@ bright_gal:
             ellip: '@bright_gal.items.1.ellip'
     flux:
         type: Eval
-        # Scale flux up by a factor of 250
-        str: "250.0 * cosmos_flux"
+        # Scale flux up by a factor of 10 (this number was originally 250)
+        str: "10 * cosmos_flux"
         fcosmos_flux: { type: CosmosFlux }
 
 # Faint galaxies use the same population as the bright sample, but scaled
@@ -223,8 +227,8 @@ image:
             type: FormattedStr
             format: "%s/%s_%02d.fits.fz"
             items:
-            - { type: Catalog, col: 0 }
-            - { type: Catalog, col: 1 }
+            - { type: Catalog, num: 0, col: 0 }
+            - { type: Catalog, num: 0, col: 1 }
             - "$chip_num + 1"
  
     noise:
@@ -249,27 +253,30 @@ image:
     world_pos:
         type: RADec
         ra: 
-            type: Radians
-            theta: { type: Random, min: "$fov_minra.rad()", max: "$fov_maxra.rad()" }
+            type: Degrees
+            theta:
+                type: Catalog
+                num: 2
+                col: 0
         dec:
-            type: Radians
+            type: Degrees
             theta: 
-                type: RandomDistribution
-                function: "math.cos(x)"  # Uniform on the sky means P(delta) ~ cos(delta)
-                x_min: "$fov_mindec.rad()"
-                x_max: "$fov_maxdec.rad()"
+                type: Catalog
+                num: 2
+                col: 1
 
     wcs: 
         # Go through the exp_list catalog and sequentially use each exposure once.
         type: Fits
         dir:
             type: Catalog
+            num: 0
             col: 0
         file_name:
             type: FormattedStr
             format: "%s_%02d.fits.fz"
             items:
-            - { type: Catalog, col: 1 }
+            - { type: Catalog, num: 0, col: 1 }
             - "$chip_num + 1"
 
 input:
@@ -290,23 +297,43 @@ input:
         variance: '$rms_e**2'  # rms_e is given in meta_params
 
     catalog:
-        # This catalog has a list of directories and exposure names (the root part before
+        # First catalog has a list of directories and exposure names (the root part before
         # the _chipnum.fits.fz suffix).
         # The version of this in the current directory works on my laptop (and just has one
         # exposure listed).  It would need to be changed to run at scale e.g. at BNL.
-        file_name: exp_list 
-
+        -
+          dir:
+            type: FormattedStr
+            format: "%s/inputs"
+            items:
+              - *BALROG_DIR
+          file_name: exp_list
+        -
+          dir:
+            type: FormattedStr
+            format: "%s/inputs"
+            items:
+              - *BALROG_DIR
+          file_name: temp_input.asc
+        -
+          dir:
+            type: FormattedStr
+            format: "%s/inputs"
+            items:
+              - *BALROG_DIR
+          file_name: radec.asc
 
     des_psfex :
         dir:
             type: Catalog
+            num: 0
             col: 0
         file_name:
             type: FormattedStr
             format: "%s/%s_%02d_psfcat.psf"
             items:
-            - { type: Catalog, col: 0 }
-            - { type: Catalog, col: 1 }
+            - { type: Catalog, num: 0, col: 0 }
+            - { type: Catalog, num: 0, col: 1 }
             - "$chip_num + 1"
         
         
@@ -328,13 +355,14 @@ output:
     # be used as an index_key instead of the usual file_num, image_num, or obj_num.  You can
     # also access it in eval statements as just exp_num.
     nchips: 2  # The number of chips per exposure
-
+    nexp : 1
+    
     dir: output
     file_name:
         type: FormattedStr
         format: "sim_%s_%02d.fits.fz"
         items:
-        - { type: Catalog, col: 1 }
+        - { type: Catalog, num: 0, col: 1 }
         - "$chip_num + 1"
 
     truth:
@@ -342,7 +370,7 @@ output:
             type: FormattedStr
             format: "truth_%s_%02d.fits"
             items:
-            - { type: Catalog, col: 1 }
+            - { type: Catalog, num: 0, col: 1 }
             - "$chip_num + 1"
 
         columns:
