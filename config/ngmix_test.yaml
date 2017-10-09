@@ -79,7 +79,7 @@ image :
     # ny_tiles : {10}
     # stamp_size : 128  # pixel size of each edge
 
-    # For single images:
+    # For single images (including for AddOn):
      xsize : #{# of x-pixels}
      ysize : #{# of y-pixels}
 
