@@ -1,0 +1,92 @@
+# This is a short config file for testing injection of ngmix catalog objects into existing fits images.
+# I (Spencer) have a separate config file for more experimental tests, so feel free to change this one
+# for your own tests.
+
+modules:
+  # Make sure that wherever you put Balrog-GalSim/balrog is in your python path!
+  # If not, add this to your .bashrc / .bash_profile in your home directory:
+  # `export PYTHONPATH="${PYTHONPATH}:/home/.../Balrog-GalSim/balrog"
+  - balrog.injector
+  - galsim.des
+  - ngmix_catalog
+
+# Define the input files
+input :
+    ngmix_catalog :
+      # Replace with your desired ngmix catalog!
+       dir : #{/directory/to/your/file}
+       file_name : #{}.fits
+
+      # Choose which type of ngmix catalog you are inputting
+      # NB: for now, only Gauss, CM, and CM-MOF are accepted
+      catalog_type : 'cm'
+      # Note that if you don't specify an input type, the loader will attempt to determine the type
+      # from the filename as standard ngmix catalogs include 'gauss', 'cm', or 'mof' in name. Still
+      # safer to specify, however.
+
+      # To use all bands: (simply added together for now - converting to ChromaticObjects soon)
+      bands : 'griz'
+      # Can select individual bands or a subset as well:
+      # bands : 'gi'
+
+# The gal field defines what kind of galaxy profile to use.
+gal :
+    # This is the new object type. The most useful input to play around with is the index; a couple
+    # examples are included below.
+    type : ngmixGalaxy
+    # NB: If you don't give any input for index (and are using AddOn for `image`), a single index is chosen at random
+    #     If you are using AddOn, you select the number of objects to be randomly selected in `image`.
+
+    # if you want to inject a specific list of ngmix galaxies, use sequence:
+    # index:
+    #   type : Sequence
+    #   first : 1000
+    #   last : 1160
+    #   step : 1
+
+    # You can also use a specific list of galaxies:
+    # type : List
+    # items: [1016, 1084] 
+
+    # Or, inject a single galaxy (randomly chosen index if none passed)
+    # index : 1142
+
+# Technically, the psf field isn't required but often leads to FFT issues for smaller objects
+# if omitted. A simple Gaussian is used for simplicity, but will be moving on to DES_PSFEx soon
+psf :
+    # type : DES_PSFEx
+
+    type : Gaussian
+    sigma : 1.0  # arcsec
+    # No need to specify a flux, since flux=1 is the right thing for a PSF.
+
+# stamp :
+    # Nothing needed for the moment, but feel free to add config options here
+
+# You will want different image types depending on if you are just simulating ngmix galaxies from
+# a catalog, or if you want to inject them into an existing image 
+image :
+    # For injected images:
+    type: AddOn
+    # initial_image : '{/dir/to/initial/image.fits}'
+    # Number of objects to be injected into initial image
+    nobjects : 150
+
+    # For tiled images: (Good for making a grid of simulated ngmix galaxies for visual checks)
+    # type : Tiled
+    # NB: You will need to match this to however many galaxies you simulate. It repeats otherwise.
+    # nx_tiles : {10}
+    # ny_tiles : {10}
+    # stamp_size : 128  # pixel size of each edge
+
+    # For single images:
+     xsize : #{# of x-pixels}
+     ysize : #{# of y-pixels}
+
+# Typically, you will want to specify the output format and file name.
+# If this is omitted, the output will be to a fits file with the same root name as the
+# config file (so demo1.fits in this case), but that's usually not a great choice.
+# So at the very least, you would typically want to specify at least the file_name.
+output :
+    dir : output_ngmix_tests
+    file_name : ngmix_test.fits
