@@ -13,12 +13,6 @@ import logging
 from past.builtins import basestring # Python 2&3 compatibility
 import pdb
 
-# We need ngmix.gmix.GMixCM, but this isn't included in the default `__init__.py`
-# for ngmix. TODO: Ask if this can be added!
-# import sys
-# sys.path.append('/home/spencer/Documents/Software/ngmix/ngmix')
-# from gmix import GMixCM
-
 class ngmixCatalog(object):
     """ Class that handles galaxy catalogs from ngmix. These are usually stored as *?? files.
 
@@ -72,11 +66,13 @@ class ngmixCatalog(object):
                 raise ValueError("Cannot provide dir and an HDU instance!")
             import os
             file_name = os.path.join(dir,file_name)
+        if not isinstance(file_name, basestring):
+            raise ValueError("The inputted filename must be a string!")
         self.file_name = file_name
 
         if catalog_type:
             if catalog_type in self._valid_catalog_types:
-                if catalog_type not in filename:
+                if catalog_type not in self.file_name:
                     import warnings
                     warnings.warning("Inputted ngmix catalog type of {} does not match filename, which is standard ",
                                      "for DES ngmix catalogs. Ensure this is correct.".format(catalog_type))
@@ -398,8 +394,7 @@ class ngmixCatalog(object):
             use_weights = self.catalog.weight[self.orig_index]
         else:
             import warnings
-            warnings.warn('Selecting random object without correcting for catalog-level '
-                          'selection effects.')
+            warnings.warn('Selecting random object without correcting for catalog-level selection effects.')
             use_weights = None
 
         # By default, get the number of RNG calls. Then decide whether or not to return them
