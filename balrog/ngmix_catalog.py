@@ -78,7 +78,8 @@ class ngmixCatalog(object):
             if catalog_type in self._valid_catalog_types:
                 if catalog_type not in filename:
                     import warnings
-                    warnings.warning("Inputted ngmix catalog type of {} does not match filename, which is standard for DES ngmix catalogs. Ensure this is correct.".format(catalog_type))
+                    warnings.warning("Inputted ngmix catalog type of {} does not match filename, which is standard ",
+                                     "for DES ngmix catalogs. Ensure this is correct.".format(catalog_type))
                 self.cat_type = catalog_type
             else:
                 raise ValueError("{} is not a currently supported ngmix catalog type!".format(catalog_type))
@@ -155,24 +156,58 @@ class ngmixCatalog(object):
         # Galaxy indices in original ngmix catalog
         self.orig_index = np.arange(self.ntotal)
 
-        # Create mask
-        self.flags = self.catalog[self.cat_type+'_flags']
-        mask = np.ones(len(self.orig_index), dtype=bool)
-        mask = self.makeMask(mask)
+        # Get flags and create mask
+        self.getFlags()
+        self.makeMask()
 
         # Do mask cut
-        self.catalog = self.catalog[mask]
-        self.orig_index = self.orig_index[mask]
-        self.nobjects = len(self.orig_index)
+        self.maskCut()
 
         return
 
     #------------------------------------------------------------------------------------------------
 
-    def makeMask(self,mask):
+    def getFlags(self):
+        """Retrieve object flags, where implementation depends on catalog type."""
+        self.flags = self.catalog[self.col_prefix+'_flags']
+
+        # TODO: Check for additional flags
+        if self.cat_type == 'mof':
+            self.flags_mof = self.catalog[self.col_prefix+'_mof_flags']
+
+        return
+
+    #------------------------------------------------------------------------------------------------
+
+    def makeMask(self):
         """Add a masking procedure, if desired."""
-        # TODO: Implement any desired masking procedure
-        return mask
+        # TODO: Allow multiple masking procedures
+
+        mask = np.ones(len(self.orig_index), dtype=bool)
+        # For now, remove objects with any flags present
+        mask[self.flags != 0] = False
+        if self.cat_type == 'mof':
+            mask[self.flags_mof != 0] = False
+        # Remove any object with T<0
+        mask[self.catalog[self.col_prefix+'_T'] < 0.0] = False
+        # TODO: Quick fix for the moment, should figure out rigorous cutoff
+        # Looks like we likely want SNR > 10 and T/T_err>0.5
+        # cut = 1e-5
+        # mask[self.catalog[self.col_prefix+'_T'] < cut] = False
+        self.mask = mask
+
+        return
+
+    #------------------------------------------------------------------------------------------------
+
+    def maskCut(self):
+        """Do mask cut defined in `makeMask()`."""
+        self.catalog = self.catalog[self.mask]
+        self.orig_index = self.orig_index[self.mask]
+        self.nobjects = len(self.orig_index)
+        print('Ntotal: {}\nNobjects: {}'.format(self.ntotal,self.nobjects))
+
+        return
 
     #------------------------------------------------------------------------------------------------
 
@@ -256,13 +291,20 @@ class ngmixCatalog(object):
         ct = self.cat_type
 
         # Grab galaxy shape and size (identical in all bands)
-        T = self.catalog[cp+'_T'][index]
+        # T = self.catalog[cp+'_T'][index]
+        # TODO: Check this conversion! (Not listed in catalogs, but appears to work.)
+        unit_conv = 60.0 # Convert between arcmin & arcsec
+        T = unit_conv*self.catalog[cp+'_T'][index]
         g1, g2 = self.catalog[cp+'_g'][index]
         # We don't want to put these galaxies at their original locations!
         # c1, c2 = self.catalog[cp+'_c'][index]
 
         # List of individual band GSObjects
         gsobjects = []
+
+        # Only here for testing purposes
+        # print('\nOBJ ID: {}\n'.format(self.catalog['id'][index]))
+        # print('\nOBJ (RA,DEC): ({},{})\n'.format(self.catalog['ra'][index],self.catalog['dec'][index]))
 
         # Iterate over all desired bands
         for band in self.bands:
@@ -328,6 +370,8 @@ class ngmixCatalog(object):
         """
 
         # TODO: Write the static version of makeGalaxies! (We don't need it for prototyping Balrog, however)
+        # NB: I have noticed an occasional memory issue with N>~200 galaxies. This may be related to the serialization
+        # issues Mike talks about in scene.py
         pass
 
     #------------------------------------------------------------------------------------------------
