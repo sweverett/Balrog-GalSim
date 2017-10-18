@@ -14,7 +14,8 @@ from past.builtins import basestring # Python 2&3 compatibility
 import pdb
 
 class ngmixCatalog(object):
-    """ Class that handles galaxy catalogs from ngmix. These are usually stored as *?? files.
+    """ Class that handles galaxy catalogs from ngmix. These are fits files with names typically
+    of the form 'DES{####}{+/-}{####}-y{#}v{#}-{type}-{###}.fits'.
 
     `ngmix` is software written by Erin Sheldon.  If you want more detail about it,
     check out the github repo:
@@ -35,10 +36,18 @@ class ngmixCatalog(object):
     @param bands           A string of the desired bands to simulate from (only griz allowed). For
                            example, selecting only the 'g' and 'r' bands would be done by setting
                            bands='gr'. If none are passed, the g-band is selected by default.
+    @param snr_min         The lower allowed bound for signal-to-noise ratio (snr). Can be any
+                           positive value, as long as it is smaller than `snr_max`. All objects with
+                           negative snr are removed by default.
+    @param snr_max         The upper allowed bound for snr. Unlikely to be used very often, but
+                           included for completeness.
+    @param t_frac          The cutoff used for object size (T) / object size error (T_err). All
+                           objects below this cutoff will be removed. (Default: `t_frac=0.5`).
     """
 
     _req_params = { 'file_name' : str }
-    _opt_params = { 'dir' : str, 'catalog_type' : str, 'bands': str}
+    _opt_params = { 'dir' : str, 'catalog_type' : str, 'bands': str, 'snr_min' : float,
+                    'snr_max' : float, 't_frac' : float}
     _single_params = []
     _takes_rng = False
 
@@ -59,7 +68,8 @@ class ngmixCatalog(object):
     # of 'cm' for most columns). Set this for each new supported catalog type.
     _cat_col_prefix = {'gauss' : 'gauss', 'cm' : 'cm', 'mof' : 'cm'}
 
-    def __init__(self, file_name, dir=None, catalog_type=None, bands=None):
+    def __init__(self, file_name, dir=None, catalog_type=None, bands=None, snr_min=None, snr_max=None,
+                 t_frac=None):
 
         if dir:
             if not isinstance(file_name, basestring):
@@ -114,6 +124,34 @@ class ngmixCatalog(object):
             import warnings
             warnings.warn('No color band chosen; selecting \'g\'-band by default.')
             self.bands = ['g']
+
+        if snr_min:
+            if snr_min < 0.0:
+                raise ValueError("The signal-to-noise ratio `snr` must be positive!")
+            self.snr_min = snr_min
+        else:
+            # Always reject snr<0
+            self.snr_min = 0.0
+
+        if snr_max:
+            if snr_max < 0.0:
+                raise ValueError("The signal-to-noise ratio `snr` must be positive!")
+            elif snr_min and (snr_min > snr_max):
+                raise ValueError("`snr_max` must be greater than `snr_min`!")
+            self.snr_max = snr_max
+        else:
+            # Used for defaults
+            self.snr_max = None
+
+        if t_frac:
+            if t_frac < 0.0:
+                raise ValueError("The allowed size/size_err fraction `t_frac` must be positive!")
+            self.t_frac = t_frac
+        else:
+            # Default of t_frac = 0.5, but warn user that some objects will be removed.
+            import warnings
+            warnings.warn("No t_frac cutoff was chosen; removing objects with `T/T_err` < 0.5.")
+            self.t_frac = 0.5
 
         self.read()
 
@@ -179,17 +217,30 @@ class ngmixCatalog(object):
         """Add a masking procedure, if desired."""
         # TODO: Allow multiple masking procedures
 
+        cp = self.col_prefix
+
         mask = np.ones(len(self.orig_index), dtype=bool)
+
         # For now, remove objects with any flags present
         mask[self.flags != 0] = False
+        # Extra flags for 'mof' catalogs
         if self.cat_type == 'mof':
             mask[self.flags_mof != 0] = False
-        # Remove any object with T<0
-        mask[self.catalog[self.col_prefix+'_T'] < 0.0] = False
+
+        # Remove any object with `T/T_err` < t_frac
+        T_fraction = self.catalog[cp+'_T'] / self.catalog[cp+'_T_err']
+        mask[T_fraction < self.t_frac ] = False
+
+        # Remove objects with snr_min < S/N < snr_max
+        mask[self.catalog[cp+'_s2n_r'] < self.snr_min] = False
+        if self.snr_max:
+            mask[self.catalog[cp+'_s2n_r'] > self.snr_max] = False
+
         # TODO: Quick fix for the moment, should figure out rigorous cutoff
         # Looks like we likely want SNR > 10 and T/T_err>0.5
         # cut = 1e-5
         # mask[self.catalog[self.col_prefix+'_T'] < cut] = False
+
         self.mask = mask
 
         return
@@ -278,7 +329,7 @@ class ngmixCatalog(object):
         @ param index       The ngmix catalog index of the galaxy to be converted.
         """
 
-        # TODO: Make sure that the index usage is consistent with original/masked indices!!
+        # TODO: Make sure that the index usage is consistent with original/ indices!!
         # TODO: In principle, I believe that we should be returning ChromaticObjects, rather
         #       than GSObjects! Look at details of implementation in future.
 

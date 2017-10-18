@@ -29,6 +29,14 @@ input :
       # Can select individual bands or a subset as well:
       # bands : 'gi'
 
+      # Can set a min and max value for signal-to-noise ratio (snr):
+      snr_min : 10.0 # Default is 0
+      # snr_max : 20.0 # Unlikely to be needed, but here for completeness/testing
+
+      # Set the minimum t_frac ratio, where t_frac = T/T_err
+      # Default is 0.5, but will warn user if none is entered so they are aware of cut
+      t_frac : 0.5
+
 # The gal field defines what kind of galaxy profile to use.
 gal :
     # This is the new object type. The most useful input to play around with is the index; a couple
