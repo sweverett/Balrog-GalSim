@@ -359,23 +359,28 @@ class ngmixCatalog(object):
             # Grab current band flux
             flux = self.catalog[cp+'_flux'][index][self._band_index[band]]
 
-            # Gaussian-Mixture parameters are in the format of:
-            # gm_pars = [centroid1, centroid2, g1, g2, T, flux]
-            # (this is identical to ngmix catalogs, except that flux is a vector
-            # of fluxes in all color bands)
-            #
-            # TODO: Naively I would expect to put shape (g1,g2) in this array,
-            # but I will follow what is done in ESheldon's repo `nsim/sigms.py`
-            # https://github.com/esheldon/nsim/
-            gm_pars = [0.0, 0.0, 0.0, 0.0, T, flux]
-
             if ct == 'gauss':
-                import warning
-                # This should be fixed very soon!
-                warnings.warn("\nWARNING: GAUSS catalog conversion hasn't been implemented yet!\n")
-                pass
+                # Mimicking implementation in Erin's ngmix/gmix.py function `make_galsim_object()`
+                # This avoids using the whole ngmix machinery for the simple Gaussian case, in which
+                # the conversion is more straightforward.
+                T_round = ngmix.moments.get_Tround(T, g1, g2)
+                sigma_round = np.sqrt(T_round/2.0)
+                gal = galsim.Gaussian(flux=flux, sigma=sigma_round)
+                gal = gal.shear(g1=g1, g2=g2)
+
             elif ct == 'cm' or ct == 'mof':
                 # The majority of the conversion will be handled by `ngmix/gmix.py`
+
+                # Gaussian-Mixture parameters are in the format of:
+                # gm_pars = [centroid1, centroid2, g1, g2, T, flux]
+                # (this is identical to ngmix catalogs, except that flux is a vector
+                # of fluxes in all color bands)
+                #
+                # TODO: Naively I would expect to put shape (g1,g2) in this array,
+                # but I will follow what is done in ESheldon's repo `nsim/sigms.py`
+                # https://github.com/esheldon/nsim/
+                gm_pars = [0.0, 0.0, 0.0, 0.0, T, flux]
+
                 # Build the appropriate Gaussian mixture for a cm-model
                 fracdev = self.catalog[cp+'_fracdev'][index]
                 TdByTe = self.catalog[cp+'_TdByTe'][index]
@@ -384,24 +389,31 @@ class ngmixCatalog(object):
 
                 # Convert to a GSObject
                 gal = gm.make_galsim_object()
-                gal = gal.shear(g1=g1, g2=g2)
 
-                # TODO: Implement shearing of intrinsic shape
-                # now shear it
-                # if 'shear' in pars:
-                #     shear=pars['shear']
-                #     gal = gal.shear(g1=shear.g1, g2=shear.g2)
-
-                gsobjects.append(gal)
 
                 if ct == 'mof':
                     # TODO: Add any extra processing for mof catalogs, if needed
+                    # For the moment, the only difference in `cm` and `mof` processing
+                    # is in the mask buidling / flag handling
                     pass
 
             else:
                 # TODO: While this check has already been made, it is possible that a new valid catalog type
                 # is added but whose GSObject conversion isn't implemented. Should come up with a more robust check!
                 raise ValueError('The ngmix catalog type {} is not yet supported!'.format(ct))
+
+            # Give intrinsic shape
+            gal = gal.shear(g1=g1, g2=g2)
+
+            # TODO: Implement shearing of intrinsic shape
+            # now shear it
+            # if 'shear' in pars:
+            #     shear=pars['shear']
+            #     gal = gal.shear(g1=shear.g1, g2=shear.g2)
+
+            # Add galaxy in given band to list
+            gsobjects.append(gal)
+
 
         # TODO: We may want to use a ChromaticObject in the end, but for now we will just add the GSObjects together
         gs_gal = galsim.Add(gsobjects)
