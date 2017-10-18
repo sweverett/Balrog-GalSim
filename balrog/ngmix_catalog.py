@@ -84,8 +84,8 @@ class ngmixCatalog(object):
             if catalog_type in self._valid_catalog_types:
                 if catalog_type not in self.file_name:
                     import warnings
-                    warnings.warning("Inputted ngmix catalog type of {} does not match filename, which is standard ",
-                                     "for DES ngmix catalogs. Ensure this is correct.".format(catalog_type))
+                    warnings.warn( ("Inputted ngmix catalog type of `{}` does not match filename, which is standard "
+                                     "for DES ngmix catalogs. Ensure this is correct.".format(catalog_type) ) )
                 self.cat_type = catalog_type
             else:
                 raise ValueError("{} is not a currently supported ngmix catalog type!".format(catalog_type))
@@ -237,7 +237,8 @@ class ngmixCatalog(object):
             mask[self.catalog[cp+'_s2n_r'] > self.snr_max] = False
 
         # TODO: Quick fix for the moment, should figure out rigorous cutoff
-        # Looks like we likely want SNR > 10 and T/T_err>0.5
+        # Looks like we likely want SNR > 10 and T/T_err>0.5; leaving for the moment
+        # but should be deleted soon
         # cut = 1e-5
         # mask[self.catalog[self.col_prefix+'_T'] < cut] = False
 
@@ -373,7 +374,7 @@ class ngmixCatalog(object):
                 # This should be fixed very soon!
                 warnings.warn("\nWARNING: GAUSS catalog conversion hasn't been implemented yet!\n")
                 pass
-            elif ct == 'cm':
+            elif ct == 'cm' or ct == 'mof':
                 # The majority of the conversion will be handled by `ngmix/gmix.py`
                 # Build the appropriate Gaussian mixture for a cm-model
                 fracdev = self.catalog[cp+'_fracdev'][index]
@@ -393,11 +394,10 @@ class ngmixCatalog(object):
 
                 gsobjects.append(gal)
 
-            elif ct == 'mof':
-                import warning
-                # This should be fixed very soon!
-                warnings.warn("\nWARNING: MOF catalog conversion hasn't been implemented yet!\n")
-                pass
+                if ct == 'mof':
+                    # TODO: Add any extra processing for mof catalogs, if needed
+                    pass
+
             else:
                 # TODO: While this check has already been made, it is possible that a new valid catalog type
                 # is added but whose GSObject conversion isn't implemented. Should come up with a more robust check!
