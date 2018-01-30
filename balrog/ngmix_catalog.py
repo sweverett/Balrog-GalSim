@@ -11,7 +11,9 @@ import ngmix # Used for GMix -> GSObject conversion
 import numpy as np
 import logging
 from past.builtins import basestring # Python 2&3 compatibility
-import pdb
+import pudb
+
+#TODO: Include noise, pixscale
 
 class ngmixCatalog(object):
     """ Class that handles galaxy catalogs from ngmix. These are fits files with names typically
@@ -43,6 +45,8 @@ class ngmixCatalog(object):
                            included for completeness.
     @param t_frac          The cutoff used for object size (T) / object size error (T_err). All
                            objects below this cutoff will be removed. (Default: `t_frac=0.5`).
+    @param _nobjects_only  This is only passed if GalSim wants to know how many input objects will
+                           be used without processing the whole input catalog.
     """
 
     _req_params = { 'file_name' : str }
@@ -55,7 +59,7 @@ class ngmixCatalog(object):
     # `gauss`: Single Gaussian fit
     # `cm`: Combined bulge+disk model
     # `mof`: CM model with multi-object fitting
-    # TODO: In principle, should be able to handle any type supported by ngmix
+    # NOTE: In principle, should be able to handle any type supported by ngmix
     _valid_catalog_types = ['gauss','cm','mof']
 
     # Only these color bands are currently supported for an ngmix catalog
@@ -69,7 +73,7 @@ class ngmixCatalog(object):
     _cat_col_prefix = {'gauss' : 'gauss', 'cm' : 'cm', 'mof' : 'cm'}
 
     def __init__(self, file_name, dir=None, catalog_type=None, bands=None, snr_min=None, snr_max=None,
-                 t_frac=None):
+                 t_frac=None, _nobjects_only=False):
 
         if dir:
             if not isinstance(file_name, basestring):
@@ -182,8 +186,6 @@ class ngmixCatalog(object):
         # The input logger needs to know the original catalog size
         self.ntotal = len(self.catalog)
 
-        # TODO: Any others needed??
-
         # Close file!
         if hdu_list: hdu_list.close()
 
@@ -216,6 +218,8 @@ class ngmixCatalog(object):
     def makeMask(self):
         """Add a masking procedure, if desired."""
         # TODO: Allow multiple masking procedures
+        # TODO works as currently written, but should rewrite to conform to conventional masking
+        # definition
 
         cp = self.col_prefix
 
@@ -259,7 +263,7 @@ class ngmixCatalog(object):
 
     #------------------------------------------------------------------------------------------------
 
-    def makeGalaxies(self, index=None, n_random=None, rng=None):
+    def makeGalaxies(self, index=None, n_random=None, rng=None, gsparams=None):
         """
         Construct GSObjects from a list of galaxies in the ngmix catalog specified by `index` (or a randomly generated one).
         This is done using Erin's code.
@@ -275,6 +279,8 @@ class ngmixCatalog(object):
         @param rng              A random number generator to use for selecting a random galaxy
                                 (may be any kind of BaseDeviate or None) and to use in generating
                                 any noise field when padding.  [default: None]
+        @param gsparams         An optional GSParams argument.  See the docstring for GSParams for
+                                details. [default: None]
         """
 
         # Make rng if needed
@@ -308,7 +314,7 @@ class ngmixCatalog(object):
         galaxies = []
 
         for index in indices:
-            gal = self.ngmix2gs(index)
+            gal = self.ngmix2gs(index,gsparams)
             galaxies.append(gal)
 
         # Store the orig_index as gal.index
@@ -323,7 +329,7 @@ class ngmixCatalog(object):
 
     #------------------------------------------------------------------------------------------------
 
-    def ngmix2gs(self,index):
+    def ngmix2gs(self,index,gsparams):
         """
         This function handles the conversion of a ngmix galaxy to a GS object. The required conversion is
         different for each ngmix catalog type.
@@ -331,8 +337,6 @@ class ngmixCatalog(object):
         """
 
         # TODO: Make sure that the index usage is consistent with original/ indices!!
-        # TODO: In principle, I believe that we should be returning ChromaticObjects, rather
-        #       than GSObjects! Look at details of implementation in future.
 
         # Column name prefix is not always the same as catalog type
         cp = self.col_prefix
@@ -341,7 +345,8 @@ class ngmixCatalog(object):
         # Grab galaxy shape and size (identical in all bands)
         # T = self.catalog[cp+'_T'][index]
         # TODO: Check this conversion! (Not listed in catalogs, but appears to work.)
-        unit_conv = 60.0 # Convert between arcmin & arcsec
+        # unit_conv = 60.0 # Convert between arcmin & arcsec
+        unit_conv = 1.0 # If no conversion is needed
         T = unit_conv*self.catalog[cp+'_T'][index]
         g1, g2 = self.catalog[cp+'_g'][index]
         # We don't want to put these galaxies at their original locations!
@@ -349,6 +354,9 @@ class ngmixCatalog(object):
 
         # List of individual band GSObjects
         gsobjects = []
+
+        # Convert from dict to actual GsParams object
+        gsp = galsim.GSParams(**gsparams)
 
         # Only here for testing purposes
         # print('\nOBJ ID: {}\n'.format(self.catalog['id'][index]))
@@ -365,7 +373,7 @@ class ngmixCatalog(object):
                 # the conversion is more straightforward.
                 T_round = ngmix.moments.get_Tround(T, g1, g2)
                 sigma_round = np.sqrt(T_round/2.0)
-                gal = galsim.Gaussian(flux=flux, sigma=sigma_round)
+                gal = galsim.Gaussian(flux=flux, sigma=sigma_round, gsparams=gsp)
                 gal = gal.shear(g1=g1, g2=g2)
 
             elif ct == 'cm' or ct == 'mof':
@@ -376,31 +384,44 @@ class ngmixCatalog(object):
                 # (this is identical to ngmix catalogs, except that flux is a vector
                 # of fluxes in all color bands)
                 #
-                # TODO: Naively I would expect to put shape (g1,g2) in this array,
+                # NOTE: Naively I would expect to put shape (g1,g2) in this array,
                 # but I will follow what is done in ESheldon's repo `nsim/sigms.py`
                 # https://github.com/esheldon/nsim/
                 gm_pars = [0.0, 0.0, 0.0, 0.0, T, flux]
 
                 # Build the appropriate Gaussian mixture for a cm-model
+                # NOTE: we use a slightly modified version of the GMixCM class.
                 fracdev = self.catalog[cp+'_fracdev'][index]
                 TdByTe = self.catalog[cp+'_TdByTe'][index]
                 # print('\nfracdev, TdByTe = {}, {}\n'.format(fracdev, TdByTe))
-                gm = ngmix.gmix.GMixCM(fracdev, TdByTe, gm_pars)
+                gm = BalGMixCM(fracdev, TdByTe, gm_pars)
+
+                # pudb.set_trace()
 
                 # Convert to a GSObject
-                gal = gm.make_galsim_object()
 
+                gal = gm.make_galsim_object(gsp) # Uses customized ngmix code
+                # gal = gm.make_galsim_object() # Uses native ngmix
+
+                # print('gal._gsparams = {}'.format(gal._gsparams))
+                # print('_gsparams.__dict__ = {}'.format(gal._gsparams.__dict__))
 
                 if ct == 'mof':
                     # TODO: Add any extra processing for mof catalogs, if needed
-                    # For the moment, the only difference in `cm` and `mof` processing
-                    # is in the mask buidling / flag handling
                     pass
 
             else:
                 # TODO: While this check has already been made, it is possible that a new valid catalog type
                 # is added but whose GSObject conversion isn't implemented. Should come up with a more robust check!
                 raise ValueError('The ngmix catalog type {} is not yet supported!'.format(ct))
+
+            # Testing!!
+            # TODO: Fix this!
+            # print('(1) gal gsparams = {}'.format(gal.getGSParams()))
+            # print('(2) gal._gsparams = {}'.format(gal._gsparams))
+            # gal._gsparams = gsp
+            # print('(3) gal gsparams = {}'.format(gal.getGSParams()))
+            # print('(4) gal._gsparams = {}'.format(gal._gsparams))
 
             # Give intrinsic shape
             gal = gal.shear(g1=g1, g2=g2)
@@ -414,8 +435,7 @@ class ngmixCatalog(object):
             # Add galaxy in given band to list
             gsobjects.append(gal)
 
-
-        # TODO: We may want to use a ChromaticObject in the end, but for now we will just add the GSObjects together
+        # NOTE: If multiple bands were passed, the fluxes are simply added together.
         gs_gal = galsim.Add(gsobjects)
 
         return gs_gal
@@ -495,10 +515,63 @@ class ngmixCatalog(object):
     makeGalaxies._req_params = {}
     makeGalaxies._opt_params = { "index" : int,
                                "n_random": int
-                               # TODO: Any other optional params?
                              }
     makeGalaxies._single_params = []
     makeGalaxies._takes_rng = True
+
+#####------------------------------------------------------------------------------------------------
+
+class BalGMixCM(ngmix.gmix.GMixCM):
+    '''
+    This is a slightly modified version of Erin Sheldon's GmixCM class from ngmix.gmix. Rather than
+    updating his repo for a few small changes, we overwrite the desired methods here.
+    '''
+
+    def make_galsim_object(self, gsparams=None):
+        '''
+        Make a galsim representation for the gaussian mixture.
+        NOTE: The only difference from Erin's original code is the type checking and passing
+        of gsparams. This is especially useful for increasing fft sizes.
+        '''
+
+        # Accept optional gsparams for GSObject construction
+        if gsparams and ( type(gsparams) is not galsim._galsim.GSParams ):
+            if type(gsparams) is dict:
+                # Convert to actual gsparams object
+                gsparams = galsim.GSParams(**gsparams)
+            else:
+                raise TypeError('Only `dict` and `galsim.GSParam` types allowed for'
+                                'gsparams; input has {} type.'.format(type(gsparams)))
+
+        data = self._get_gmix_data()
+
+        row, col = self.get_cen()
+
+        gsobjects = []
+        for i in xrange(len(self)):
+            flux = data['p'][i]
+            T = data['irr'][i] + data['icc'][i]
+            e1 = (data['icc'][i] - data['irr'][i])/T
+            e2 = 2.0*data['irc'][i]/T
+
+            rowshift = data['row'][i]-row
+            colshift = data['col'][i]-col
+
+            g1,g2 = e1e2_to_g1g2(e1,e2)
+
+            Tround = moments.get_Tround(T, g1, g2)
+            sigma_round = sqrt(Tround/2.0)
+
+            gsobj = galsim.Gaussian(flux=flux, sigma=sigma_round,gsparams=gsparams)
+
+            gsobj = gsobj.shear(g1=g1, g2=g2)
+            gsobj = gsobj.shift(colshift, rowshift)
+
+            gsobjects.append( gsobj )
+
+        gs_obj = galsim.Add(gsobjects)
+
+        return gs_obj
 
 #####------------------------------------------------------------------------------------------------
 
@@ -506,6 +579,7 @@ class ngmixCatalogLoader(galsim.config.InputLoader):
     """ The ngmixCatalog loader doesn't need anything special other than registration as a valid input type.
         These additions are only used for logging purposes.
     """
+
     def setupImage(self, ngmix_catalog, config, base, logger):
         # This method is blank for a general InputLoader, and a convenient place to put the logger
         if logger: # pragma: no cover
@@ -532,7 +606,7 @@ class ngmixCatalogLoader(galsim.config.InputLoader):
                         base['file_num'], ngmix_catalog.getNTot(), ngmix_catalog.getNObjects())
 
 # Need to add the ngmixCatalog class as a valid input_type.
-galsim.config.RegisterInputType('ngmix_catalog', ngmixCatalogLoader(ngmixCatalog))
+galsim.config.RegisterInputType('ngmix_catalog', ngmixCatalogLoader(ngmixCatalog, has_nobj=True))
 
 #####------------------------------------------------------------------------------------------------
 
@@ -588,7 +662,10 @@ def BuildNgmixGalaxy(config, base, ignore, gsparams, logger):
     # ngmix_gal = ngmix_cat._makeSingleGalaxy(**kwargs)
 
     # Create GSObject galaxies from the ngmix catalog
-    ngmix_gal = ngmix_cat.makeGalaxies(index)
+    # try:
+    ngmix_gal = ngmix_cat.makeGalaxies(index=index,gsparams=gsparams)
+    # except:
+        # print('\nNOT WORKING!!!\n')
 
     # The second item is "safe", a boolean that declares whether the returned value is
     # safe to save and use again for later objects (which is not the case for ngmixGalaxies).
