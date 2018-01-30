@@ -49,5 +49,5 @@ verbose: Use -v for more verbose messages
 * Ami S
 * Vinicious B
 * Eli Rykoff
-* Megan Splettstoeser
+* Megan Splettstoesser
 * More to add!
