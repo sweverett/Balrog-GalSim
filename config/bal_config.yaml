@@ -1,0 +1,120 @@
+'''
+This is a short config file for testing the injection of ngmix catalog objects into existing fits
+images as part of the Y3 Balrog pipeline. No promises are made (yet) for its completeness or
+working state!
+
+Balrog yaml files are slightly different than their normal GalSim counterparts. It cannot be run
+with a standard galsim executable of the form `galsim balrog_config.yaml`; instead, it is passed
+as an input to the python script `balrog_injection.py`. This serves as the base of a multi-output
+yaml file that all of the individual chip simulations will inherit from. Do not set any fields or
+variables here that are not universal.
+
+Spencer Everett
+USCS
+1/30/2018
+'''
+
+modules :
+  - galsim_extra
+  - galsim.des
+  - injector
+  - ngmix_catalog
+
+# These variables are not directly processed by GalSim; this simply allows a convenient way
+# to change multiple variable instances quickly throughout the config file.
+some_variables :
+  # Pick a maximum fft size
+  # - &max_fft 65536
+  # - &max_fft 32768
+  - &max_fft 16384
+  # - &max_fft 8192
+  # - &max_fft 4096 # GalSim default (likely want higher)
+  # - &max_fft 64 # For testing purposes!
+  - &bal_dir '/home/spencer/Documents/Balrog/bal_test'
+  - &ngmix_dir '/home/spencer/Documents/Balrog/ngmix_cats'
+  - &ngmix_file 'DES0511-2415-y3v02-gauss-001.fits'
+
+# Define the input files
+input :
+    ngmix_catalog :
+      # Replace with your desired ngmix catalog!
+      dir : *ngmix_dir
+      file_name : *ngmix_file
+
+      # Choose which type of ngmix catalog you are inputting
+      # NB: for now, only Gauss, CM, and CM-MOF are accepted
+      # catalog_type : 'mof'
+      # catalog_type : 'cm'
+      catalog_type : 'gauss'
+      # NOTE: If you don't specify an input type, the loader will attempt to determine the type
+      # from the filename as standard ngmix catalogs include 'gauss', 'cm', or 'mof' in name. Still
+      # safer to specify, however.
+      
+      # To use all bands: 
+      bands : 'griz'
+      # Can select individual bands or a subset as well:
+      # bands : 'gz'
+
+      # Set masking / selection thresholds for catalog
+      t_frac : 0.5
+      snr_min : 10.0
+
+# The gal field defines what kind of galaxy profile to use.
+gal :
+    # For now, Balrog is only desiged to inject ngmix galaxy models. In the future
+    # galaxy postage stamps may be supported. In principle, more general GalSim objects
+    # may work but are not currently supported.
+    type : ngmixGalaxy
+
+    # NOTE: Here you would normally define various fields such as index to choose which galaxies
+    # are injected. The balrog injection script takes care of position / index sampling, so
+    # you will likely leave the rest of the field blank.
+
+psf :
+    # For DES chip images with PSFEx files
+    # NOTE: In figure, Piff PSFs may be used instead
+    type : DES_PSFEx
+
+    # If for some reason you want to use a different PSF model, any standard GalSim
+    # PSF's are allowed (but you might get a warning!)
+    # type : Gaussian
+    # sigma : 0.5  # arcsec
+    # No need to specify a flux, since flux=1 is the right thing for a PSF.
+
+stamp :
+    # Nothing required here, but feel free to add additional config options
+    gsparams :
+      # fft size is the most likely change you'll want to make
+      maximum_fft_size : *max_fft
+
+image :
+    # For injected images:
+    type : Balrog # Same as AddOn, but with some additional input attributes and checking
+
+    # Load WCS from DES chip file
+    wcs :
+      type : Fits
+
+    # Must set galaxy density or total number of injected galaxies per tile
+    # NOTE: Set the desired FINAL density or galaxy count; the injection script
+    # automatically calculates the injection # / realization given the inputs below.
+    # gal_density : 10 # per arcmin^2
+    n_galaxies : 500 # per tile
+
+    # Set the number of realizations / layers
+    # n_realizations : 2
+    n_realizations : 1
+
+    # TODO: In future, we should load these fields automatically in script.
+    xsize: 2048 # DES nullwt chip
+    ysize: 4096 # DES nullwt chip
+
+    # Number of processors to be used on GalSim injection step
+    nproc : 4
+
+# The injection script handles output, so the field is not needed in the base config.
+# TODO: Output directory is currently handled as a command line option for the script,
+# but we should allow it to be set here as well.
+# output :
+    # dir : 'output_bal_tests'
+    # file_name : 'TEST.fits'
