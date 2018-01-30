@@ -14,9 +14,9 @@ The only non-standard Balrog dependancy is [GalSim](https://github.com/GalSim-de
 
 Once GalSim is installed, simply clone this repo:
 
-'''
+```
 git clone git@github.com:sweverett/Balrog-GalSim.git
-'''
+```
 
 ## Running Balrog
 
