@@ -23,7 +23,8 @@ git clone git@github.com:sweverett/Balrog-GalSim.git
 Balrog is run with a python call to the script `balrog_injection.py`, with a few extra (required and optional) input arguments:
 
 ```
-python balrog_injection.py [config_file] [input_catalog] [tile_list] [geom_file] [-d tile_dir] [-c config_dir] [-v --verbose]
+python balrog_injection.py [config_file] [input_catalog] [tile_list] [geom_file] [-d tile_dir] / 
+                           [-c config_dir] [-v --verbose]
 
 ```
 (Still in progress)
