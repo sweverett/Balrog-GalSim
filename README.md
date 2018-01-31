@@ -44,8 +44,7 @@ Note that the current version of Balrog only supports DES injections. Part of th
 
 ```
 Balrog-Galsim
-│   README.md
-│   file001.txt    
+│   README.md    
 │
 └───balrog
 |      ...
