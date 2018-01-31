@@ -33,14 +33,13 @@ import injector
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
-# TODO: Need to account for N%n_realizations!=0 case
 # TODO: Correctly normalize galaxy injections!
 # TODO: Implement error handling for galaxy injections / gsparams!
-# TODO: Fix output names to the new version!
 # TODO: Write file even if no injections!
 
 # Some extra todo's:
-# TODO: Make filename concatenation more robust!
+# TODO: Redistribute config.galaxies_remainder among first m<n reals, rather than all at end
+# TODO: Make filename concatenation more robust! (Mostly done)
 # TODO: Clean up old gs_config!! (Maybe allow different options?)
         # NOTE: gs_config implementation currently does not work as intended
 # TODO: More general geometry file inputs
@@ -98,15 +97,13 @@ class Tile(object):
         # Set the number of galaxies injected per realization
         if config.n_galaxies:
             # Then fixed number of galaxies regardless of tile size
-            self.gals_per_real = config.n_galaxies / config.n_realizations
-            #TODO: possible solution to rounding error is to keep track of remainder and
-            # do some extra computing for the last round of self.gal_pos in generate_galaxies
+            self.gals_per_real = round(config.n_galaxies / config.n_realizations)
+            self.gals_remainder = config.n_galaxies % config.n_realizations
         else:
             # Then gal_density was set; galaxy number depends on area
             self.gals_per_real = round((self.u_area * config.gal_density) / (1.0 * config.n_realizations))
 
         # Set tile directory structure and chip list
-        #TODO: Could make this more robust...
         self.dir = os.path.join(config.tile_dir, self.tile_name)
         self._set_bands(config)
 
@@ -297,8 +294,14 @@ class Tile(object):
         # Initialize galaxy positions and indices if this is the first realization
         if self.gals_pos is None:
             # self.gals_pos = np.zeros(shape=(config.n_realizations, self.gals_per_real), dtype=tuple)
-            self.gals_pos = np.zeros(shape=(config.n_realizations, self.gals_per_real, 2))
-            self.gals_indx = np.zeros(shape=(config.n_realizations, self.gals_per_real))
+            if (self.n_galaxies is not None) and (realization == config.n_realizations):
+                # TODO: Better to distribute remaining m<n galaxies to the first m realizations!
+                # Add remaining galaxies on final realization tile
+                ngals = self.gals_per_real + self.gals_remainder
+            else:
+                ngals = self.gals_per_real
+            self.gals_pos = np.zeros(shape=(config.n_realizations, ngals, 2))
+            self.gals_indx = np.zeros(shape=(config.n_realizations, ngals))
 
         # Generate galaxy coordinates
         #TODO: Could add more sampling methods than uniform
@@ -1174,8 +1177,6 @@ def RunBalrog():
         config.reset_gs_config()
         if vb: print('Injecting Tile {}'.format(tile.tile_name))
         # TODO: This (maybe?) should be parallelized with `multiprocessing` in future
-        # TODO: How exactly are we handling realizations??
-        #       (SEE ABOVE); for now, I'll just set n_realizations=1
         for real in range(config.n_realizations):
             # Reset gs config for each new realization
             # TODO/config: decide on implementation!
