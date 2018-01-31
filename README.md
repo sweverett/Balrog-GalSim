@@ -102,7 +102,8 @@ Let's say you are running the standard DES Y3 setup for Balrog. Then running fro
 and so the terminal command would be
 
 ```
-python balrog_injection.py configs/bal_config.yaml inputs/{ngmix-input-cat.fits} inputs/tilelist.csv \ inputs/Y3A2_COADDTILE_GEOM.fits -t inputs/tiles -o outputs/
+python balrog_injection.py configs/bal_config.yaml inputs/{ngmix-input-cat.fits} inputs/tilelist.csv \
+inputs/Y3A2_COADDTILE_GEOM.fits -t inputs/tiles -o outputs/
 ```
 
 ## Balrog Config
