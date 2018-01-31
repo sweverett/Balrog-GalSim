@@ -43,38 +43,50 @@ python balrog_injection.py [config_file] [input_catalog] [tile_list] [geom_file]
 Note that the current version of Balrog only supports DES injections. Part of this requirement is due to an assumption of how tiles and single exposure chips are are named and structured with respect to one another. Inside the `tile_dir` there should be a collection of directories with DES tilenames with each housing the nullweight chip images in their respective `{tilename}/{nullwt-{band}}` directories. Visually:
 
 ```
-balrog
+Balrog-Galsim
 │   README.md
 │   file001.txt    
 │
+└───balrog
+|      ...
+|
+└───configs
+|      ...
 └───inputs
 │   │
 │   └───tiles
-│       │   DES2329-5622
-        └───nullwt-g
-        |   |    gchip1.fits
-        |   |    gchip2.fits
-        |   |    ...
-        |
-        └───nullwt-r
-        |   |    rchip1.fits
-        |   |    rchip2.fits
-        |   |    ...
-        |
-        └───nullwt-i
-        |   |    ...
-        |
-        └───nullwt-z
-        |   |    ... 
-        |
-        └───psfs
-        |   |    psf1.fits 
-        |   |    psf2.fits 
-        |   |    ...
-        |   DES2349+1334
-        |   DES0744+1126
-        |   DES0221-1458
-        |   DES2331-6539
+|       |   
+│       └───DES2329-5622
+|       |    |
+|       |    └───nullwt-g
+|       |    |      gchip1.fits
+|       |    |      gchip2.fits
+|       |    |      ...
+|       |    |
+|       |    └───nullwt-r
+|       |    |      rchip1.fits
+|       |    |      rchip2.fits
+|       |    |      ...
+|       |    |
+|       |    └───nullwt-i
+|       |    |      ...
+|       |    |
+|       |    └───nullwt-z
+|       |    |      ... 
+|       |    |
+|       |    └───psfs
+|       |           psf1.fits 
+|       |           psf2.fits 
+|       |           ...
+|       |
+|       └───DES2349+1334
+|       |       ...
+|       └───DES0744+1126
+|       |       ...
+|       └───...
+|   
+└───outputs
+       ...
 ```
 
 ### Example Usage
