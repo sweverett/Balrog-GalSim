@@ -92,13 +92,20 @@ Balrog-Galsim
 ### Example Usage
 
 Let's say you are running the standard DES Y3 setup for Balrog. Then running from the repo home you would use the following values for the above inputs:
-* `config_file=configs/bal_config.yaml`
-* `input_catalog=inputs/{ngmix-input-cat}-{photometry-type}.fits`
-* `tile_list=inputs/tilelist.csv`
-* `geom_file=inputs/Y3A2_COADDTILE_GEOM.fits`
-* `tile_dir=inputs/tiles`
-* `psf_dir=psfs` (the default option, so not needed)
-* `output_dir=outputs/` (or whatever you would like!)
+* `config_file = configs/bal_config.yaml`
+* `input_catalog = inputs/{ngmix-input-cat.fits}`
+* `tile_list = inputs/tilelist.csv`
+* `geom_file = inputs/Y3A2_COADDTILE_GEOM.fits`
+* `tile_dir = inputs/tiles`
+* `psf_dir = psfs` (the default option, so not needed)
+* `output_dir = outputs/` (or whatever you would like!)
+
+and so the terminal command would be
+
+```
+python balrog_injection.py configs/bal_config.yaml inputs/{ngmix-input-cat.fits} inputs/tilelist.csv inputs/Y3A2_COADDTILE_GEOM.fits \ 
+-t inputs/tiles -o outputs/
+```
 
 ## Contributors
 
