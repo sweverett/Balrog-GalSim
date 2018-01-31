@@ -11,7 +11,7 @@ import ngmix # Used for GMix -> GSObject conversion
 import numpy as np
 import logging
 from past.builtins import basestring # Python 2&3 compatibility
-import pudb
+# import pudb
 
 #TODO: Include noise, pixscale
 
