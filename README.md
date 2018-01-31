@@ -114,10 +114,12 @@ However, note that a Balrog config will **not** run successfully if called by th
 
 There are a few config inputs specific to the `image` field of Balrog configs that are worth highlighting here:
 * `n_galaxies`: The total number of galaxies to be injected per DES tile.
-* `gal_density`: The *final* injected Balrog galaxy density in the tile field.
-* `n_realizations`: The total number of injection realizations used to reach the desired galaxy count or density.
+* `gal_density`: The final injected Balrog galaxy density in the tile field.
+* `n_realizations`: The number of injection realizations used to reach the desired galaxy count or density.
 
 Two things to note: (1) **Only one** of `n_galaxies` or `gal_density` is allowed as an input; not both! (2) Either input should give the desired **final** count or density. The script will calculate the injection number per realization given the input and the total number of realizations to be computed.
+
+## More to come...
 
 ## Contributors
 
