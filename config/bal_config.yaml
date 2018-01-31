@@ -1,18 +1,18 @@
-'''
-This is a short config file for testing the injection of ngmix catalog objects into existing fits
-images as part of the Y3 Balrog pipeline. No promises are made (yet) for its completeness or
-working state!
-
-Balrog yaml files are slightly different than their normal GalSim counterparts. It cannot be run
-with a standard galsim executable of the form `galsim balrog_config.yaml`; instead, it is passed
-as an input to the python script `balrog_injection.py`. This serves as the base of a multi-output
-yaml file that all of the individual chip simulations will inherit from. Do not set any fields or
-variables here that are not universal.
-
-Spencer Everett
-USCS
-1/30/2018
-'''
+###################################################################################################
+# This is a short config file for testing the injection of ngmix catalog objects into existing fits
+# images as part of the Y3 Balrog pipeline. No promises are made (yet) for its completeness or
+# working state!
+#
+# Balrog yaml files are slightly different than their normal GalSim counterparts. It cannot be run
+# with a standard galsim executable of the form `galsim balrog_config.yaml`; instead, it is passed
+# as an input to the python script `balrog_injection.py`. This serves as the base of a multi-output
+# yaml file that all of the individual chip simulations will inherit from. Do not set any fields or
+# variables here that are not universal.
+#
+# Spencer Everett
+# USCS
+# 1/30/2018
+###################################################################################################
 
 modules :
   - galsim_extra
