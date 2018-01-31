@@ -14,6 +14,7 @@ import numpy as np
 import pudb
 import os, sys, errno
 import subprocess
+import shutil
 import ntpath
 import copy
 import galsim
@@ -35,7 +36,6 @@ import injector
 # Urgent todo's:
 # TODO: Correctly normalize galaxy injections!
 # TODO: Implement error handling for galaxy injections / gsparams!
-# TODO: Write file even if no injections!
 
 # Some extra todo's:
 # TODO: Redistribute config.galaxies_remainder among first m<n reals, rather than all at end
@@ -97,8 +97,8 @@ class Tile(object):
         # Set the number of galaxies injected per realization
         if config.n_galaxies:
             # Then fixed number of galaxies regardless of tile size
-            self.gals_per_real = round(config.n_galaxies / config.n_realizations)
-            self.gals_remainder = config.n_galaxies % config.n_realizations
+            self.gals_per_real = int(config.n_galaxies / config.n_realizations)
+            self.gals_remainder = int(config.n_galaxies % config.n_realizations)
         else:
             # Then gal_density was set; galaxy number depends on area
             self.gals_per_real = round((self.u_area * config.gal_density) / (1.0 * config.n_realizations))
@@ -126,6 +126,15 @@ class Tile(object):
         # In [ramin, ramax, decmin, decmax] format:
         # self.u_area = config.u_areas[:, self.indx]
         self.ramin, self.ramax, self.decmin, self.decmax = config.u_areas[:, self.indx]
+
+        # Account for tiles that cross over 360/0 boundary
+        if self.ramin > self.ramax:
+            # NOTE: For consistency w/ catalog, leave them flipped from expectation
+            # ramin/ramax will always mean 'left'/'right' boundary
+            # self.ramin, self.ramax = self.ramax, self.ramin
+            self.ra_boundary_cross = True
+        else:
+            self.ra_boundary_cross = False
 
         # convert dec to radians, but keep ra in deg
         d1, d2 = np.deg2rad([self.decmin, self.decmax])
@@ -294,7 +303,8 @@ class Tile(object):
         # Initialize galaxy positions and indices if this is the first realization
         if self.gals_pos is None:
             # self.gals_pos = np.zeros(shape=(config.n_realizations, self.gals_per_real), dtype=tuple)
-            if (self.n_galaxies is not None) and (realization == config.n_realizations):
+
+            if (config.n_galaxies is not None) and (realization == config.n_realizations):
                 # TODO: Better to distribute remaining m<n galaxies to the first m realizations!
                 # Add remaining galaxies on final realization tile
                 ngals = self.gals_per_real + self.gals_remainder
@@ -305,7 +315,7 @@ class Tile(object):
 
         # Generate galaxy coordinates
         #TODO: Could add more sampling methods than uniform
-        ra = sample_uniform_ra(self.ramin, self.ramax, self.gals_per_real)
+        ra = sample_uniform_ra(self.ramin, self.ramax, self.gals_per_real, boundary_cross=self.ra_boundary_cross)
         dec = sample_uniform_dec(self.decmin, self.decmax, self.gals_per_real, unit='deg')
         # self.gals_pos[realization] = zip(ra, dec)
         self.gals_pos[realization] = np.column_stack((ra, dec))
@@ -669,6 +679,21 @@ class Chip(object):
 
         return in_chip, pos_im
 
+    def save_without_injection(self, outfile):
+        '''
+        If there are no Balrog galaxies to inject in the chip area, then save
+        copy of current chip image in the new Balrog image format.
+        '''
+
+        try:
+            shutil.copyfile(self.filename, outfile)
+        except IOError:
+            path = os.path.dirname(outfile)
+            os.makedirs(path)
+            shutil.copyfile(self.filename, outfile)
+
+        return
+
 #-------------------------------------------------------------------------------
 # Galaxy
 
@@ -1030,11 +1055,26 @@ def deg2arcmin(val):
 def arcmin2deg(val):
     return val / 60.0
 
-def sample_uniform_ra(r1, r2, N=None):
-    'Sample N random RA values from r1 to r2'
+def sample_uniform_ra(r1, r2, N=None, boundary_cross=False):
+    '''
+    Sample N random RA values from r1 to r2, where r1<r2. If boundary_cross
+    is set to True, will adjust inputs to allow sampling over 360/0 boundary.
+    '''
 
-    # NOTE: Equivalent to below DEC procedure for ra = P(r2-r1)+r1 for P in (0,1)
-    return sample_uniform(r1, r2, N)
+    # Adjust r1, r2 if they cross the 360/0 ra boundary
+    if boundary_cross is True:
+        # NOTE: ramin/ramax are saved the same way as the geometry file catalog,
+        # which is to say ramin/ramax are always 'left'/'right' boundary, even if
+        # ramax < ramin accross boundary.
+        # This means that r1, while 'min', is larger and needs to be adjusted down.
+        r1_shift = r1 - 360.0
+        shifted_dist = sample_uniform(r1_shift, r2, N)
+        shifted_dist[shifted_dist < 0.0] += 360.0
+        return shifted_dist
+
+    else:
+        # NOTE: Equivalent to below DEC procedure for ra = P(r2-r1)+r1 for P in (0,1)
+        return sample_uniform(r1, r2, N)
 
 def sample_uniform_dec(d1, d2, N=None, unit='deg'):
     '''
@@ -1082,6 +1122,9 @@ def sample_uniform(v1, v2, N=None):
 # TODO: Some of these functions are not yet implemented. In future, it would be nice
 # to have some more robust and standard IO method calls that also incorporate
 # astropy.io vs fitsio depending on what the user has.
+
+# def return_output_name(config, ):
+    # pass
 
 def open_file(filename):
     pass
@@ -1166,16 +1209,12 @@ def RunBalrog():
 
     # Now loop over all tiles slated for injection:
     # TODO: This should be parallelized with `multiprocessing` in future
-    # TODO: Should we be doing realization loop outside of tile loop?? I believe so!
-    #       This means that we should be saving balrog injected files to separate locations
-    #       with a given realization number, and possibly a new input parameter giving
-    #       which realization number you want to process
     for tile in tiles:
         # pudb.set_trace()
-        # TODO: need to find correct way to reset config.gs_config after tile GalSim run
-        # TODO/config: can get rid of eventually
         config.reset_gs_config()
+
         if vb: print('Injecting Tile {}'.format(tile.tile_name))
+
         # TODO: This (maybe?) should be parallelized with `multiprocessing` in future
         for real in range(config.n_realizations):
             # Reset gs config for each new realization
@@ -1198,15 +1237,16 @@ def RunBalrog():
                     gals_indx = tile.gals_indx[real][in_chip]
 
                     # pudb.set_trace()
+
                     # If any galaxies are contained in chip, add gs injection to
                     # config list
                     if len(gals_pos) > 0:
                         tile.add_gs_injection(chip, gals_indx, gals_pos_im)
                     else:
-                        # TODO: If there are no galaxies in chip (unlikely for
-                        # realistic simulations), we should still write a balrog
-                        # file for the chip
-                        pass
+                        # TODO: Eventually use a return_output_name() function
+                        outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
+                                   tile.tile_name, chip.band, '{}_balrog_inj_{}.fits'.format(chip.name, tile.curr_real))
+                        chip.save_without_injection(outfile)
 
             # Once all chips in tile have had Balrog injections, run modified config file
             # with GalSim
