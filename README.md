@@ -106,6 +106,19 @@ and so the terminal command would be
 python balrog_injection.py configs/bal_config.yaml inputs/{ngmix-input-cat.fits} inputs/tilelist.csv \ inputs/Y3A2_COADDTILE_GEOM.fits -t inputs/tiles -o outputs/
 ```
 
+## Balrog Config
+
+The global balrog config file is very similar to yaml config files used for GalSim. Check out the [GalSim demo page](https://github.com/GalSim-developers/GalSim/wiki/Tutorials) for lots of examples of how to use the yaml files and how they are translated to python scripts. The important parts are summarized in the comments of the example config [bal_config.yaml](https://github.com/sweverett/Balrog-GalSim/blob/master/config/bal_config.yaml). 
+
+However, note that a Balrog config will **not** run successfully if called by the `galsim` executable; it only houses the global simulation variables while the individual chip injections parameters are set during the `balrog_injection.py` script. Each tile produces its own complete multi-output yaml config file that is sent to `galsim` at the end of processing.
+
+There are a few config inputs specific to the `image` field of Balrog configs that are worth highlighting here:
+* `n_galaxies`: The total number of galaxies to be injected per DES tile.
+* `gal_density`: The *final* injected Balrog galaxy density in the tile field.
+* `n_realizations`: The total number of injection realizations used to reach the desired galaxy count or density.
+
+Two things to note: (1) **Only one** of `n_galaxies` or `gal_density` is allowed as an input; not both! (2) Either input should give the desired **final** count or density. The script will calculate the injection number per realization given the input and the total number of realizations to be computed.
+
 ## Contributors
 
 * Spencer Everett (contact at sweveret@ucsc.edu)
