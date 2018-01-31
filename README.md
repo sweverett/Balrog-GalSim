@@ -27,7 +27,6 @@ python balrog_injection.py [config_file] [input_catalog] [tile_list] [geom_file]
                            [-c config_dir] [-p psf_dir] [-o output_dir] [-v --verbose]
 
 ```
-(Still in progress)
 
 * `config_file`: A GalSim config file (for now .yaml, but more types in future) that defines universal parameters for all injections. Chip-specific config parameters are appended to this file during processing. Each DES tile will produce a separate yaml config that handles all injections for all chips in all bands that overlap with the tile ([see GalSim's Demo 6](https://github.com/GalSim-developers/GalSim/blob/master/examples/demo6.yaml) to see how appended configs work / look). An example balrog config file is given in `configs/bal_config.yaml`.
 * `input_catalog`: Fits file containing input objects to be injected into chip images. For now only ngmix catalogs are supported (gauss, cm, or mof photometry), but the code is designed to allow other input types in future including galaxy postage stamps. Some of the standard GalSim inputs may also work, but arent' currently supported.
@@ -39,9 +38,55 @@ python balrog_injection.py [config_file] [input_catalog] [tile_list] [geom_file]
 * `output_dir`: Location of parent output directory for Balrog images and config files. Images are saved as `{output_dir}/balrog_images/{realization}/{tilename}/{band}/{filenameTBD.fits}`, and tile configs are saved to `{output_dir}/configs/bal_config_{realization}_{tilename}.yaml`.
 * `verbose`: Use -v for more verbose messages.
 
-(more incoming...)
+### Required Directory Structures
 
-## Example Usage
+Note that the current version of Balrog only supports DES injections. Part of this requirement is due to an assumption of how tiles and single exposure chips are are named and structured with respect to one another. Inside the `tile_dir` there should be a collection of directories with DES tilenames with each housing the nullweight chip images in their respective `{tilename}/{nullwt-{band}}` directories. Visually:
+
+```
+balrog
+│   README.md
+│   file001.txt    
+│
+└───inputs
+│   │
+│   └───tiles
+│       │   DES2329-5622
+        └───nullwt-g
+        |   |    gchip1.fits
+        |   |    gchip2.fits
+        |   |    ...
+        |
+        └───nullwt-r
+        |   |    rchip1.fits
+        |   |    rchip2.fits
+        |   |    ...
+        |
+        └───nullwt-i
+        |   |    ...
+        |
+        └───nullwt-z
+        |   |    ... 
+        |
+        └───psfs
+        |   |    psf1.fits 
+        |   |    psf2.fits 
+        |   |    ...
+        |   DES2349+1334
+        |   DES0744+1126
+        |   DES0221-1458
+        |   DES2331-6539
+```
+
+### Example Usage
+
+Let's say you are running the standard DES Y3 setup for Balrog. Then running from the repo home you would use the following values for the above inputs:
+* `config_file=configs/bal_config.yaml`
+* `input_catalog=inputs/{ngmix-input-cat}-{photometry-type}.fits`
+* `tile_list=inputs/tilelist.csv`
+* `geom_file=inputs/Y3A2_COADDTILE_GEOM.fits`
+* `tile_dir=inputs/tiles`
+* `psf_dir=psfs` (the default option, so not needed)
+* `output_dir=outputs/` (or whatever you would like!)
 
 ## Contributors
 
