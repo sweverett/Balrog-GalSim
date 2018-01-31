@@ -29,7 +29,7 @@ python balrog_injection.py [config_file] [input_catalog] [tile_list] [geom_file]
 ```
 
 * `config_file`: A GalSim config file (for now .yaml, but more types in future) that defines universal parameters for all injections. Chip-specific config parameters are appended to this file during processing. Each DES tile will produce a separate yaml config that handles all injections for all chips in all bands that overlap with the tile ([see GalSim's Demo 6](https://github.com/GalSim-developers/GalSim/blob/master/examples/demo6.yaml) to see how appended configs work / look). An example balrog config file is given in `configs/bal_config.yaml`.
-* `input_catalog`: Fits file containing input objects to be injected into chip images. For now only ngmix catalogs are supported (gauss, cm, or mof photometry), but the code is designed to allow other input types in future including galaxy postage stamps. Some of the standard GalSim inputs may also work, but arent' currently supported.
+[//]: # * `input_catalog`: Fits file containing input objects to be injected into chip images. For now only ngmix catalogs are supported (gauss, cm, or mof photometry), but the code is designed to allow other input types in future including galaxy postage stamps. Some of the standard GalSim inputs may also work, but arent' currently supported.
 * `tile_list`: A txt or csv file that contains a list of all tiles that are to be processed. Delimiter can be commas or newlines.
 * `geom_file`: The fits file containing tile geometry (e.g. `Y3A2_COADDTILE_GEOM.fits`).
 * `tile_dir`: Directory location that contains all desired DES tile files/folders (i.e. for N tiles, the location would contain at least the N directories `/DES0001-0001`, `/DES0001-0002`, etc.). Set to `.` by default.
@@ -94,7 +94,6 @@ Balrog-Galsim
 
 Let's say you are running the standard DES Y3 setup for Balrog. Then running from the repo home you would use the following values for the above inputs:
 * `config_file = configs/bal_config.yaml`
-* `input_catalog = inputs/{ngmix-input-cat.fits}`
 * `tile_list = inputs/tilelist.csv`
 * `geom_file = inputs/Y3A2_COADDTILE_GEOM.fits`
 * `tile_dir = inputs/tiles`
@@ -104,8 +103,8 @@ Let's say you are running the standard DES Y3 setup for Balrog. Then running fro
 and so the terminal command would be
 
 ```
-python balrog/balrog_injection.py configs/bal_config.yaml inputs/{ngmix-input-cat.fits} inputs/tilelist.csv \
-inputs/Y3A2_COADDTILE_GEOM.fits -t inputs/tiles -o outputs/
+python balrog/balrog_injection.py configs/bal_config.yaml inputs/tilelist.csv inputs/Y3A2_COADDTILE_GEOM.fits \
+-t inputs/tiles -o outputs/
 ```
 
 ## Balrog Config
@@ -120,6 +119,10 @@ There are a few config inputs specific to the `image` field of Balrog configs th
 * `n_realizations`: The number of injection realizations used to reach the desired galaxy count or density.
 
 Two things to note: (1) **Only one** of `n_galaxies` or `gal_density` is allowed as an input; not both! (2) Either input should give the desired **final** count or density. The script will calculate the injection number per realization given the input and the total number of realizations to be computed.
+
+## Input Catalogs
+
+(more later - for now, ngmix catalogs. Gauss, MOF, or CM)
 
 ## More to come...
 
