@@ -45,7 +45,7 @@ python balrog_injection.py [config_file] [input_catalog] [tile_list] [geom_file]
 
 ## Contributors
 
-* Spencer Everett
+* Spencer Everett (contact at sweveret@ucsc.edu)
 * Yuanyuan Zang
 * Brian Yanny
 * Nikolay Kuropatkin
