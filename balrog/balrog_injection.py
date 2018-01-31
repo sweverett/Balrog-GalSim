@@ -32,17 +32,21 @@ from astropy import wcs
 import injector
 
 #-------------------------------------------------------------------------------
+# Urgent todo's:
+# TODO: Need to account for N%n_realizations!=0 case
+# TODO: Correctly normalize galaxy injections!
+# TODO: Implement error handling for galaxy injections / gsparams!
+# TODO: Fix output names to the new version!
+# TODO: Write file even if no injections!
+
 # Some extra todo's:
 # TODO: Make filename concatenation more robust!
 # TODO: Clean up old gs_config!! (Maybe allow different options?)
         # NOTE: gs_config implementation currently does not work as intended
 # TODO: More general geometry file inputs
-# TODO: Need to account for N%n_realizations!=0 case
 # TODO: Add check for python path!
 # TODO: Make a log system!
-# TODO: Correctly normalize galaxy injections!
-# TODO: Implement error handling for galaxy injections / gsparams!
-    # TODO: Should be able to handle passing geometry file and directories in config OR command line consistently!
+# TODO: Should be able to handle passing geometry file and directories in config OR command line consistently!
 
 #-------------------------------------------------------------------------------
 # Define currently allowed and types for various objects. For `allowed`, inputs
@@ -103,7 +107,7 @@ class Tile(object):
 
         # Set tile directory structure and chip list
         #TODO: Could make this more robust...
-        self.dir = config.tile_dir + self.tile_name + '/'
+        self.dir = os.path.join(config.tile_dir, self.tile_name)
         self._set_bands(config)
 
         self._create_chip_list(config)
@@ -156,7 +160,6 @@ class Tile(object):
         cd1_1, cd1_2 = config.geom['CD1_1'][self.indx], config.geom['CD1_2'][self.indx]
         cd2_1, cd2_2 = config.geom['CD2_1'][self.indx], config.geom['CD2_2'][self.indx]
 
-
         # Create WCS object
         self.wcs = wcs.WCS()
         self.wcs.wcs.crpix = [crpix1, crpix2]
@@ -190,7 +193,7 @@ class Tile(object):
             self.bands = 'griz'
 
         for band in self.bands:
-            self.band_dir[band] = self.dir + 'nullwt-' + band + '/'
+            self.band_dir[band] = os.path.join(self.dir, 'nullwt-{}'.format(band))
 
         return
 
@@ -203,6 +206,7 @@ class Tile(object):
         self.chip_list = {}
         self.chips = {}
 
+        # pudb.set_trace()
         for band, b_dir in self.band_dir.items():
             self.chip_list[band] = []
             self.chips[band] = []
@@ -221,7 +225,8 @@ class Tile(object):
                 if f.endswith('nullwt.fits'): self.chip_list[band].append(f)
 
                 # Add chip to list
-                filename = b_dir + f
+                filename = os.path.join(b_dir, f)
+                # pudb.set_trace()
                 self.chips[band].append(Chip(filename, band, config, tile_name=self.tile_name))
 
         # pudb.set_trace()
@@ -412,8 +417,8 @@ class Tile(object):
 
         # Set the initial image and output filenames
         # TODO: Eventually, give it a more sensible name
-        out_file = self.output_dir + str(self.curr_real) + '/' + self.tile_name + '/' \
-                   + chip.band + '/BALROG_' + chip.fits_filename
+        out_file = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), self.tile_name, \
+                                chip.band, '{}_balrog_inj_{}'.format(chip.name, self.curr_real))
         self.bal_config[i]['output'] = {'file_name' : out_file}
 
         if self.has_injections is False:
@@ -1182,6 +1187,7 @@ def RunBalrog():
             # Allow for different band injections in different tiles
             bands = tile.bands
             for band in bands:
+                # pudb.set_trace()
                 for chip in tile.chips[band]:
                     # Determine which Balrog galaxies are contained in chip, and
                     # get their image coordinates
