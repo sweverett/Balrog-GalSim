@@ -29,11 +29,8 @@ python balrog_injection.py [config_file] [input_catalog] [tile_list] [geom_file]
 ```
 
 * `config_file`: A GalSim config file (for now .yaml, but more types in future) that defines universal parameters for all injections. Chip-specific config parameters are appended to this file during processing. Each DES tile will produce a separate yaml config that handles all injections for all chips in all bands that overlap with the tile ([see GalSim's Demo 6](https://github.com/GalSim-developers/GalSim/blob/master/examples/demo6.yaml) to see how appended configs work / look). An example balrog config file is given in `configs/bal_config.yaml`.
-
 * `input_catalog`: Fits file containing input objects to be injected into chip images. For now only ngmix catalogs are supported (gauss, cm, or mof photometry), but the code is designed to allow other input types in future including galaxy postage stamps. Some of the standard GalSim inputs may also work, but arent' currently supported.
-
 * `tile_list`: A txt or csv file that contains a list of all tiles that are to be processed. Delimiter can be commas or newlines.
-
 * `geom_file`: The fits file containing tile geometry (e.g. `Y3A2_COADDTILE_GEOM.fits`).
 * `tile_dir`: Directory location that contains all desired DES tile files/folders (i.e. for N tiles, the location would contain at least the N directories `/DES0001-0001`, `/DES0001-0002`, etc.). Set to `.` by default.
 * `config_dir`: Directory location of the global GalSim config file. tile list file, and geometry file if not given in inputted filenames (the files only must be in the same directory if this is passed). Set to `.` by default.
