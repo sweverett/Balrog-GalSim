@@ -34,7 +34,7 @@ python balrog_injection.py [config_file] [tile_list] [geom_file] [-t tile_dir] [
 * `tile_dir`: Directory location that contains all desired DES tile files/folders (i.e. for N tiles, the location would contain at least the N directories `/DES0001-0001`, `/DES0001-0002`, etc.). Set to `.` by default.
 * `config_dir`: Directory location of the global GalSim config file. tile list file, and geometry file if not given in inputted filenames (the files only must be in the same directory if this is passed). Set to `.` by default.
 * `psf_dir`: Relative directory path of a tile's psf *from* a given tile location (e.g. `{tile_dir}/{TILE}/{psf_dir}`). Set to `psfs` by default.
-* `output_dir`: Location of parent output directory for Balrog images and config files. Images are saved as `{output_dir}/balrog_images/{realization}/{tilename}/{band}/{chipname}_balrog_inj_{realization}.fits`, and tile configs are saved to `{output_dir}/configs/bal_config_{realization}_{tilename}.yaml`.
+* `output_dir`: Location of parent output directory for Balrog images and config files. Images are saved as `{output_dir}/balrog_images/{realization}/{tilename}/{band}/{chipname}_balrog_inj.fits`, and tile configs are saved to `{output_dir}/configs/bal_config_{realization}_{tilename}.yaml`.
 * `verbose`: Use -v for more verbose messages.
 
 ### Required Directory Structures
