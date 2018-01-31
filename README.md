@@ -23,13 +23,12 @@ git clone git@github.com:sweverett/Balrog-GalSim.git
 Balrog is run with a python call to the script `balrog_injection.py`, with a few extra (required and optional) input arguments:
 
 ```
-python balrog_injection.py [config_file] [input_catalog] [tile_list] [geom_file] [-t tile_dir] / 
-                           [-c config_dir] [-p psf_dir] [-o output_dir] [-v --verbose]
+python balrog_injection.py [config_file] [tile_list] [geom_file] [-t tile_dir] [-c config_dir] \
+                           [-p psf_dir] [-o output_dir] [-v --verbose]
 
 ```
 
 * `config_file`: A GalSim config file (for now .yaml, but more types in future) that defines universal parameters for all injections. Chip-specific config parameters are appended to this file during processing. Each DES tile will produce a separate yaml config that handles all injections for all chips in all bands that overlap with the tile ([see GalSim's Demo 6](https://github.com/GalSim-developers/GalSim/blob/master/examples/demo6.yaml) to see how appended configs work / look). An example balrog config file is given in `configs/bal_config.yaml`.
-[//]: # * `input_catalog`: Fits file containing input objects to be injected into chip images. For now only ngmix catalogs are supported (gauss, cm, or mof photometry), but the code is designed to allow other input types in future including galaxy postage stamps. Some of the standard GalSim inputs may also work, but arent' currently supported.
 * `tile_list`: A txt or csv file that contains a list of all tiles that are to be processed. Delimiter can be commas or newlines.
 * `geom_file`: The fits file containing tile geometry (e.g. `Y3A2_COADDTILE_GEOM.fits`).
 * `tile_dir`: Directory location that contains all desired DES tile files/folders (i.e. for N tiles, the location would contain at least the N directories `/DES0001-0001`, `/DES0001-0002`, etc.). Set to `.` by default.
@@ -123,6 +122,8 @@ Two things to note: (1) **Only one** of `n_galaxies` or `gal_density` is allowed
 ## Input Catalogs
 
 (more later - for now, ngmix catalogs. Gauss, MOF, or CM)
+
+(Fits file containing input objects to be injected into chip images. For now only ngmix catalogs are supported (gauss, cm, or mof photometry), but the code is designed to allow other input types in future including galaxy postage stamps. Some of the standard GalSim inputs may also work, but arent' currently supported.)
 
 ## More to come...
 
