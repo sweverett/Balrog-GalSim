@@ -17,6 +17,7 @@ import subprocess
 import shutil
 import ntpath
 import copy
+import time
 import galsim
 import csv
 import yaml
@@ -694,9 +695,10 @@ class Chip(object):
                     os.makedirs(path)
                     break
                 except OSError as e:
-                    if e.errno != os.errno.EExist:
+                    if e.errno != os.errno.EEXIST:
                         raise e
                     # Wait a bit before trying again!
+		    print('sleeping...')
                     time.sleep(0.5)
 
             # Now directory is guaranteed to exist

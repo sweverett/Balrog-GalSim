@@ -29,8 +29,8 @@ some_variables :
   # - &max_fft 8192
   # - &max_fft 4096 # GalSim default (likely want higher)
   # - &max_fft 64 # For testing purposes!
-  - &bal_dir '/home/spencer/Documents/Balrog/bal_test'
-  - &ngmix_dir '/home/spencer/Documents/Balrog/ngmix_cats'
+  - &bal_dir '/data/des71.a/data/severett/Balrog-GalSim/'
+  - &ngmix_dir '/data/des71.a/data/severett/Balrog-GalSim/inputs'
   - &ngmix_file 'DES0511-2415-y3v02-gauss-001.fits'
 
 # Define the input files
