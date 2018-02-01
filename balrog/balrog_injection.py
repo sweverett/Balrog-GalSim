@@ -429,9 +429,8 @@ class Tile(object):
             }
 
         # Set the initial image and output filenames
-        # TODO: Eventually, give it a more sensible name
         out_file = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), self.tile_name, \
-                                chip.band, '{}_balrog_inj_{}'.format(chip.name, self.curr_real))
+                                chip.band, '{}_balrog_inj.fits'.format(chip.name))
         self.bal_config[i]['output'] = {'file_name' : out_file}
 
         if self.has_injections is False:
@@ -689,7 +688,18 @@ class Chip(object):
             shutil.copyfile(self.filename, outfile)
         except IOError:
             path = os.path.dirname(outfile)
-            os.makedirs(path)
+            # To deal with race condition...
+            while True:
+                try:
+                    os.makedirs(path)
+                    break
+                except OSError as e:
+                    if e.errno != os.errno.EExist:
+                        raise e
+                    # Wait a bit before trying again!
+                    time.sleep(0.5)
+
+            # Now directory is guaranteed to exist
             shutil.copyfile(self.filename, outfile)
 
         return
