@@ -24,6 +24,7 @@ setup despydb
 setup IntegrationUtils 2.0.9+1
 setup ngmix
 setup covmatrix 0.9.0+1 
+setup galsim
 #
 export BALROG_BASE=/data/des71.a/data/kuropat/balrog-base
 #
