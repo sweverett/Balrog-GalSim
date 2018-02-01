@@ -694,7 +694,7 @@ class Chip(object):
                     os.makedirs(path)
                     break
                 except OSError as e:
-                    if e.errno != os.errno.EExist:
+                    if e.errno != os.errno.EEXIST:
                         raise e
                     # Wait a bit before trying again!
                     time.sleep(0.5)
