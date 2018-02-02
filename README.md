@@ -108,7 +108,7 @@ python balrog/balrog_injection.py config/bal_config.yaml inputs/tilelist.csv inp
 
 ## Balrog Config
 
-The global balrog config file is very similar to yaml config files used for GalSim. Check out the [GalSim demo page](https://github.com/GalSim-developers/GalSim/wiki/Tutorials) for lots of examples of how to use the yaml files and how they are translated to python scripts. The important parts are summarized in the comments of the example config [bal_config.yaml](https://github.com/sweverett/Balrog-GalSim/blob/master/config/bal_config.yaml). 
+The global balrog config file is very similar to yaml config files used for GalSim. Check out the [GalSim demo page](https://github.com/GalSim-developers/GalSim/wiki/Tutorials) for lots of examples of how to use the yaml files and how they are translated to python scripts. The important parts are summarized in the comments of the example config [bal_config.yaml](https://github.com/sweverett/Balrog-GalSim/blob/master/config/bal_config.yaml). (**Note**: You will need to change a few path names in the config file to work for your local machine!) 
 
 However, note that a Balrog config will **not** run successfully if called by the `galsim` executable; it only houses the global simulation variables while the individual chip injections parameters are set during the `balrog_injection.py` script. Each tile produces its own complete multi-output yaml config file that is sent to `galsim` at the end of processing.
 
