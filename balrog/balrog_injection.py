@@ -35,8 +35,9 @@ import injector
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
-# TODO: Correctly normalize galaxy injections!
+# TODO: Correctly normalize galaxy injections! (maybe ok, per Erin?)
 # TODO: Implement error handling for galaxy injections / gsparams!
+# TODO: For files without galaxy injections, save only first image! 
 
 # Some extra todo's:
 # TODO: Redistribute config.galaxies_remainder among first m<n reals, rather than all at end
@@ -1257,7 +1258,7 @@ def RunBalrog():
                     else:
                         # TODO: Eventually use a return_output_name() function
                         outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
-                                   tile.tile_name, chip.band, '{}_balrog_inj_{}.fits'.format(chip.name, tile.curr_real))
+                                   tile.tile_name, chip.band, '{}_balrog_inj.fits'.format(chip.name))
                         chip.save_without_injection(outfile)
 
             # Once all chips in tile have had Balrog injections, run modified config file
