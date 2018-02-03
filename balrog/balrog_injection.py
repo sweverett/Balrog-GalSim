@@ -398,9 +398,11 @@ class Tile(object):
         # Set initial image, chip wcs, and galaxy positions
         chip_file = chip.filename
         x, y = gals_pos_im[:,0].tolist(), gals_pos_im[:,1].tolist()
+	nobjs = len(gals_pos_im)
         # pudb.set_trace()
         self.bal_config[i]['image'] = {
             'initial_image' : chip_file,
+	    'nobjects' : nobjs,
             'wcs' : { 'file_name' : chip_file },
             'image_pos' : {
                 'type' : 'XY',
@@ -458,6 +460,7 @@ class Tile(object):
 
         # A new GalSim config file for Balrog injections has been created and all simulations
         # can now be run simultaneously using all GalSim machinery
+        #bashCommand = 'galsim {} -v 2 -l gs_logfile'.format(self.bal_config_file)
         bashCommand = 'galsim {}'.format(self.bal_config_file)
 
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
@@ -968,8 +971,10 @@ class Config(object):
 
         # Set initial image, chip wcs, and galaxy positions
         x, y = gals_pos_im[:,0].tolist(), gals_pos_im[:,1].tolist()
+	nobjs = len(gals_pos_im)
         self.gs_config[i]['image'] = {
             'initial_image' : chip_file,
+	    'nobjects' : nobjs,
             'wcs' : { 'file_name' : chip_file },
             'image_pos' : {
                 'type' : 'XY',
