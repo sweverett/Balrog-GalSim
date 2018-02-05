@@ -17,6 +17,7 @@ import subprocess
 import shutil
 import ntpath
 import copy
+import time
 import galsim
 import csv
 import yaml
@@ -34,9 +35,15 @@ import injector
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
+<<<<<<< HEAD
 # TODO: Correctly normalize galaxy injections! (May be correct as is, per Erin)
 # TODO: Implement error handling for galaxy injections / gsparams!
 # TODO: Use fitsio when available!
+=======
+# TODO: Correctly normalize galaxy injections! (maybe ok, per Erin?)
+# TODO: Implement error handling for galaxy injections / gsparams!
+# TODO: For files without galaxy injections, save only first image! 
+>>>>>>> 388649f7ed89e5f3bf030c0c460c6de7f9909462
 
 # Some extra todo's:
 # TODO: Redistribute config.galaxies_remainder among first m<n reals, rather than all at end
@@ -400,9 +407,11 @@ class Tile(object):
         # Set initial image, chip wcs, and galaxy positions
         chip_file = chip.filename
         x, y = gals_pos_im[:,0].tolist(), gals_pos_im[:,1].tolist()
+	nobjs = len(gals_pos_im)
         # pudb.set_trace()
         self.bal_config[i]['image'] = {
             'initial_image' : chip_file,
+	    'nobjects' : nobjs,
             'wcs' : { 'file_name' : chip_file },
             'image_pos' : {
                 'type' : 'XY',
@@ -460,6 +469,7 @@ class Tile(object):
 
         # A new GalSim config file for Balrog injections has been created and all simulations
         # can now be run simultaneously using all GalSim machinery
+        #bashCommand = 'galsim {} -v 2 -l gs_logfile'.format(self.bal_config_file)
         bashCommand = 'galsim {}'.format(self.bal_config_file)
 
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
@@ -688,47 +698,27 @@ class Chip(object):
         copy of current chip image in the new Balrog image format.
         '''
 
-        # TODO: Find better way to deal with race condition!
-        # shutil.copyfile(self.filename, outfile)
-
         # Only want to save the first HDU of nullwt image
         # TODO: Switch to fitsio eventually!
         with fits.open(outfile) as f:
             hdu0 = f[0]
             try:
-                hdu0.writeto(outfile)
-            except IOError:
-                os.remove(outfile)
-                hdu0.writeto(outfile)
+                hdu0.writeto(outfile, overwrite=True)
+            except OSError:
+                path = os.path.dirname(outfile)
+                # To deal with race condition...
+                while True:
+                    try:
+                        os.makedirs(path)
+                        break
+                    except OSError as e:
+                        if e.errno != os.errno.EEXIST:
+                            raise e
+                        # Wait a bit before trying again!
+                        time.sleep(0.5)
 
-        # try:
-        #     shutil.copyfile(self.filename, outfile)
-        # except IOError:
-        #     try:
-        #         path = os.path.dirname(outfile)
-        #         shutil.copyfile(self.filename, outfile)
-        #     except OSError as e:
-        #         raise e
-        #         # if errorno != os.errno.EEXIST:
-        #         #     raise e
-
-        # try:
-        #     shutil.copyfile(self.filename, outfile)
-        # except IOError:
-        #     path = os.path.dirname(outfile)
-        #     # To deal with race condition...
-        #     while True:
-        #         try:
-        #             os.makedirs(path)
-        #             break
-        #         except OSError as e:
-        #             if e.errno != os.errno.EEXIST:
-        #                 raise e
-        #             # Wait a bit before trying again!
-        #             time.sleep(0.5)
-
-        #     # Now directory is guaranteed to exist
-        #     shutil.copyfile(self.filename, outfile)
+                # Now directory is guaranteed to exist
+                hdu0.writeto(outfile, overwrite=True)
 
         return
 
@@ -993,8 +983,10 @@ class Config(object):
 
         # Set initial image, chip wcs, and galaxy positions
         x, y = gals_pos_im[:,0].tolist(), gals_pos_im[:,1].tolist()
+	nobjs = len(gals_pos_im)
         self.gs_config[i]['image'] = {
             'initial_image' : chip_file,
+	    'nobjects' : nobjs,
             'wcs' : { 'file_name' : chip_file },
             'image_pos' : {
                 'type' : 'XY',
@@ -1283,7 +1275,7 @@ def RunBalrog():
                     else:
                         # TODO: Eventually use a return_output_name() function
                         outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
-                                   tile.tile_name, chip.band, '{}_balrog_inj_{}.fits'.format(chip.name, tile.curr_real))
+                                   tile.tile_name, chip.band, '{}_balrog_inj.fits'.format(chip.name))
                         chip.save_without_injection(outfile)
 
             # Once all chips in tile have had Balrog injections, run modified config file
