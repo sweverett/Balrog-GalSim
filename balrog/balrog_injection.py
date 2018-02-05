@@ -34,8 +34,9 @@ import injector
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
-# TODO: Correctly normalize galaxy injections!
+# TODO: Correctly normalize galaxy injections! (May be correct as is, per Erin)
 # TODO: Implement error handling for galaxy injections / gsparams!
+# TODO: Use fitsio when available!
 
 # Some extra todo's:
 # TODO: Redistribute config.galaxies_remainder among first m<n reals, rather than all at end
@@ -200,6 +201,9 @@ class Tile(object):
 
         for band in self.bands:
             self.band_dir[band] = os.path.join(self.dir, 'nullwt-{}'.format(band))
+            # Make band directory if it doesn't already exist
+            os.makedirs(self.band_dir[band])
+
 
         return
 
@@ -684,23 +688,47 @@ class Chip(object):
         copy of current chip image in the new Balrog image format.
         '''
 
-        try:
-            shutil.copyfile(self.filename, outfile)
-        except IOError:
-            path = os.path.dirname(outfile)
-            # To deal with race condition...
-            while True:
-                try:
-                    os.makedirs(path)
-                    break
-                except OSError as e:
-                    if e.errno != os.errno.EEXIST:
-                        raise e
-                    # Wait a bit before trying again!
-                    time.sleep(0.5)
+        # TODO: Find better way to deal with race condition!
+        # shutil.copyfile(self.filename, outfile)
 
-            # Now directory is guaranteed to exist
-            shutil.copyfile(self.filename, outfile)
+        # Only want to save the first HDU of nullwt image
+        # TODO: Switch to fitsio eventually!
+        with fits.open(outfile) as f:
+            hdu0 = f[0]
+            try:
+                hdu0.writeto(outfile)
+            except IOError:
+                os.remove(outfile)
+                hdu0.writeto(outfile)
+
+        # try:
+        #     shutil.copyfile(self.filename, outfile)
+        # except IOError:
+        #     try:
+        #         path = os.path.dirname(outfile)
+        #         shutil.copyfile(self.filename, outfile)
+        #     except OSError as e:
+        #         raise e
+        #         # if errorno != os.errno.EEXIST:
+        #         #     raise e
+
+        # try:
+        #     shutil.copyfile(self.filename, outfile)
+        # except IOError:
+        #     path = os.path.dirname(outfile)
+        #     # To deal with race condition...
+        #     while True:
+        #         try:
+        #             os.makedirs(path)
+        #             break
+        #         except OSError as e:
+        #             if e.errno != os.errno.EEXIST:
+        #                 raise e
+        #             # Wait a bit before trying again!
+        #             time.sleep(0.5)
+
+        #     # Now directory is guaranteed to exist
+        #     shutil.copyfile(self.filename, outfile)
 
         return
 
