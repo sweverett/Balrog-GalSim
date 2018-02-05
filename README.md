@@ -130,7 +130,7 @@ Two things to note: (1) **Only one** of `n_galaxies` or `gal_density` is allowed
 ## Contributors
 
 * Spencer Everett (contact at sweveret@ucsc.edu)
-* Yuanyuan Zang
+* Yuanyuan Zhang
 * Brian Yanny
 * Nikolay Kuropatkin
 * Erin Sheldon
