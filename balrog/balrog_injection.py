@@ -11,7 +11,7 @@
 #####################################################################
 
 import numpy as np
-# import pudb
+import pudb
 import os, sys, errno
 import subprocess
 import shutil
@@ -340,7 +340,7 @@ class Tile(object):
 
         # Generage galaxy indices (in input catalog)
         #TODO: could add more sampling methods than uniform
-        indices = sample_uniform_indx(self.gals_per_real, config.input_nobjects)
+        indices = sample_uniform_indx(self.gals_per_real, config.input_nobjects, ngals)
         self.gals_indx[realization] = indices
 
         #TODO: Generate any other needed galaxy properties!
