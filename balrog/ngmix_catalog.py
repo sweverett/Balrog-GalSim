@@ -557,7 +557,7 @@ class BalGMixCM(ngmix.gmix.GMixCM):
             rowshift = data['row'][i]-row
             colshift = data['col'][i]-col
 
-            g1,g2 = e1e2_to_g1g2(e1,e2)
+            g1,g2 = ngmix.shape.e1e2_to_g1g2(e1,e2)
 
             Tround = moments.get_Tround(T, g1, g2)
             sigma_round = sqrt(Tround/2.0)
