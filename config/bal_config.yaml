@@ -29,9 +29,9 @@ some_variables :
   # - &max_fft 8192
   # - &max_fft 4096 # GalSim default (likely want higher)
   # - &max_fft 64 # For testing purposes!
-  - &bal_dir '/data/des71.a/data/severett/Balrog-GalSim/'
-  - &ngmix_dir '/data/des71.a/data/severett/Balrog-GalSim/inputs'
-  - &ngmix_file 'DES0511-2415-y3v02-gauss-001.fits'
+  - &bal_dir '/data/des61.a/data/severett/Balrog-GalSim/'
+  - &ngmix_dir '/data/des61.a/data/severett/Balrog-GalSim/inputs'
+  - &ngmix_file 'DES0000+0209-y3v02-mof-001.fits'
 
 # Define the input files
 input :
@@ -42,9 +42,9 @@ input :
 
       # Choose which type of ngmix catalog you are inputting
       # NB: for now, only Gauss, CM, and CM-MOF are accepted
-      # catalog_type : 'mof'
+      catalog_type : 'mof'
       # catalog_type : 'cm'
-      catalog_type : 'gauss'
+      # catalog_type : 'gauss'
       # NOTE: If you don't specify an input type, the loader will attempt to determine the type
       # from the filename as standard ngmix catalogs include 'gauss', 'cm', or 'mof' in name. Still
       # safer to specify, however.
@@ -98,7 +98,7 @@ image :
     # NOTE: Set the desired FINAL density or galaxy count; the injection script
     # automatically calculates the injection # / realization given the inputs below.
     # gal_density : 10 # per arcmin^2
-    n_galaxies : 500 # per tile
+    n_galaxies : 5000 # per tile
 
     # Set the number of realizations / layers
     # n_realizations : 2
@@ -109,7 +109,7 @@ image :
     ysize: 4096 # DES nullwt chip
 
     # Number of processors to be used on GalSim injection step
-    nproc : 4
+    nproc : 2
 
 # The injection script handles output, so the field is not needed in the base config.
 # TODO: Output directory is currently handled as a command line option for the script,
