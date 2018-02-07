@@ -35,15 +35,11 @@ import injector
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
-<<<<<<< HEAD
 # TODO: Correctly normalize galaxy injections! (May be correct as is, per Erin)
 # TODO: Implement error handling for galaxy injections / gsparams!
 # TODO: Use fitsio when available!
-=======
-# TODO: Correctly normalize galaxy injections! (maybe ok, per Erin?)
-# TODO: Implement error handling for galaxy injections / gsparams!
-# TODO: For files without galaxy injections, save only first image! 
->>>>>>> 388649f7ed89e5f3bf030c0c460c6de7f9909462
+# TODO: Figure out permission issue!
+# TODO: Get rid of extra / on config file parsing!
 
 # Some extra todo's:
 # TODO: Redistribute config.galaxies_remainder among first m<n reals, rather than all at end
@@ -209,8 +205,18 @@ class Tile(object):
         for band in self.bands:
             self.band_dir[band] = os.path.join(self.dir, 'nullwt-{}'.format(band))
             # Make band directory if it doesn't already exist
-            os.makedirs(self.band_dir[band])
-
+	    try:
+	        os.makedirs(self.band_dir[band])
+            except OSError as e:
+		if e.errno == errno.EACCES:
+		    # ok if directory already exists
+		    print('permission error')
+		    print('band_dir = {}'.format(self.band_dir))
+		elif e.errno == errno.EEXIST:
+		    # ok if directory already exists
+		    pass
+		else:
+		    raise e
 
         return
 
@@ -700,11 +706,14 @@ class Chip(object):
 
         # Only want to save the first HDU of nullwt image
         # TODO: Switch to fitsio eventually!
-        with fits.open(outfile) as f:
+        with fits.open(self.filename) as f:
             hdu0 = f[0]
             try:
-                hdu0.writeto(outfile, overwrite=True)
-            except OSError:
+	        # TODO: This is for old version of astropy!
+                #hdu0.writeto(outfile, overwrite=True)
+		hdu0.writeto(outfile, clobber=True)
+		
+            except (IOError, OSError):
                 path = os.path.dirname(outfile)
                 # To deal with race condition...
                 while True:
@@ -718,7 +727,9 @@ class Chip(object):
                         time.sleep(0.5)
 
                 # Now directory is guaranteed to exist
-                hdu0.writeto(outfile, overwrite=True)
+	        # TODO: This is for old version of astropy!
+                #hdu0.writeto(outfile, overwrite=True)
+                hdu0.writeto(outfile, clobber=True)
 
         return
 
@@ -1134,10 +1145,7 @@ def sample_uniform_dec(d1, d2, N=None, unit='deg'):
 def sample_uniform_indx(n1, n2, N=None):
     'Samples N random indices from n1 to n2'
 
-    # Can just use `sample_unfiorm()`; only here for future naming
-    # conventions.
-
-    return sample_uniform(n1, n2, N)
+    return np.random.randint(n1, high=n2, size=N)
 
 def sample_uniform(v1, v2, N=None):
     'Samples N random values from v1 to v2'
@@ -1174,6 +1182,27 @@ def open_csv_list(filename):
 def open_txt_list(filename):
     with open(filename) as file:
         return [line.strip() for line in file]
+
+def setup_output_dir(config, tiles):
+    # TODO: See if we can add anything else here!
+    out_dir = config.output_dir
+    images = os.path.join(out_dir, 'balrog_images')
+    configs = os.path.join(out_dir, 'configs')
+    dirs = [out_dir, images, configs]
+
+    # Setup parent-level directories
+    for d in dirs:
+        try:
+	    os.makedirs(d)
+        except OSError as e:
+	    if e.errno != errno.EEXIST:
+	        raise
+
+    # Setup tiles, reals, and bands
+    for tile in tiles:
+	pass
+
+    return
 
 def parse_args():
     '''
@@ -1236,6 +1265,10 @@ def RunBalrog():
     # Determine which tiles will have injections
     if vb: print('Creating tiles...')
     tiles = create_tiles(args, config)
+
+    # Set up output directory structure
+    if vb: print('Setting up output directory...')
+    setup_output_dir(config, tiles)
 
     # Now loop over all tiles slated for injection:
     # TODO: This should be parallelized with `multiprocessing` in future

@@ -559,8 +559,8 @@ class BalGMixCM(ngmix.gmix.GMixCM):
 
             g1,g2 = ngmix.shape.e1e2_to_g1g2(e1,e2)
 
-            Tround = moments.get_Tround(T, g1, g2)
-            sigma_round = sqrt(Tround/2.0)
+            Tround = ngmix.moments.get_Tround(T, g1, g2)
+            sigma_round = np.sqrt(Tround/2.0)
 
             gsobj = galsim.Gaussian(flux=flux, sigma=sigma_round,gsparams=gsparams)
 
