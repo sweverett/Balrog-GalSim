@@ -1,6 +1,6 @@
 # Balrog-GalSim
 
-Balrog is an image simulation tool for making randoms and characterizing sytematics by embedding fake objects into real imaging to accurately characterize measurement biases. This is an extension of the work done by [Suchyta et al.](https://arxiv.org/abs/1507.08336) for science verification data of the Dark Energy Survey (DES). Check out the original repo [here](https://github.com/emhuff/Balrog).
+Balrog is an image simulation tool for making randoms and characterizing systematics by embedding fake objects into real imaging to accurately characterize measurement biases. This is an extension of the work done by [Suchyta et al.](https://arxiv.org/abs/1507.08336) for science verification data of the Dark Energy Survey (DES). Check out the original repo [here](https://github.com/emhuff/Balrog).
 
 While Balrog is not specific to DES, the current version of this code only *supports* DES chip images and [ngmix](https://github.com/esheldon/ngmix) galaxy catalogs for injection inputs. Hopefully this generalization will be added soon; in the meantime, you can start a branch and one of the developers will help guide you on what small changes need to be made. Most changes can be made in the input GalSim config file.
 
@@ -10,7 +10,7 @@ Coming soon!
 
 ## Installation
 
-The only non-standard Balrog dependancy is [GalSim](https://github.com/GalSim-developers/GalSim). While it's a non-trivial install, the [installation wiki found here](https://github.com/GalSim-developers/GalSim/blob/master/INSTALL.md) outlines the steps in great detail.
+The only non-standard Balrog dependency is [GalSim](https://github.com/GalSim-developers/GalSim). While it's a non-trivial install, the [installation wiki found here](https://github.com/GalSim-developers/GalSim/blob/master/INSTALL.md) outlines the steps in great detail.
 
 Once GalSim is installed, simply clone this repo:
 
