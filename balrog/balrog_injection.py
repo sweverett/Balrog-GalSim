@@ -211,7 +211,6 @@ class Tile(object):
 		if e.errno == errno.EACCES:
 		    # ok if directory already exists
 		    print('permission error')
-		    print('band_dir = {}'.format(self.band_dir))
 		elif e.errno == errno.EEXIST:
 		    # ok if directory already exists
 		    pass
