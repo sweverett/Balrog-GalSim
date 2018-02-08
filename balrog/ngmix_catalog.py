@@ -73,7 +73,7 @@ class ngmixCatalog(object):
     _cat_col_prefix = {'gauss' : 'gauss', 'cm' : 'cm', 'mof' : 'cm'}
 
     def __init__(self, file_name, dir=None, catalog_type=None, bands=None, snr_min=None, snr_max=None,
-                 t_frac=None, _nobjects_only=False):
+                 t_frac=None, t_min=None, tmax=None, _nobjects_only=False):
 
         if dir:
             if not isinstance(file_name, basestring):
@@ -134,18 +134,32 @@ class ngmixCatalog(object):
                 raise ValueError("The signal-to-noise ratio `snr` must be positive!")
             self.snr_min = snr_min
         else:
-            # Always reject snr<0
             self.snr_min = 0.0
 
         if snr_max:
             if snr_max < 0.0:
                 raise ValueError("The signal-to-noise ratio `snr` must be positive!")
             elif snr_min and (snr_min > snr_max):
-                raise ValueError("`snr_max` must be greater than `snr_min`!")
+                raise ValueError("`t_max` must be greater than `t_min`!")
             self.snr_max = snr_max
         else:
-            # Used for defaults
             self.snr_max = None
+
+        if t_min:
+            if t_min < 0.0:
+                raise ValueError("The object size cutoff `t_min` must be positive!".format())
+            self.t_min = t_min
+        else:
+            self.t_min = 0.0
+
+        if t_max:
+            if t_max < 0.0:
+                raise ValueError("The object size cutoff `t_max` must be positive!".format())
+            elif t_min and (t_min > t_max):
+                raise ValueError("`t_max` must be greater than `t_min`!")
+            self.t_max = t_max
+        else:
+            self.t_max = None
 
         if t_frac:
             if t_frac < 0.0:
@@ -239,6 +253,11 @@ class ngmixCatalog(object):
         mask[self.catalog[cp+'_s2n_r'] < self.snr_min] = False
         if self.snr_max:
             mask[self.catalog[cp+'_s2n_r'] > self.snr_max] = False
+
+        # Remove objects with size T outside of desired bounds
+        mask[self.catalog[cp+'_T'] < self.t_min] = False
+        if self.snr_max:
+            mask[self.catalog[cp+'_T'] > self.t_max] = False
 
         # TODO: Quick fix for the moment, should figure out rigorous cutoff
         # Looks like we likely want SNR > 10 and T/T_err>0.5; leaving for the moment
