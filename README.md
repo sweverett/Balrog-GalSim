@@ -135,8 +135,8 @@ Two things to note: (1) **Only one** of `n_galaxies` or `gal_density` is allowed
 * Nikolay Kuropatkin
 * Erin Sheldon
 * Eric Huff
-* Ami S
-* Vinicious B
+* Ami Choi
+* Vinicious Busti
 * Eli Rykoff
 * Megan Splettstoesser
 * More to add!
