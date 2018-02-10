@@ -11,7 +11,7 @@
 #####################################################################
 
 import numpy as np
-import pudb
+# import pudb
 import os, sys, errno
 import subprocess
 import shutil
@@ -518,7 +518,7 @@ class Tile(object):
         injected into the current tile, as well as a few extra columns.
         '''
 
-        pudb.set_trace()
+        # pudb.set_trace()
 
         truth = config.input_cat[self.gals_indx[self.curr_real]]
         truth_table = Table(truth)
