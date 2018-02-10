@@ -1340,7 +1340,7 @@ def RunBalrog():
             tile.write_bal_config()
             if vb is True: print('Making truth catalog...')
             outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
-                        tile.tile_name, '{}_balrog_cat_truth.fits'.format(chip.name))
+                        tile.tile_name, '{}_balrog_truth_cat.fits'.format(tile.tile_name))
             tile.write_truth_catalog(config, outfile)
             if vb is True: print('Running GalSim for tile...')
             tile.run_galsim(vb=vb)
