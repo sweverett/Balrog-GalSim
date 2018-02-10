@@ -51,7 +51,7 @@ class ngmixCatalog(object):
 
     _req_params = { 'file_name' : str }
     _opt_params = { 'dir' : str, 'catalog_type' : str, 'bands': str, 'snr_min' : float,
-                    'snr_max' : float, 't_frac' : float}
+                    'snr_max' : float, 't_frac' : float, 't_min' : float, 't_max' : float}
     _single_params = []
     _takes_rng = False
 
