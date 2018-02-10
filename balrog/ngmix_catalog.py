@@ -73,7 +73,7 @@ class ngmixCatalog(object):
     _cat_col_prefix = {'gauss' : 'gauss', 'cm' : 'cm', 'mof' : 'cm'}
 
     def __init__(self, file_name, dir=None, catalog_type=None, bands=None, snr_min=None, snr_max=None,
-                 t_frac=None, t_min=None, tmax=None, _nobjects_only=False):
+                 t_frac=None, t_min=None, t_max=None, _nobjects_only=False):
 
         if dir:
             if not isinstance(file_name, basestring):
@@ -524,6 +524,9 @@ class ngmixCatalog(object):
     def getNTot(self):
         # Used by input/logger methods
         return self.ntotal
+
+    def getCatalog(self):
+        return self.catalog
 
     # TODO: Write remaining `get` methods once saved columns are determined
 
