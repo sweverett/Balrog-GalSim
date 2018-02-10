@@ -11,7 +11,7 @@
 #####################################################################
 
 import numpy as np
-# import pudb
+import pudb
 import os, sys, errno
 import subprocess
 import shutil
@@ -29,6 +29,7 @@ import itertools
 # from fitsio import FITS, FITSHDR, etc.
 from astropy.io import fits
 from astropy import wcs
+from astropy.table import Table
 
 # Balrog Galsim image type
 import injector
@@ -40,6 +41,7 @@ import injector
 # TODO: Use fitsio when available!
 # TODO: Figure out permission issue!
 # TODO: Get rid of extra / on config file parsing!
+# TODO: Write out a truth catalog!
 
 # Some extra todo's:
 # TODO: Redistribute config.galaxies_remainder among first m<n reals, rather than all at end
@@ -50,6 +52,7 @@ import injector
 # TODO: Add check for python path!
 # TODO: Make a log system!
 # TODO: Should be able to handle passing geometry file and directories in config OR command line consistently!
+# TODO: Add a single seed for each tile w/r/t noise realizations
 
 #-------------------------------------------------------------------------------
 # Define currently allowed and types for various objects. For `allowed`, inputs
@@ -327,7 +330,7 @@ class Tile(object):
             else:
                 ngals = self.gals_per_real
             self.gals_pos = np.zeros(shape=(config.n_realizations, ngals, 2))
-            self.gals_indx = np.zeros(shape=(config.n_realizations, ngals))
+            self.gals_indx = np.zeros(shape=(config.n_realizations, ngals), dtype=int)
 
         # Generate galaxy coordinates
         #TODO: Could add more sampling methods than uniform
@@ -506,6 +509,20 @@ class Tile(object):
 
         # TODO: Would be nice to do something with the output / errors in future.
         # maybe implement an additional log?
+
+        return
+
+    def write_truth_catalog(self, config, outfile):
+        '''
+        Writes a fits file that contains the subset of the input catalog that has been
+        injected into the current tile, as well as a few extra columns.
+        '''
+
+        pudb.set_trace()
+
+        truth = config.input_cat[self.gals_indx[self.curr_real]]
+        truth_table = Table(truth)
+        truth_table.write(outfile, overwrite=True)
 
         return
 
@@ -934,6 +951,13 @@ class Config(object):
             # original catalog that make it past all of the mask cuts, etc.
             self.input_nobjects = galsim.config.ProcessInputNObjects(self.gs_config[0])
 
+            # Now that we are saving truth tables, it is necessary to load in the entire
+            # catalog
+            galsim.config.ProcessInput(self.gs_config[0])
+            cat_proxy = self.gs_config[0]['input_objs']['ngmix_catalog'][0] # Actually a proxy
+            self.input_cat = cat_proxy.getCatalog()
+            self.input_nobjects = cat_proxy.getNObjects()
+
         else:
             # Add more types later!
             raise ValueError('For now, only ngmix catalogs can be used for injections!')
@@ -1314,7 +1338,10 @@ def RunBalrog():
             # with GalSim
             if vb is True: print('Writing Balrog config...')
             tile.write_bal_config()
-            # pudb.set_trace()
+            if vb is True: print('Making truth catalog...')
+            outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
+                        tile.tile_name, '{}_balrog_cat_truth.fits'.format(chip.name))
+            tile.write_truth_catalog(config, outfile)
             if vb is True: print('Running GalSim for tile...')
             tile.run_galsim(vb=vb)
 
