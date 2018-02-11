@@ -522,6 +522,10 @@ class Tile(object):
 
         truth = config.input_cat[self.gals_indx[self.curr_real]]
         truth_table = Table(truth)
+
+	# Now update ra/dec positions for truth catalog
+	truth_table['ra'] = self.gals_pos[self.curr_real][:,0]
+	truth_table['dec'] = self.gals_pos[self.curr_real][:,1]
         truth_table.write(outfile, overwrite=True)
 
         return
@@ -1338,12 +1342,12 @@ def RunBalrog():
             # with GalSim
             if vb is True: print('Writing Balrog config...')
             tile.write_bal_config()
+            if vb is True: print('Running GalSim for tile...')
+            tile.run_galsim(vb=vb)
             if vb is True: print('Making truth catalog...')
             outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
                         tile.tile_name, '{}_balrog_truth_cat.fits'.format(tile.tile_name))
             tile.write_truth_catalog(config, outfile)
-            if vb is True: print('Running GalSim for tile...')
-            tile.run_galsim(vb=vb)
 
             # pudb.set_trace()
 
