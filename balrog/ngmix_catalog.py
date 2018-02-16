@@ -11,7 +11,7 @@ import ngmix # Used for GMix -> GSObject conversion
 import numpy as np
 import logging
 from past.builtins import basestring # Python 2&3 compatibility
-# import pudb
+import pudb
 
 #TODO: Include noise, pixscale
 
@@ -213,6 +213,8 @@ class ngmixCatalog(object):
         # Do mask cut
         self.maskCut()
 
+        pudb.set_trace()
+
         return
 
     #------------------------------------------------------------------------------------------------
@@ -375,6 +377,7 @@ class ngmixCatalog(object):
         gsobjects = []
 
         # Convert from dict to actual GsParams object
+        # TODO: Currently fails if gsparams isn't passed!
         gsp = galsim.GSParams(**gsparams)
 
         # Only here for testing purposes
