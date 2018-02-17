@@ -13,7 +13,9 @@ import logging
 from past.builtins import basestring # Python 2&3 compatibility
 import pudb
 
-#TODO: Include noise, pixscale
+# TODO: Include noise, pixscale
+# TODO: Understand T=0 cases! (shouldn't be)
+# TODO: Handle case of gparams=None
 
 class ngmixCatalog(object):
     """ Class that handles galaxy catalogs from ngmix. These are fits files with names typically
@@ -213,7 +215,7 @@ class ngmixCatalog(object):
         # Do mask cut
         self.maskCut()
 
-        pudb.set_trace()
+        # pudb.set_trace()
 
         return
 
@@ -350,7 +352,7 @@ class ngmixCatalog(object):
 
     #------------------------------------------------------------------------------------------------
 
-    def ngmix2gs(self,index,gsparams):
+    def ngmix2gs(self, index, gsparams):
         """
         This function handles the conversion of a ngmix galaxy to a GS object. The required conversion is
         different for each ngmix catalog type.
@@ -378,7 +380,9 @@ class ngmixCatalog(object):
 
         # Convert from dict to actual GsParams object
         # TODO: Currently fails if gsparams isn't passed!
-        gsp = galsim.GSParams(**gsparams)
+        if gsparams: gsp = galsim.GSParams(**gsparams)
+        else: gsp = None
+        # galsim.GSParams(**gsparams)
 
         # Only here for testing purposes
         # print('\nOBJ ID: {}\n'.format(self.catalog['id'][index]))
@@ -576,6 +580,11 @@ class BalGMixCM(ngmix.gmix.GMixCM):
         for i in xrange(len(self)):
             flux = data['p'][i]
             T = data['irr'][i] + data['icc'][i]
+            # assert(T!=0.0)
+            if T==0:
+                # TODO: Explore this issue more! T is being stored as nonzero -
+                #       what is causing this?
+                continue
             e1 = (data['icc'][i] - data['irr'][i])/T
             e2 = 2.0*data['irc'][i]/T
 
