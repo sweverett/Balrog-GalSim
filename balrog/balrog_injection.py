@@ -334,6 +334,9 @@ class Tile(object):
             self.gals_pos = np.zeros(shape=(config.n_realizations, ngals, 2))
             self.gals_indx = np.zeros(shape=(config.n_realizations, ngals), dtype=int)
 
+	# TODO: See note above
+        ngals = self.gals_per_real
+
         # Generate galaxy coordinates
         #TODO: Could add more sampling methods than uniform
         ra = sample_uniform_ra(self.ramin, self.ramax, self.gals_per_real, boundary_cross=self.ra_boundary_cross)
@@ -1348,7 +1351,7 @@ def RunBalrog():
             tile.run_galsim(vb=vb)
             if vb is True: print('Making truth catalog...')
             outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
-                        tile.tile_name, '{}_balrog_truth_cat.fits'.format(tile.tile_name))
+                        tile.tile_name, '{}_{}_balrog_truth_cat.fits'.format(tile.tile_name, real))
             tile.write_truth_catalog(config, outfile)
 
             # pudb.set_trace()
