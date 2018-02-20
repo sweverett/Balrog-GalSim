@@ -320,14 +320,17 @@ class Tile(object):
 
         # Initialize galaxy positions and indices if this is the first realization
         if self.gals_pos is None:
-            # self.gals_pos = np.zeros(shape=(config.n_realizations, self.gals_per_real), dtype=tuple)
 
-            if (config.n_galaxies is not None) and (realization == config.n_realizations):
-                # TODO: Better to distribute remaining m<n galaxies to the first m realizations!
-                # Add remaining galaxies on final realization tile
-                ngals = self.gals_per_real + self.gals_remainder
-            else:
-                ngals = self.gals_per_real
+	    # TODO: may not be able to do the below implementation due to unequal row size.
+	    # We may just want to warn the user that a few will be lost
+	    ngals = self.gals_per_real
+#            if (config.n_galaxies is not None) and (realization == config.n_realizations):
+#                # TODO: Better to distribute remaining m<n galaxies to the first m realizations!
+#                # Add remaining galaxies on final realization tile
+#                ngals = self.gals_per_real + self.gals_remainder
+#            else:
+#                ngals = self.gals_per_real
+
             self.gals_pos = np.zeros(shape=(config.n_realizations, ngals, 2))
             self.gals_indx = np.zeros(shape=(config.n_realizations, ngals), dtype=int)
 
