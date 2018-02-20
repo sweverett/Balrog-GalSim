@@ -215,7 +215,7 @@ class ngmixCatalog(object):
         # Do mask cut
         self.maskCut()
 
-        # pudb.set_trace()
+        pudb.set_trace()
 
         return
 
@@ -260,7 +260,7 @@ class ngmixCatalog(object):
 
         # Remove objects with size T outside of desired bounds
         mask[self.catalog[cp+'_T'] < self.t_min] = False
-        if self.snr_max:
+        if self.t_max:
             mask[self.catalog[cp+'_T'] > self.t_max] = False
 
         # TODO: Quick fix for the moment, should figure out rigorous cutoff
