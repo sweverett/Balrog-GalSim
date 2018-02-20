@@ -23,15 +23,15 @@ modules :
 # to change multiple variable instances quickly throughout the config file.
 some_variables :
   # Pick a maximum fft size
-  # - &max_fft 65536
+  - &max_fft 65536
   # - &max_fft 32768
-  - &max_fft 16384
+  # - &max_fft 16384
   # - &max_fft 8192
   # - &max_fft 4096 # GalSim default (likely want higher)
   # - &max_fft 64 # For testing purposes!
   - &bal_dir '/data/des61.a/data/severett/Balrog-GalSim/'
   - &ngmix_dir '/data/des61.a/data/severett/Balrog-GalSim/inputs'
-  - &ngmix_file 'DES0000+0209-y3v02-mof-001.fits'
+  - &ngmix_file 'DES0113-4331-y3v02a-mof-001.fits'
 
 # Define the input files
 input :
@@ -56,6 +56,7 @@ input :
 
       # Set masking / selection thresholds for catalog
       t_frac : 0.5
+      t_max : 100
       snr_min : 10.0
 
 # The gal field defines what kind of galaxy profile to use.
@@ -101,8 +102,8 @@ image :
     n_galaxies : 5000 # per tile
 
     # Set the number of realizations / layers
-    # n_realizations : 2
-    n_realizations : 1
+    n_realizations : 3
+    # n_realizations : 1
 
     # TODO: In future, we should load these fields automatically in script.
     xsize: 2048 # DES nullwt chip
