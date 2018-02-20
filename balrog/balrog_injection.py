@@ -523,9 +523,9 @@ class Tile(object):
         truth = config.input_cat[self.gals_indx[self.curr_real]]
         truth_table = Table(truth)
 
-	# Now update ra/dec positions for truth catalog
-	truth_table['ra'] = self.gals_pos[self.curr_real][:,0]
-	truth_table['dec'] = self.gals_pos[self.curr_real][:,1]
+        # Now update ra/dec positions for truth catalog
+        truth_table['ra'] = self.gals_pos[self.curr_real][:,0]
+        truth_table['dec'] = self.gals_pos[self.curr_real][:,1]
         truth_table.write(outfile, overwrite=True)
 
         return
