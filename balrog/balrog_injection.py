@@ -41,7 +41,6 @@ import injector
 # TODO: Use fitsio when available!
 # TODO: Figure out permission issue!
 # TODO: Get rid of extra / on config file parsing!
-# TODO: Write out a truth catalog!
 
 # Some extra todo's:
 # TODO: Redistribute config.galaxies_remainder among first m<n reals, rather than all at end
