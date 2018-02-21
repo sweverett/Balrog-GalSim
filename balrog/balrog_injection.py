@@ -458,19 +458,18 @@ class Tile(object):
             }
         }
 
+        # Set the band for injection
+        self.bal_config[i]['input'] = {
+            chip.input_type : {'band' : chip.band}
+        }
+
         # Set the PSF input file, if present
         psf_file = chip.psf_filename
         if psf_file is not None:
-            self.bal_config[i]['input'] = {
-                'des_psfex' : {
-                    # TODO: Remove when possible
-                    # 'dir' : chip.psf_dir,
-                    'file_name' : psf_file,
-                    'image_file_name' : chip_file,
-                    }
+            self.bal_config[i]['input']['des_psfex'] = {
+                'file_name' : psf_file,
+                'image_file_name' : chip_file,
             }
-        # Set the band for injection
-        self.bal_config[i]['input'][chip.input_type]['band'] = chip.band
 
         # Set the initial image and output filenames
         out_file = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), self.tile_name, \
