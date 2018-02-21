@@ -50,9 +50,9 @@ input :
       # safer to specify, however.
       
       # To use all bands: 
-      bands : 'griz'
-      # Can select individual bands or a subset as well:
-      # bands : 'gz'
+      # NOTE: Don't use this anymore! This is ONLY for ngmix-specific simulations. Will cause
+      # Balrog to inject *all* bands in *all* chip images. Only here as a warning
+      # bands : 'griz'
 
       # Set masking / selection thresholds for catalog
       t_frac : 0.5
@@ -90,6 +90,12 @@ stamp :
 image :
     # For injected images:
     type : Balrog # Same as AddOn, but with some additional input attributes and checking
+
+    # To use all bands:
+    # NOTE: y-band currently not supported
+    bands : 'griz'
+    # To use a subset:
+    # bands : 'ri'
 
     # Load WCS from DES chip file
     wcs :

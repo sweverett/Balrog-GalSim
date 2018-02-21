@@ -191,7 +191,7 @@ class Tile(object):
 
         try:
             # Grab selected bands in config, if present
-            self.bands = config.gs_config[0]['input'][config.input_type]['bands']
+            self.bands = config.gs_config[0]['image']['bands']
 
             # Make sure there aren't any incorrect inputs
             for band in self.bands:
@@ -270,9 +270,12 @@ class Tile(object):
         '''
 
         # Create new config file
-        filename = 'bal_config_' + str(self.curr_real) + '_' + self.tile_name + '.yaml'
-        self.bal_config_dir = config.output_dir + '/configs/'
-        self.bal_config_file = self.bal_config_dir + filename
+        # TODO: Moved to set_bal_config_name() below; remove after testing
+        # filename = 'bal_config_' + str(self.curr_real) + '_' + self.tile_name + '.yaml'
+        # self.bal_config_dir = config.output_dir + '/configs/'
+        # self.bal_config_file = self.bal_config_dir + filename
+
+        self.set_bal_config_name()
 
         # Create bal config directory if it does not already exist
         if not os.path.exists(self.bal_config_dir):
@@ -385,8 +388,21 @@ class Tile(object):
         assert len(self.bal_config) == 1
         self.bal_config_len = 1
 
+        # Update bal_config filename for current realization
+        self.set_bal_config_name()
+
         # Reset injections
         self.has_injections = False
+
+        return
+
+    def set_bal_config_name(self):
+        '''
+        Sets the correct balrog config filename given the current realization.
+        '''
+        filename = 'bal_config_' + str(self.curr_real) + '_' + self.tile_name + '.yaml'
+        self.bal_config_dir = config.output_dir + '/configs/'
+        self.bal_config_file = self.bal_config_dir + filename
 
         return
 
@@ -453,6 +469,8 @@ class Tile(object):
                     'image_file_name' : chip_file,
                     }
             }
+        # Set the band for injection
+        self.bal_config[i]['input'][chip.input_type]['band'] = chip.band
 
         # Set the initial image and output filenames
         out_file = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), self.tile_name, \
@@ -587,6 +605,7 @@ class Chip(object):
         self.fits_filename = ntpath.basename(filename)
         self.tile_name = tile_name # Name of parent tile, if given
         self.band = band
+        self.input_type = config.input_type
 
         self._set_name(config)
         self._set_psf(config)
@@ -997,51 +1016,51 @@ class Config(object):
 
         return
 
-    def add_gs_injection(self, tile_name, chip, gals_pos_im):
-        '''
-        WARNING: Deprecated!!
-        This function appends the global GalSim config with an additional simulation to
-        be done using nullwt chip-specific infomation and Balrog injected galaxy positions
-        in image coordinates.
-        NOTE: The original inputted config structure is saved in
-        self.original_gs_config.
-        NOTE/TODO: This is only used if you modify the config dictionary directly. We may
-        be switching to appended yaml files soon.
-        '''
+    # def add_gs_injection(self, config, tile_name, chip, gals_pos_im, band):
+    #     '''
+    #     WARNING: Deprecated!!
+    #     This function appends the global GalSim config with an additional simulation to
+    #     be done using nullwt chip-specific infomation and Balrog injected galaxy positions
+    #     in image coordinates.
+    #     NOTE: The original inputted config structure is saved in
+    #     self.original_gs_config.
+    #     NOTE/TODO: This is only used if you modify the config dictionary directly. We may
+    #     be switching to appended yaml files soon.
+    #     '''
 
-        chip_file = chip.filename
-        # TODO: Eventually, give it a more sensible name
-        out_file = self.output_dir + tile_name + '/' + chip.band + '/BALROG_' + chip.fits_filename
+    #     chip_file = chip.filename
+    #     # TODO: Eventually, give it a more sensible name
+    #     out_file = self.output_dir + tile_name + '/' + chip.band + '/BALROG_' + chip.fits_filename
 
-        if self.gs_config_modified is False:
-            # If this is the first GalSim injection added,
-            # then just modify the original config
-            i = 0
-            self.gs_config_modified = True
-        else:
-            # Add a new entry to the config w/ same values
-            # as original gs config file
-            self.gs_config.append(self.orig_gs_config[0])
-            i = len(self.gs_config) - 1
+    #     if self.gs_config_modified is False:
+    #         # If this is the first GalSim injection added,
+    #         # then just modify the original config
+    #         i = 0
+    #         self.gs_config_modified = True
+    #     else:
+    #         # Add a new entry to the config w/ same values
+    #         # as original gs config file
+    #         self.gs_config.append(self.orig_gs_config[0])
+    #         i = len(self.gs_config) - 1
 
-        # Set initial image, chip wcs, and galaxy positions
-        x, y = gals_pos_im[:,0].tolist(), gals_pos_im[:,1].tolist()
-	nobjs = len(gals_pos_im)
-        self.gs_config[i]['image'] = {
-            'initial_image' : chip_file,
-	    'nobjects' : nobjs,
-            'wcs' : { 'file_name' : chip_file },
-            'image_pos' : {
-                'type' : 'XY',
-                'x' : { 'type' : 'List', 'items' : x },
-                'y' : { 'type' : 'List', 'items' : y }
-            }
-        }
+    #     # Set initial image, chip wcs, and galaxy positions
+    #     x, y = gals_pos_im[:,0].tolist(), gals_pos_im[:,1].tolist()
+	# nobjs = len(gals_pos_im)
+    #     self.gs_config[i]['image'] = {
+    #         'initial_image' : chip_file,
+	#     'nobjects' : nobjs,
+    #         'wcs' : { 'file_name' : chip_file },
+    #         'image_pos' : {
+    #             'type' : 'XY',
+    #             'x' : { 'type' : 'List', 'items' : x },
+    #             'y' : { 'type' : 'List', 'items' : y }
+    #         }
+    #     }
 
-        # Set the initial image and output filenames
-        self.gs_config[i]['output']['file_name'] = out_file
+    #     # Set the initial image and output filenames
+    #     self.gs_config[i]['output']['file_name'] = out_file
 
-        return
+    #     return
 
     def append_bal_config(self, tile_name, chip, gals_pos_im):
         '''
@@ -1316,8 +1335,8 @@ def RunBalrog():
             # TODO/config: decide on implementation!
             # config.reset_gs_config()
             # config.set_realization(i)
-            tile.reset_bal_config(config)
             tile.set_realization(real)
+            tile.reset_bal_config(config)
             tile.generate_galaxies(config, real)
             # Allow for different band injections in different tiles
             bands = tile.bands
