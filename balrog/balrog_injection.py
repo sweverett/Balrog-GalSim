@@ -275,7 +275,7 @@ class Tile(object):
         # self.bal_config_dir = config.output_dir + '/configs/'
         # self.bal_config_file = self.bal_config_dir + filename
 
-        self.set_bal_config_name()
+        self.set_bal_config_name(config)
 
         # Create bal config directory if it does not already exist
         if not os.path.exists(self.bal_config_dir):
@@ -389,14 +389,14 @@ class Tile(object):
         self.bal_config_len = 1
 
         # Update bal_config filename for current realization
-        self.set_bal_config_name()
+        self.set_bal_config_name(config)
 
         # Reset injections
         self.has_injections = False
 
         return
 
-    def set_bal_config_name(self):
+    def set_bal_config_name(self, config):
         '''
         Sets the correct balrog config filename given the current realization.
         '''
@@ -973,15 +973,20 @@ class Config(object):
             galsim.config.RegisterInputType('ngmix_catalog', ngmix_catalog.ngmixCatalogLoader(
                 ngmix_catalog.ngmixCatalog, has_nobj=True))
 
+            # This avoids a printed warning, and sets up the input correctly
+            # as no bands are passed in bal_config
+            gs_config = self.gs_config[0]
+            gs_config['input']['ngmix_catalog']['bands'] = 'griz'
+
             # Return the number of objects in input catalog that will be injected
             # NOTE: Calling `ProcessInputNObjects()` builds the input catalog
             # in a minimal way that determines the number of objects from the
             # original catalog that make it past all of the mask cuts, etc.
-            self.input_nobjects = galsim.config.ProcessInputNObjects(self.gs_config[0])
+            # self.input_nobjects = galsim.config.ProcessInputNObjects(gs_config)
 
             # Now that we are saving truth tables, it is necessary to load in the entire
             # catalog
-            galsim.config.ProcessInput(self.gs_config[0])
+            galsim.config.ProcessInput(gs_config)
             cat_proxy = self.gs_config[0]['input_objs']['ngmix_catalog'][0] # Actually a proxy
             self.input_cat = cat_proxy.getCatalog()
             self.input_nobjects = cat_proxy.getNObjects()
