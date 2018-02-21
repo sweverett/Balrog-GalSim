@@ -460,7 +460,7 @@ class Tile(object):
 
         # Set the band for injection
         self.bal_config[i]['input'] = {
-            chip.input_type : {'band' : chip.band}
+            chip.input_type : {'bands' : chip.band}
         }
 
         # Set the PSF input file, if present

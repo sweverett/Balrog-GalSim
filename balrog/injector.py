@@ -23,7 +23,7 @@ class BalrogImageBuilder(AddOnImageBuilder):
 
     def setup(self, config, base, image_num, obj_num, ignore, logger):
         # ignore = ignore + ['initial_image', 'n_realizations', 'n_galaxies', 'gal_density']
-        ignore = ignore + ['n_realizations', 'n_galaxies', 'gal_density']
+        ignore = ignore + ['bands', 'n_realizations', 'n_galaxies', 'gal_density']
         # full_xsize, full_ysize = super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
         full_xsize, full_ysize = super(BalrogImageBuilder, self).setup(config, base, image_num, obj_num, ignore, logger)
 
