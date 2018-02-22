@@ -223,11 +223,17 @@ class ngmixCatalog(object):
 
     def getFlags(self):
         """Retrieve object flags, where implementation depends on catalog type."""
-        self.flags = self.catalog[self.col_prefix+'_flags']
+
+        # General flags
+        self.flags = self.catalog['flags']
+
+        # ngmix catalog-specific flags
+        self.ngmix_flags = self.catalog[self.col_prefix+'_flags']
 
         # TODO: Check for additional flags
         if self.cat_type == 'mof':
-            self.flags_mof = self.catalog[self.col_prefix+'_mof_flags']
+            # mof has additional flags
+            self.mof_flags = self.catalog[self.col_prefix+'_mof_flags']
 
         return
 
@@ -245,9 +251,10 @@ class ngmixCatalog(object):
 
         # For now, remove objects with any flags present
         mask[self.flags != 0] = False
+        mask[self.ngmix_flags !=0] = False
         # Extra flags for 'mof' catalogs
         if self.cat_type == 'mof':
-            mask[self.flags_mof != 0] = False
+            mask[self.mof_flags != 0] = False
 
         # Remove any object with `T/T_err` < t_frac
         T_fraction = self.catalog[cp+'_T'] / self.catalog[cp+'_T_err']
