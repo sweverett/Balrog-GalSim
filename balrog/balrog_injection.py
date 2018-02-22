@@ -13,6 +13,7 @@
 import numpy as np
 # import pudb
 import os, sys, errno
+import warnings
 import subprocess
 import shutil
 import ntpath
@@ -43,6 +44,7 @@ import injector
 # TODO: Get rid of extra / on config file parsing!
 
 # Some extra todo's:
+# TODO: Implement some print statements as warnings
 # TODO: Redistribute config.galaxies_remainder among first m<n reals, rather than all at end
 # TODO: Make filename concatenation more robust! (Mostly done)
 # TODO: Clean up old gs_config!! (Maybe allow different options?)
@@ -52,6 +54,9 @@ import injector
 # TODO: Make a log system!
 # TODO: Should be able to handle passing geometry file and directories in config OR command line consistently!
 # TODO: Add a single seed for each tile w/r/t noise realizations
+
+# Questions:
+# - Should we be doing sampling w/ or w/o replacement? (w/ replacement currently)
 
 #-------------------------------------------------------------------------------
 # Define currently allowed and types for various objects. For `allowed`, inputs
@@ -609,6 +614,7 @@ class Chip(object):
         self._set_name(config)
         self._set_psf(config)
         self._set_wcs()
+        self._set_zeropoint()
 
         return
 
@@ -716,6 +722,13 @@ class Chip(object):
         # pudb.set_trace()
 
         return
+
+    def set_zeropoint(self, config):
+        '''
+        Grab the chip zeropoint from the {tile}/lists/{tile}_{band}_nullwt-flist-{version}.dat
+        file.
+        '''
+        pass
 
     def contained_in_chip(self, pos):
         '''
@@ -907,6 +920,13 @@ class Config(object):
             self.n_galaxies = 1000 # Keep it small for default!
             print('Warning: Neither n_galaxies nor gal_density was passed in config file. ' +
                   'Using default of {} galaxies per tile'.format(self.n_galaxies))
+
+        try:
+            self.data_version = self.gs_config[0]['image']['version']
+        except KeyError:
+            # Warn user, but assume y3v02 for now
+            warnings.warn('Data version not passed in config! Assuming y3v02.')
+            self.data_version = 'y3v02'
 
         # if not self.n_galaxies:
         #     # Default is 1000 galaxies per tile
