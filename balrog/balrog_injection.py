@@ -11,7 +11,7 @@
 #####################################################################
 
 import numpy as np
-# import pudb
+import pudb
 import os, sys, errno
 import warnings
 import subprocess
@@ -78,7 +78,8 @@ _supported_input_types = ['ngmix_catalog']#, 'postage_stamps'}
 
 class Tile(object):
     """
-    A `Tile` is a square ?x? deg^2 subsection of the DES footprint. (more details).
+    # TODO: more details.
+    A `Tile` is a square ?x? deg^2 subsection of the DES footprint.
     Tiles overlap by 2 arcmin, but balrog galaxies are only injected in the unique
     footrpint area.
     """
@@ -114,17 +115,20 @@ class Tile(object):
             # Then gal_density was set; galaxy number depends on area
             self.gals_per_real = round((self.u_area * config.gal_density) / (1.0 * config.n_realizations))
 
-        # Set tile directory structure and chip list
+        # Set tile directory structure
         self.dir = os.path.join(config.tile_dir, self.tile_name)
         self._set_bands(config)
-
-        self._create_chip_list(config)
 
         # Set initial injection realization number
         self.set_realization(realization)
 
         # Setup new Balrog config file for chip to be called by GalSim executable
         self._setup_bal_config(config)
+
+        # Load zeropoint list from file
+        self._load_zeropoints(config)
+
+        self._create_chip_list(config)
 
         # Keep track if any injections into tile have been made
         self.has_injections = False
@@ -191,23 +195,11 @@ class Tile(object):
         For now, just set to 'griz'. May want to use a different subset in the future.
         '''
 
+        # For convenience of later functions
+        self.bands = config.bands
+
         # Will store directory locatations for each band
         self.band_dir = {}
-
-        try:
-            # Grab selected bands in config, if present
-            self.bands = config.gs_config[0]['image']['bands']
-
-            # Make sure there aren't any incorrect inputs
-            for band in self.bands:
-                if band not in _allowed_bands:
-                    raise ValueError('Passed band {} is not one of the allowed bands in {}'\
-                                     .format(band, _allowed_bands))
-
-        except KeyError:
-            # By default, use griz
-            print('Warning: No injection bands were passed in config. Using `griz` by default')
-            self.bands = 'griz'
 
         for band in self.bands:
             self.band_dir[band] = os.path.join(self.dir, 'nullwt-{}'.format(band))
@@ -215,50 +207,15 @@ class Tile(object):
 	    try:
 	        os.makedirs(self.band_dir[band])
             except OSError as e:
-		if e.errno == errno.EACCES:
-		    # ok if directory already exists
-		    print('permission error')
-		elif e.errno == errno.EEXIST:
-		    # ok if directory already exists
-		    pass
-		else:
-		    raise e
-
-        return
-
-    def _create_chip_list(self,config):
-        '''
-        Given nullweight file locations, create chip lists for each band.
-        '''
-
-        # Store all chips in dictionary
-        self.chip_list = {}
-        self.chips = {}
-
-        # pudb.set_trace()
-        for band, b_dir in self.band_dir.items():
-            self.chip_list[band] = []
-            self.chips[band] = []
-            # Get list of files in nullwt directory
-            #TODO: Check if the directory exists! (check if solution works)
-            try:
-                file_list = os.listdir(b_dir)
-            except OSError:
-                # This tile does not have chip images in this band
-                file_list = None
-                continue
-            # Check that it is a nullwt fits file
-            for f in file_list:
-                #TODO: Check if fits file is actually a nullwt image
-                # ischip = self.is_nullwt_chip(f)
-                if f.endswith('nullwt.fits'): self.chip_list[band].append(f)
-
-                # Add chip to list
-                filename = os.path.join(b_dir, f)
-                # pudb.set_trace()
-                self.chips[band].append(Chip(filename, band, config, tile_name=self.tile_name))
-
-        # pudb.set_trace()
+                if e.errno == errno.EACCES:
+                    # ok if directory already exists
+                    # print('permission error')
+                    pass
+                elif e.errno == errno.EEXIST:
+                    # ok if directory already exists
+                    pass
+                else:
+                    raise e
 
         return
 
@@ -306,6 +263,82 @@ class Tile(object):
         # Keep track if balrog config has been modified from original
         # TODO/NOTE: Probably don't need for this implementation; delete soon.
         # self.bal_config_modified is False:
+
+        return
+
+    def _load_zeropoints(self, config, s_begin=0, s_end=4):
+        '''
+        Construct {chip : zeropoint} dictionaries for each band using the following files:
+        {tile}/lists/{tile}_{band}_nullwt-flist-{version}.dat
+        `s_begin` and `s_end` are used to determine how to grab a chip name from the chip
+        filename.
+        '''
+
+        zp_dir = os.path.join(config.tile_dir, self.tile_name, 'lists')
+        self.zeropoint_files = {}
+        self.zeropoints = {}
+
+        for band in self.bands:
+            zp_filename = '{}_{}_nullwt-flist-{}.dat'.format(self.tile_name, band, config.data_version)
+            self.zeropoint_files[band] = os.path.join(zp_dir, zp_filename)
+
+            # Will store zeropoints as {chip_name : zeropoint} for each band
+            self.zeropoints[band] = {}
+
+            with open(self.zeropoint_files[band]) as f:
+                for line in f.readlines():
+                    line_data = line.replace('\n','').split(' ')
+                    # Determine chip name from path
+                    chip_file, zp = ntpath.basename(line_data[0]), line_data[1]
+                    # NOTE: Easier to handle chip filename rather than actual name
+                    # chip_name = '_'.join(chip_file.split('_')[s_begin:s_end])
+
+                    # self.zeropoints[band][chip_name] = zp
+                    self.zeropoints[band][chip_file] = zp
+
+        pudb.set_trace()
+
+        return
+
+    def _create_chip_list(self,config):
+        '''
+        Given nullweight file locations, create chip lists for each band.
+        '''
+
+        # Store all chips in dictionary
+        self.chip_list = {}
+        self.chips = {}
+
+        # pudb.set_trace()
+        for band, b_dir in self.band_dir.items():
+            self.chip_list[band] = []
+            self.chips[band] = []
+            # Get list of files in nullwt directory
+            #TODO: Check if the directory exists! (check if solution works)
+            try:
+                file_list = os.listdir(b_dir)
+            except OSError:
+                # This tile does not have chip images in this band
+                file_list = None
+                continue
+            # Check that it is a nullwt fits file
+            for f in file_list:
+                #TODO: Check if fits file is actually a nullwt image
+                # ischip = self.is_nullwt_chip(f)
+                if f.endswith('nullwt.fits'): self.chip_list[band].append(f)
+
+                # Grab chip zeropoint for this file
+                # QUESTION: Should we allow chips that aren't in the .dat file and
+                #           just assign a zp of 30?
+                zp = self.zeropoints[band][f]
+
+                # Add chip to list
+                filename = os.path.join(b_dir, f)
+                # pudb.set_trace()
+                self.chips[band].append(Chip(filename, band, config, tile_name=self.tile_name,
+                                             zeropoint=zp))
+
+        # pudb.set_trace()
 
         return
 
@@ -603,18 +636,18 @@ class Chip(object):
     # of the chip image is roated ccw by 90 deg's.
     '''
 
-    def __init__(self, filename, band, config, tile_name=None):
+    def __init__(self, filename, band, config, tile_name=None, zeropoint = 30.0):
 
         self.filename = filename
         self.fits_filename = ntpath.basename(filename)
         self.tile_name = tile_name # Name of parent tile, if given
         self.band = band
+        self.zeropoint = zeropoint
         self.input_type = config.input_type
 
         self._set_name(config)
         self._set_psf(config)
         self._set_wcs()
-        self._set_zeropoint()
 
         return
 
@@ -725,10 +758,14 @@ class Chip(object):
 
     def set_zeropoint(self, config):
         '''
-        Grab the chip zeropoint from the {tile}/lists/{tile}_{band}_nullwt-flist-{version}.dat
-        file.
         '''
-        pass
+
+        # self.zeropoint = config.
+
+
+
+
+        return
 
     def contained_in_chip(self, pos):
         '''
@@ -765,10 +802,9 @@ class Chip(object):
         with fits.open(self.filename) as f:
             hdu0 = f[0]
             try:
-	        # TODO: This is for old version of astropy!
+                # TODO: This is for old version of astropy!
                 #hdu0.writeto(outfile, overwrite=True)
-		hdu0.writeto(outfile, clobber=True)
-		
+                hdu0.writeto(outfile, clobber=True)
             except (IOError, OSError):
                 path = os.path.dirname(outfile)
                 # To deal with race condition...
@@ -783,7 +819,7 @@ class Chip(object):
                         time.sleep(0.5)
 
                 # Now directory is guaranteed to exist
-	        # TODO: This is for old version of astropy!
+                # TODO: This is for old version of astropy!
                 #hdu0.writeto(outfile, overwrite=True)
                 hdu0.writeto(outfile, clobber=True)
 
@@ -920,6 +956,21 @@ class Config(object):
             self.n_galaxies = 1000 # Keep it small for default!
             print('Warning: Neither n_galaxies nor gal_density was passed in config file. ' +
                   'Using default of {} galaxies per tile'.format(self.n_galaxies))
+
+        # Process in put 'bands'
+        try:
+            # Grab selected bands in config, if present
+            self.bands = self.gs_config[0]['image']['bands']
+
+            # Make sure there aren't any incorrect inputs
+            for band in self.bands:
+                if band not in _allowed_bands:
+                    raise ValueError('Passed band {} is not one of the allowed bands in {}'\
+                                     .format(band, _allowed_bands))
+        except KeyError:
+            # By default, use griz
+            print('Warning: No injection bands were passed in config. Using `griz` by default')
+            self.bands = 'griz'
 
         try:
             self.data_version = self.gs_config[0]['image']['version']
