@@ -23,6 +23,7 @@ import galsim
 import csv
 import yaml
 import argparse
+import datetime
 import itertools
 # TODO: Have automatic check for astropy vs. fitsio!
 # try: import fitsio
@@ -587,8 +588,30 @@ class Tile(object):
         truth_table['ra'] = self.gals_pos[self.curr_real][:,0]
         truth_table['dec'] = self.gals_pos[self.curr_real][:,1]
 
+        # Convert to HDU
+        tHDU = fits.table_to_hdu(truth_table)
+
+        # Fill primary HDU with simulation metadata
+        hdr = fits.Header()
+        for arg in vars(config.args):
+            hdr['HIERARCH '+str(arg)] = getattr(config.args, arg)
+        hdr['HIERARCH inj_time'] = str(datetime.datetime.now())
+        hdr['HIERARCH inj_bands'] = config.bands
+        hdr['HIERARCH input_type'] = config.input_type
+        if config.n_galaxies:
+            hdr['HIERARCH n_galaxies'] = config.n_galaxies
+        if config.gal_density:
+            hdr['HIERARCH gal_density'] = config.gal_density
+
+        hdr['HIERARCH n_realizations'] = config.n_realizations
+        hdr['HIERARCH curr_real'] = self.curr_real
+        hdr['HIERARCH data_version'] = config.data_version
+        pHDU = fits.PrimaryHDU(header=hdr)
+
+        hdul = fits.HDUList([pHDU, tHDU])
+
         try:
-            truth_table.write(outfile, overwrite=True)
+            hdul.writeto(outfile, overwrite=True)
         except IOError:
             # Directory structure will not exist if galsim call failed
             print('Warning: Injection for tile {}, realization {} failed! '
@@ -759,17 +782,6 @@ class Chip(object):
         self.naxis2_range = [np.min(self.corners_im[:,1]), np.max(self.corners_im[:,1])]
 
         # pudb.set_trace()
-
-        return
-
-    def set_zeropoint(self, config):
-        '''
-        '''
-
-        # self.zeropoint = config.
-
-
-
 
         return
 
@@ -1097,77 +1109,6 @@ class Config(object):
 
         return
 
-    # def add_gs_injection(self, config, tile_name, chip, gals_pos_im, band):
-    #     '''
-    #     WARNING: Deprecated!!
-    #     This function appends the global GalSim config with an additional simulation to
-    #     be done using nullwt chip-specific infomation and Balrog injected galaxy positions
-    #     in image coordinates.
-    #     NOTE: The original inputted config structure is saved in
-    #     self.original_gs_config.
-    #     NOTE/TODO: This is only used if you modify the config dictionary directly. We may
-    #     be switching to appended yaml files soon.
-    #     '''
-
-    #     chip_file = chip.filename
-    #     # TODO: Eventually, give it a more sensible name
-    #     out_file = self.output_dir + tile_name + '/' + chip.band + '/BALROG_' + chip.fits_filename
-
-    #     if self.gs_config_modified is False:
-    #         # If this is the first GalSim injection added,
-    #         # then just modify the original config
-    #         i = 0
-    #         self.gs_config_modified = True
-    #     else:
-    #         # Add a new entry to the config w/ same values
-    #         # as original gs config file
-    #         self.gs_config.append(self.orig_gs_config[0])
-    #         i = len(self.gs_config) - 1
-
-    #     # Set initial image, chip wcs, and galaxy positions
-    #     x, y = gals_pos_im[:,0].tolist(), gals_pos_im[:,1].tolist()
-	# nobjs = len(gals_pos_im)
-    #     self.gs_config[i]['image'] = {
-    #         'initial_image' : chip_file,
-	#     'nobjects' : nobjs,
-    #         'wcs' : { 'file_name' : chip_file },
-    #         'image_pos' : {
-    #             'type' : 'XY',
-    #             'x' : { 'type' : 'List', 'items' : x },
-    #             'y' : { 'type' : 'List', 'items' : y }
-    #         }
-    #     }
-
-    #     # Set the initial image and output filenames
-    #     self.gs_config[i]['output']['file_name'] = out_file
-
-    #     return
-
-    def append_bal_config(self, tile_name, chip, gals_pos_im):
-        '''
-        An alternative to add_gs_injection() (that may eventually replace it).
-        Sidesteps issues with running GalSim manually and allows the use of the
-        GalSim executable with multi-output yaml files.
-        # TODO: Would be good to allow more config input types (like .json) in
-        future.
-        '''
-
-        # have base config as only document; make sure it's not a multi-output file beforehand
-        bal_config = list(yaml.safe_load_all(self.bal_config_file))
-
-        # Make sure that config length hasn't been modified incorrectly
-        c_len = len(bal_config)
-        if c_len != self.bal_config_len:
-            raise Exception('Warning: appended config has been incorrectly modified! Should have',
-                            '{} entries, but currently has {}'.format(c_len, self.bal_config_len))
-
-        # for each chip, append new dictionary & fill it w/ relevant info
-        # bal_config
-        # after all chips, use yaml.dump_all(config, appended_file) to write multi-output yaml file
-        # use galsim executible on appended file and run all simultaneously!
-
-        return
-
     def reset_gs_config(self):
         '''
         This function resets the gs_config after a tile is run.
@@ -1182,28 +1123,6 @@ class Config(object):
             self.gs_config_modified = False
 
         # If gs_config_modified is False, then there is nothing to reset!
-
-        return
-
-    def run_galsim(self):
-        '''
-        Run full GalSim executable of the modified gs_config. Will inject all Balrog
-        galaxies contained in a given tile for a given realization in all chips in
-        all bands.
-        '''
-
-        # Import any modules if requested
-        # ImportModules(config)
-
-        # pudb.set_trace()
-
-        # Need to register Balrog as a valid image type
-        # BalrogImageBuilder = balrog.Balr
-        # galsim.config.RegisterImageType('Balrog', injector.BalrogImageBuilder())
-
-        for i in range(len(self.gs_config)):
-            if self.vb: print('Injecting chip {} of {}'.format(i,len(self.gs_config)))
-            galsim.config.Process(self.gs_config[i])
 
         return
 
@@ -1377,10 +1296,10 @@ def parse_args():
 #-------------------------------------------------------------------------------
 
 # Run top-level Balrog script
+# TODO: In future, make this `RunDESBalrog`, or something similar to allow for other stacks
 def RunBalrog():
     '''
     Main Balrog call.
-    #TODO: Write description!
     '''
 
     # Parse command line arguments
@@ -1404,6 +1323,7 @@ def RunBalrog():
 
     # Now loop over all tiles slated for injection:
     # TODO: This should be parallelized with `multiprocessing` in future
+    #       Or maybe numba?
     for tile in tiles:
         # pudb.set_trace()
         config.reset_gs_config()
@@ -1411,11 +1331,9 @@ def RunBalrog():
         if vb: print('Injecting Tile {}'.format(tile.tile_name))
 
         # TODO: This (maybe?) should be parallelized with `multiprocessing` in future
+        #       Or maybe numba?
         for real in range(config.n_realizations):
             # Reset gs config for each new realization
-            # TODO/config: decide on implementation!
-            # config.reset_gs_config()
-            # config.set_realization(i)
             tile.set_realization(real)
             tile.reset_bal_config(config)
             tile.generate_galaxies(config, real)
