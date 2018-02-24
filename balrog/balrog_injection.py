@@ -296,7 +296,7 @@ class Tile(object):
                     # self.zeropoints[band][chip_name] = zp
                     self.zeropoints[band][chip_file] = zp
 
-        pudb.set_trace()
+        # pudb.set_trace()
 
         return
 
@@ -586,7 +586,13 @@ class Tile(object):
         # Now update ra/dec positions for truth catalog
         truth_table['ra'] = self.gals_pos[self.curr_real][:,0]
         truth_table['dec'] = self.gals_pos[self.curr_real][:,1]
-        truth_table.write(outfile, overwrite=True)
+
+        try:
+            truth_table.write(outfile, overwrite=True)
+        except IOError:
+            # Directory structure will not exist if galsim call failed
+            print('Warning: Injection for tile {}, realization {} failed! '
+                   'Skipping truth-table writing.'.format(self.tile_name, self.curr_real))
 
         return
 
