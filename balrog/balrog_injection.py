@@ -11,7 +11,7 @@
 #####################################################################
 
 import numpy as np
-import pudb
+# import pudb
 import os, sys, errno
 import warnings
 import subprocess
@@ -290,7 +290,7 @@ class Tile(object):
                 for line in f.readlines():
                     line_data = line.replace('\n','').split(' ')
                     # Determine chip name from path
-                    chip_file, zp = ntpath.basename(line_data[0]), line_data[1]
+                    chip_file, zp = ntpath.basename(line_data[0]), float(line_data[1])
                     # NOTE: Easier to handle chip filename rather than actual name
                     # chip_name = '_'.join(chip_file.split('_')[s_begin:s_end])
 
@@ -461,6 +461,7 @@ class Tile(object):
         # Skip injection if no positions are passed
         if len(gals_pos_im) == 0:
             # TODO: Print warning!
+            # NOTE: Likely handled explicitly now; check this!
             return
 
         # pudb.set_trace()
@@ -475,7 +476,7 @@ class Tile(object):
         # Set initial image, chip wcs, and galaxy positions
         chip_file = chip.filename
         x, y = gals_pos_im[:,0].tolist(), gals_pos_im[:,1].tolist()
-	nobjs = len(gals_pos_im)
+        nobjs = len(gals_pos_im)
         # pudb.set_trace()
         self.bal_config[i]['image'] = {
             'initial_image' : chip_file,
@@ -490,7 +491,9 @@ class Tile(object):
 
         # Set the injected galaxies' catalog indices
         indices = gals_indx.tolist()
+        ff = float(chip.flux_factor)
         self.bal_config[i]['gal'] = {
+            'scale_flux' : ff,
             'index' : {
                 'type' : 'List',
                 'items' : indices
@@ -666,7 +669,7 @@ class Chip(object):
     # of the chip image is roated ccw by 90 deg's.
     '''
 
-    def __init__(self, filename, band, config, tile_name=None, zeropoint = 30.0):
+    def __init__(self, filename, band, config, tile_name=None, zeropoint=30.0):
 
         self.filename = filename
         self.fits_filename = ntpath.basename(filename)
@@ -678,6 +681,7 @@ class Chip(object):
         self._set_name(config)
         self._set_psf(config)
         self._set_wcs()
+        self._set_flux_factor(config)
 
         return
 
@@ -783,6 +787,15 @@ class Chip(object):
         self.naxis2_range = [np.min(self.corners_im[:,1]), np.max(self.corners_im[:,1])]
 
         # pudb.set_trace()
+
+        return
+
+    def _set_flux_factor(self, config):
+        '''
+        Calculate and set the flux factor needed to consistently lay down fluxes from the
+        input catalog given different image zeropoints.
+        '''
+        self.flux_factor = np.power(10.0, 0.4 * (self.zeropoint - config.input_zp))
 
         return
 
@@ -1092,6 +1105,10 @@ class Config(object):
             cat_proxy = self.gs_config[0]['input_objs']['ngmix_catalog'][0] # Actually a proxy
             self.input_cat = cat_proxy.getCatalog()
             self.input_nobjects = cat_proxy.getNObjects()
+
+            # TODO: See if we can load this, rather than set explicitly (but true for y3v02)
+            # Set input catalog zeropoint
+            self.input_zp = 30.0
 
         else:
             # Add more types later!
