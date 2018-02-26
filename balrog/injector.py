@@ -22,7 +22,7 @@ galsim.config.RegisterImageType('AddOn', AddOnImageBuilder())
 class BalrogImageBuilder(AddOnImageBuilder):
 
     def setup(self, config, base, image_num, obj_num, ignore, logger):
-        ignore = ignore + ['bands', 'n_realizations', 'n_galaxies', 'gal_density', 'version']
+        ignore = ignore + ['bands', 'n_realizations', 'n_galaxies', 'gal_density', 'version', 'run_name']
         # full_xsize, full_ysize = super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
         full_xsize, full_ysize = super(BalrogImageBuilder, self).setup(config, base, image_num, obj_num, ignore, logger)
 

@@ -593,6 +593,7 @@ class Tile(object):
 
         # Fill primary HDU with simulation metadata
         hdr = fits.Header()
+        hdr['HIERARCH run_name'] = config.run_name
         for arg in vars(config.args):
             hdr['HIERARCH '+str(arg)] = getattr(config.args, arg)
         hdr['HIERARCH inj_time'] = str(datetime.datetime.now())
@@ -975,7 +976,7 @@ class Config(object):
             print('Warning: Neither n_galaxies nor gal_density was passed in config file. ' +
                   'Using default of {} galaxies per tile'.format(self.n_galaxies))
 
-        # Process in put 'bands'
+        # Process input 'bands'
         try:
             # Grab selected bands in config, if present
             self.bands = self.gs_config[0]['image']['bands']
@@ -990,12 +991,25 @@ class Config(object):
             print('Warning: No injection bands were passed in config. Using `griz` by default')
             self.bands = 'griz'
 
+        # Process input 'version'
         try:
             self.data_version = self.gs_config[0]['image']['version']
         except KeyError:
             # Warn user, but assume y3v02 for now
             warnings.warn('Data version not passed in config! Assuming y3v02.')
             self.data_version = 'y3v02'
+
+        # Process input 'run_name'
+        try:
+            rname = self.gs_config[0]['image']['run_name']
+            if not isinstance(rname, basestring):
+                raise ValueError("The input `run_name` must be a string!")
+            self.run_name = rname
+        except KeyError:
+            # TODO: Maybe come up with sensible default run name?
+            #       Current metadata should provide enough info for now.
+            # self.run_name = 'None'
+            self.run_name = None
 
         # if not self.n_galaxies:
         #     # Default is 1000 galaxies per tile
