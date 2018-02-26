@@ -83,7 +83,7 @@ class ngmixCatalog(object):
             import os
             file_name = os.path.join(dir,file_name)
         if not isinstance(file_name, basestring):
-            raise ValueError("The inputted filename must be a string!")
+            raise ValueError("The input filename must be a string!")
         self.file_name = file_name
 
         if catalog_type:
