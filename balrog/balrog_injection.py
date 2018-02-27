@@ -13,6 +13,7 @@
 import numpy as np
 # import pudb
 import os, sys, errno
+import cPickle as pickle
 import warnings
 import subprocess
 import shutil
@@ -38,20 +39,20 @@ import injector
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
-# TODO: Correctly normalize galaxy injections! (May be correct as is, per Erin)
-# TODO: Implement error handling for galaxy injections / gsparams!
+# TODO: Correctly normalize galaxy injections! (May be correct after zeropoint fix, check!)
+# TODO: Implement error handling for galaxy injections / gsparams! (I think fixed now)
 # TODO: Use fitsio when available!
-# TODO: Figure out permission issue!
-# TODO: Get rid of extra / on config file parsing!
 
 # Some extra todo's:
+# TODO: Get rid of extra / on config file parsing!
 # TODO: Implement some print statements as warnings
 # TODO: Redistribute config.galaxies_remainder among first m<n reals, rather than all at end
 # TODO: Make filename concatenation more robust! (Mostly done)
 # TODO: Clean up old gs_config!! (Maybe allow different options?)
-        # NOTE: gs_config implementation currently does not work as intended
+        # NOTE: gs_config implementation does not work and can be deleted. Using alternative
 # TODO: More general geometry file inputs
 # TODO: Add check for python path!
+# TODO: Figure out permission issue!
 # TODO: Make a log system!
 # TODO: Should be able to handle passing geometry file and directories in config OR command line consistently!
 # TODO: Add a single seed for each tile w/r/t noise realizations
@@ -128,6 +129,9 @@ class Tile(object):
 
         # Load zeropoint list from file
         self._load_zeropoints(config)
+
+        # TODO: TESTING! Can remove in future
+        config.flux_factors[self.tile_name] = {}
 
         self._create_chip_list(config)
 
@@ -797,6 +801,9 @@ class Chip(object):
         '''
         self.flux_factor = np.power(10.0, 0.4 * (self.zeropoint - config.input_zp))
 
+        # TODO: TESTING! Can remove in future
+        config.flux_factors[self.tile_name][self.name] = self.flux_factor
+
         return
 
     def contained_in_chip(self, pos):
@@ -891,6 +898,9 @@ class Config(object):
         self.config_dir = args.config_dir
         self.psf_dir = args.psf_dir
         self.output_dir = args.output_dir
+
+        # TODO: TESTING! Can remove in future
+        self.flux_factors = {}
 
         # Set directories to empty string if none passed
         if self.tile_dir is None: self.tile_dir = ''
@@ -1405,6 +1415,9 @@ def RunBalrog():
 
             # pudb.set_trace()
 
+    # TODO: TESTING!! Can remove in future
+    outfile = os.path.join(config.output_dir, 'configs', 'tile_flux_factors.p')
+    with open(outfile, 'wb') as f: pickle.dump(config.flux_factors, f)
     # pudb.set_trace()
 
     return
