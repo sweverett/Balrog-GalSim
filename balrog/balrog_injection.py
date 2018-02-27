@@ -28,6 +28,7 @@ import datetime
 import itertools
 # TODO: Have automatic check for astropy vs. fitsio!
 # try: import fitsio
+import fitsio
 # except: import astropy
 # from fitsio import FITS, FITSHDR, etc.
 from astropy.io import fits
@@ -589,53 +590,90 @@ class Tile(object):
         # pudb.set_trace()
 
         truth = config.input_cat[self.gals_indx[self.curr_real]]
-        truth_table = Table(truth)
 
         # Now update ra/dec positions for truth catalog
-        truth_table['ra'] = self.gals_pos[self.curr_real][:,0]
-        truth_table['dec'] = self.gals_pos[self.curr_real][:,1]
-
-        # Convert to HDU
-        tHDU = fits.table_to_hdu(truth_table)
-
-        # Fill primary HDU with simulation metadata
-        hdr = fits.Header()
-        hdr['HIERARCH run_name'] = config.run_name
-        for arg in vars(config.args):
-            hdr['HIERARCH '+str(arg)] = getattr(config.args, arg)
-        hdr['HIERARCH inj_time'] = str(datetime.datetime.now())
-        hdr['HIERARCH inj_bands'] = config.bands
-        hdr['HIERARCH input_type'] = config.input_type
-        if config.n_galaxies:
-            hdr['HIERARCH n_galaxies'] = config.n_galaxies
-        if config.gal_density:
-            hdr['HIERARCH gal_density'] = config.gal_density
-
-        hdr['HIERARCH n_realizations'] = config.n_realizations
-        hdr['HIERARCH curr_real'] = self.curr_real
-        hdr['HIERARCH data_version'] = config.data_version
-        pHDU = fits.PrimaryHDU(header=hdr)
-
-        hdul = fits.HDUList([pHDU, tHDU])
+        truth['ra'] = self.gals_pos[self.curr_real][:,0]
+        truth['dec'] = self.gals_pos[self.curr_real][:,1]
 
         try:
-            hdul.writeto(outfile, overwrite=True)
+            truth_table = fitsio.FITS(outfile, 'rw', clobber=True)
         except IOError:
             # Directory structure will not exist if galsim call failed
             print('Warning: Injection for tile {}, realization {} failed! '
                    'Skipping truth-table writing.'.format(self.tile_name, self.curr_real))
+
+        truth_table.write(truth)
+
+        # Fill primary HDU with simulation metadata
+        # hdr = fits.Header()
+        hdr = {}
+        hdr['run_name'] = config.run_name
+        hdr['config_file'] = config.args.config_file
+        hdr['geom_file'] = config.geom_file
+        hdr['tile_list'] = config.args.tile_list
+        hdr['config_dir'] = config.config_dir
+        hdr['tile_dir'] = config.tile_dir
+        hdr['output_dir'] = config.output_dir
+        hdr['psf_dir'] = config.psf_dir
+        hdr['inj_time'] = str(datetime.datetime.now())
+        hdr['inj_bands'] = config.bands
+        hdr['input_type'] = config.input_type
+        if config.n_galaxies:
+            hdr['n_galaxies'] = config.n_galaxies
+        if config.gal_density:
+            hdr['gal_density'] = config.gal_density
+        hdr['n_realizations'] = config.n_realizations
+        hdr['curr_real'] = self.curr_real
+        hdr['data_version'] = config.data_version
+        # for arg in vars(config.args):
+        #     hdr[str(arg)] = getattr(config.args, arg)
+
+        truth_table[0].write_keys(hdr)
+
+        # NOTE: Old version based off of astropy
+        # truth_table = Table(truth)
+
+        # hdr['HIERARCH run_name'] = config.run_name
+        # for arg in vars(config.args):
+        #     hdr['HIERARCH '+str(arg)] = getattr(config.args, arg)
+        # hdr['HIERARCH inj_time'] = str(datetime.datetime.now())
+        # hdr['HIERARCH inj_bands'] = config.bands
+        # hdr['HIERARCH input_type'] = config.input_type
+        # if config.n_galaxies:
+        #     hdr['HIERARCH n_galaxies'] = config.n_galaxies
+        # if config.gal_density:
+        #     hdr['HIERARCH gal_density'] = config.gal_density
+
+        # hdr['HIERARCH n_realizations'] = config.n_realizations
+        # hdr['HIERARCH curr_real'] = self.curr_real
+        # hdr['HIERARCH data_version'] = config.data_version
+
+        # TODO: works w/ astropy 1.2.2 and above, but fermi doesn't currently have that :(
+        # Convert to HDU
+        # tHDU = fits.table_to_hdu(truth_table)
+
+        # pHDU = fits.PrimaryHDU(header=hdr)
+
+        # hdul = fits.HDUList([pHDU, tHDU])
+
+        # try:
+        #     hdul.writeto(outfile, overwrite=True)
+        # except IOError:
+        #     # Directory structure will not exist if galsim call failed
+        #     print('Warning: Injection for tile {}, realization {} failed! '
+        #            'Skipping truth-table writing.'.format(self.tile_name, self.curr_real))
 
         return
 
 #-------------------------
 # Related Tile functions
 
-def create_tiles(args, config):
+def create_tiles(config):
     '''
     Create list of `Tile` objects given input args and configuration file.
     '''
 
-    tile_list = load_tile_list(args.tile_list, config)
+    tile_list = load_tile_list(config.tile_list, config)
 
     # pudb.set_trace()
 
@@ -902,15 +940,19 @@ class Config(object):
         # TODO: TESTING! Can remove in future
         self.flux_factors = {}
 
-        # Set directories to empty string if none passed
+        # Set directory defaults if none passed
         if self.tile_dir is None: self.tile_dir = ''
         if self.config_dir is None: self.config_dir = ''
         if self.psf_dir is None: self.psf_dir = 'psfs'
-        if self.output_dir is None: self.output_dir = 'balrog_images/'
-        # TODO: Can we make a version of this work?
-        # for d in [self.tile_dir, self.config_dir, self.output_dir]:
-        #     if d is None: d = ''
+        if self.output_dir is None: self.output_dir = 'balrog_outputs/'
         # TODO: Allow multiple config file types (.yaml, .json, etc.)
+
+        # pudb.set_trace()
+        # Set absolute paths
+        self.tile_dir = os.path.abspath(self.tile_dir)
+        self.config_dir = os.path.abspath(self.config_dir)
+        self.output_dir = os.path.abspath(self.output_dir)
+        self.tile_list = os.path.abspath(self.args.tile_list)
 
         # Process GalSim config file
         self._read_gs_config()
@@ -925,7 +967,7 @@ class Config(object):
         # Process .yaml config file
         # TODO: Allow multiple config types
 
-        self.gs_config_file = self.config_dir + self.args.config_file
+        self.gs_config_file = os.path.join(self.config_dir, self.args.config_file)
         # Add config directory path, if needed
         # if self.args.config_dir:
         #     self.gs_config_file = self.args.config_dir + self.gs_config_file
@@ -1065,10 +1107,6 @@ class Config(object):
         #     # TODO: Make reasonable assumption about file in local directory
         #     # (e.g. serach for 'Y{}A{}GEOM', or similar)
         #     raise Exception('For now, must pass a geometry file! (e.g. `Y3A2_COADDTILE_GEOM.fits`)')
-
-        # Add geom dir path, if needed (must be same as config directory)
-        if self.config_dir:
-            self.geom_file = self.args.config_dir + self.geom_file
 
         # Load unique area bounds from DES coadd tile geometry file
         with fits.open(self.geom_file) as hdu_geom:
@@ -1356,7 +1394,7 @@ def RunBalrog():
 
     # Determine which tiles will have injections
     if vb: print('Creating tiles...')
-    tiles = create_tiles(args, config)
+    tiles = create_tiles(config)
 
     # Set up output directory structure
     if vb: print('Setting up output directory...')
