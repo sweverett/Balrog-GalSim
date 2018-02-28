@@ -83,10 +83,12 @@ class desStarCatalog(object):
 
         # TODO: Would be nice to have a check for valid DES tile names!
         # tile check...
+        self.tile = tile
 
         if model_type not in self._valid_model_types:
             raise ValueError('{} is not a valid model type! '.format(model_type) +
                              'Currently allowed types are {}'.format(self._valid_model_types))
+        self.model_type = model_type
 
         if bands:
             if isinstance(bands, basestring):
@@ -147,8 +149,8 @@ class desStarCatalog(object):
 
         if self.data_version == 'y3v02':
             self.model_dir = os.path.join(self.base_dir, self.model_type)
-            filename = 'Model_{}.{}'.format(self.tile_name, self.data)
-            self.cat_file = os.path.join(self.model_dir, self.file_type)
+            filename = 'Model_{}.{}'.format(self.tile, self.file_type)
+            self.cat_file = os.path.join(self.model_dir, filename)
 
             if self.file_type == 'csv':
                 # TODO: I believe GalSim has a built in CSV reader; worth looking at
