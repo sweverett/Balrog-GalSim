@@ -65,7 +65,7 @@ class desStarCatalog(object):
     # Dictionary of color band flux to array index in star catalog
     _band_index = {'g' : 0, 'r' : 1, 'i' : 2, 'z' : 3}
 
-    def __init__(self, base_dir, model_type, file_type=None, data_version=None, bands=None, zeropoint=None):
+    def __init__(self, base_dir, model_type, tile, file_type=None, data_version=None, bands=None, zeropoint=None):
 
         if not os.path.isdir(base_dir):
             raise ValueError('{} is not a valid directory or does not exist!'.format(base_dir))
@@ -73,19 +73,20 @@ class desStarCatalog(object):
 
         if not data_version:
             warnings.warn('No data version passed - assuming `y3v02`.')
-            self.data_version = 'y3v02'
-        if self.data_version not in _valid_data_versions:
+            data_version = 'y3v02'
+        if data_version not in self._valid_data_versions:
             raise ValueError('`{}` does not have an implementation built yet! '.format(self.data_version),
                              'Feel free to add it!')
+        self.data_version = data_version
 
         self._set_valid_model_types()
 
         # TODO: Would be nice to have a check for valid DES tile names!
         # tile check...
 
-        if model_type not in valid_model_types:
-            raise ValueError('{} is not a valid model type !'.format(model_type),
-                             'Currently allowed types are {}'.format(_valid_model_types))
+        if model_type not in self._valid_model_types:
+            raise ValueError('{} is not a valid model type! '.format(model_type) +
+                             'Currently allowed types are {}'.format(self._valid_model_types))
 
         if bands:
             if isinstance(bands, basestring):
@@ -99,7 +100,7 @@ class desStarCatalog(object):
                     raise ValueError("The only valid color bands for a des star catalog are \'griz'\'!")
             else:
                 # TODO: Wouldn't be a bad idea to allow a list of individual bands as well
-                raise ValueError('Must enter desired color bands as a string!',
+                raise ValueError('Must enter desired color bands as a string!' +
                                  ' (For example, `bands : \'gr\'`')
         else:
             # Set the 'g' band to be the default behaviour, although warn user
@@ -107,9 +108,9 @@ class desStarCatalog(object):
             self.bands = ['g']
 
         if file_type:
-            if file_type not in _valid_file_types:
-                raise ValueError('{} is not a valid file type! '.format(file_type)
-                                 'Currently allowed types are {}'.format(_valid_file_types))
+            if file_type not in self._valid_file_types:
+                raise ValueError('{} is not a valid file type! '.format(file_type) +
+                                 'Currently allowed types are {}'.format(self._valid_file_types))
         else:
             # Default is csv
             self.file_type = 'csv'
@@ -128,13 +129,13 @@ class desStarCatalog(object):
 
         if self.data_version == 'y3v02':
             # There are the full-density models...
-            global _valid_model_types = ['Model', 'Model_16.5-26.5', 'Model_16.5-27.5']
+            self._valid_model_types = ['Model', 'Model_16.5-26.5', 'Model_16.5-27.5']
             # ...and the 'extra' density models, which are partitioned by percentage
             percents = np.arange(10, 110, 10, dtype=int)
             for per in percents:
-                global _valid_model_types.append('Extra_{}_percent'.format(per))
-                global _valid_model_types.append('Extra_{}_percent_16.5-26.5'.format(per))
-                global _valid_model_types.append('Extra_{}_percent_16.5-27.5'.format(per))
+                self._valid_model_types.append('Extra_{}_percent'.format(per))
+                self._valid_model_types.append('Extra_{}_percent_16.5-26.5'.format(per))
+                self._valid_model_types.append('Extra_{}_percent_16.5-27.5'.format(per))
 
         return
 
@@ -235,7 +236,6 @@ class desStarCatalog(object):
                                 details. [default: None]
         """
 
-        if 
         # Make rng if needed
         if index is None:
             if rng is None:
@@ -396,9 +396,9 @@ galsim.config.RegisterInputType('des_star_catalog', desStarCatalogLoader(desStar
 
 #####------------------------------------------------------------------------------------------------
 
-def build_desStarCatalog(config, base, ignore, gsparams, logger):
+def build_desStar(config, base, ignore, gsparams, logger):
     '''
-    Build a desStarCatalog type GSObject from user input.
+    Build a desStar type GSObject from user input.
     NOTE: If `image` type is set to `Balrog`, then there will be different behaviour. Will
     inject *all* stars whose positions are in the current image, *at* that position!
     '''
@@ -459,4 +459,4 @@ def build_desStarCatalog(config, base, ignore, gsparams, logger):
     return des_stars, False
 
 # Register this builder with the config framework:
-galsim.config.RegisterObjectType('desStarCatalog', build_desStarCatalog, input_type='des_star_catalog')
+galsim.config.RegisterObjectType('desStar', build_desStar, input_type='des_star_catalog')
