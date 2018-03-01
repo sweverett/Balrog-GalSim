@@ -14,7 +14,7 @@ import warnings
 import logging
 from past.builtins import basestring # Python 2&3 compatibility
 from astropy.io import ascii
-# import pudb
+import pudb
 
 class desStarCatalog(object):
     """ Class that handles Sahar's star catalogs for DES. These are cvs files with names typically
@@ -116,6 +116,15 @@ class desStarCatalog(object):
         else:
             # Default is csv
             self.file_type = 'csv'
+
+        if not zeropoint:
+            if self.data_version == 'y3v02':
+                # Catalogs made w/ zp of 30
+                self.zeropoint = 30.0
+            else:
+                # In future, may be different defaults
+                warnings.warn('No zeropoint passed; using default value of 30.0')
+                self.zeropoint = 30.0
 
         # self._setup_files()
         self._read_catalog()
@@ -281,7 +290,58 @@ class desStarCatalog(object):
     #------------------------------------------------------------------------------------------------
 
     def star2gs(self, index, gsparams):
-        pass
+
+        # Convert from dict to actual GsParams object
+        # TODO: Currently fails if gsparams isn't passed!
+        if gsparams: gsp = galsim.GSParams(**gsparams)
+        else: gsp = None
+
+        # List of individual band GSObjects
+        gsobjects = []
+
+        # Iterate over all desired bands
+        for band in self.bands:
+            if self.data_version == 'y3v02':
+
+                # Needed for all mag calculations
+                gmag = self.catalog['g_Corr'][index]
+
+                # Grab current band magnitude
+                if band == 'g':
+                    mag = gmag
+                elif band == 'r':
+                    mag = gmag + self.catalog['gr_Corr'][index]
+                elif band == 'i':
+                    mag = gmag + self.catalog['gr_Corr'][index] + self.catalog['ri_Corr'][index]
+                elif band == 'z':
+                    mag = gmag + self.catalog['gr_Corr'][index] + self.catalog['ri_Corr'][index] \
+                               + self.catalog['iz_Corr'][index]
+                else:
+                    raise ValueError('Band {} is not an allowed band input '.format(band) +
+                                     'for data_version of {}!'.format(self.data_version))
+
+                # Now convert to flux
+                flux = np.power(10.0, 0.4 * (self.zeropoint - mag))
+
+                # (star cats calibrated at zp=30)
+                # NOTE: Will just use `scale_flux` parameter in galsim config for now
+                # flux_factor = ...
+
+                # Stars are treated as a delta function, to be convolved w/ set PSF
+                star = galsim.DeltaFunction(flux)
+
+            else:
+                # Should already be checked by this point, but just to be safe:
+                raise ValueError('There is no implementation for `star2gs` for data_version ' +
+                                 'of {}'.format(self.data_version))
+
+            # Add galaxy in given band to list
+            gsobjects.append(star)
+
+        # NOTE: If multiple bands were passed, the fluxes are simply added together.
+        gs_star = galsim.Add(gsobjects)
+
+        return gs_star
 
     #------------------------------------------------------------------------------------------------
     @staticmethod
