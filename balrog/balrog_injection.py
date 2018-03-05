@@ -596,39 +596,43 @@ class Tile(object):
         truth['dec'] = self.gals_pos[self.curr_real][:,1]
 
         try:
-            truth_table = fitsio.FITS(outfile, 'rw', clobber=True)
+            with fitsio.FITS(outfile, 'rw', clobber=True) as truth_table:
+
+                truth_table.write(truth)
+
+                # Fill primary HDU with simulation metadata
+                # hdr = fits.Header()
+                hdr = {}
+                hdr['run_name'] = config.run_name
+                hdr['config_file'] = config.args.config_file
+                hdr['geom_file'] = config.geom_file
+                hdr['tile_list'] = config.args.tile_list
+                hdr['config_dir'] = config.config_dir
+                hdr['tile_dir'] = config.tile_dir
+                hdr['output_dir'] = config.output_dir
+                hdr['psf_dir'] = config.psf_dir
+                hdr['inj_time'] = str(datetime.datetime.now())
+                hdr['inj_bands'] = config.bands
+                hdr['input_type'] = config.input_type
+                if config.n_galaxies:
+                    hdr['n_galaxies'] = config.n_galaxies
+                if config.gal_density:
+                    hdr['gal_density'] = config.gal_density
+                hdr['n_realizations'] = config.n_realizations
+                hdr['curr_real'] = self.curr_real
+                hdr['data_version'] = config.data_version
+                # for arg in vars(config.args):
+                #     hdr[str(arg)] = getattr(config.args, arg)
+
+                truth_table[0].write_keys(hdr)
+
         except IOError:
             # Directory structure will not exist if galsim call failed
             print('Warning: Injection for tile {}, realization {} failed! '
                    'Skipping truth-table writing.'.format(self.tile_name, self.curr_real))
+            pass
 
-        truth_table.write(truth)
-
-        # Fill primary HDU with simulation metadata
-        # hdr = fits.Header()
-        hdr = {}
-        hdr['run_name'] = config.run_name
-        hdr['config_file'] = config.args.config_file
-        hdr['geom_file'] = config.geom_file
-        hdr['tile_list'] = config.args.tile_list
-        hdr['config_dir'] = config.config_dir
-        hdr['tile_dir'] = config.tile_dir
-        hdr['output_dir'] = config.output_dir
-        hdr['psf_dir'] = config.psf_dir
-        hdr['inj_time'] = str(datetime.datetime.now())
-        hdr['inj_bands'] = config.bands
-        hdr['input_type'] = config.input_type
-        if config.n_galaxies:
-            hdr['n_galaxies'] = config.n_galaxies
-        if config.gal_density:
-            hdr['gal_density'] = config.gal_density
-        hdr['n_realizations'] = config.n_realizations
-        hdr['curr_real'] = self.curr_real
-        hdr['data_version'] = config.data_version
-        # for arg in vars(config.args):
-        #     hdr[str(arg)] = getattr(config.args, arg)
-
-        truth_table[0].write_keys(hdr)
+        # truth_table = fitsio.FITS(outfile, 'rw', clobber=True)
 
         # NOTE: Old version based off of astropy
         # truth_table = Table(truth)
