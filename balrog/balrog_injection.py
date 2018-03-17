@@ -11,7 +11,7 @@
 #####################################################################
 
 import numpy as np
-# import pudb
+import pudb
 import os, sys, errno
 import cPickle as pickle
 import warnings
@@ -40,9 +40,9 @@ import injector
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
-# TODO: Correctly normalize galaxy injections! (May be correct after zeropoint fix, check!)
 # TODO: Implement error handling for galaxy injections / gsparams! (I think fixed now)
 # TODO: Use fitsio when available!
+# TODO: Clean up evals in add_gs_injection()!
 
 # Some extra todo's:
 # TODO: Get rid of extra / on config file parsing!
@@ -59,7 +59,7 @@ import injector
 # TODO: Add a single seed for each tile w/r/t noise realizations
 
 # Questions:
-# - Should we be doing sampling w/ or w/o replacement? (w/ replacement currently)
+# None curently
 
 #-------------------------------------------------------------------------------
 # Define currently allowed and types for various objects. For `allowed`, inputs
@@ -74,7 +74,7 @@ _supported_psf_types = ['DES_PSFEx']#, 'Piff'}
 _psf_extensions = {'DES_PSFEx' : 'psfexcat.psf'}#, 'Piff' : 'something.piff'}
 
 # TODO: Incorporate postage stamps!
-_supported_input_types = ['ngmix_catalog']#, 'postage_stamps'}
+_supported_input_types = ['ngmix_catalog', 'des_star_catalog']#, 'postage_stamps'}
 
 #-------------------------------------------------------------------------------
 # Tile class and functions
@@ -92,6 +92,13 @@ class Tile(object):
         self.tile_name = tile_name
         self.gals_pos = None # injected galaxy position array
         self.gals_indx = None # injected galaxy index array (from input catalog)
+        self.stars_pos = None # injected star position array
+        self.stars_indx = None # injected star index array (from input catalog)
+
+        # Grab input types
+        self.input_types = config.input_types
+        self.input_indx = config.input_indx
+        self.inj_types = config.inj_types
 
         # Useful to store a few directories in each tile so config isn't passed around
         self.output_dir = config.output_dir
@@ -359,33 +366,105 @@ class Tile(object):
 
         return
 
+    def generate_objects(self, config, realization):
+        '''
+        Generate a list of positions and indices for objects (stars, galaxies, etc.) for a
+        given realization (starts counting at 0).
+        '''
+
+        if config.sim_stars is True:
+            self.generate_stars(config, realization)
+
+        if config.sim_gals is True:
+            self.generate_galaxies(config, realization)
+
+        # TODO: Can add new simulation types later
+
+        return
+
+    def generate_stars(self, config, realization):
+        '''
+        For now (Y3), the star catalogs (including positions) are pre-computed. So we just
+        need to declare some variables for future use.
+        '''
+
+        # pudb.set_trace()
+
+        if config.input_types['stars'] == 'des_star_catalog':
+            input_type = 'des_star_catalog'
+            # Process a proxy catalog to extract column info
+            if config.data_version == 'y3v02':
+                # Determine current model type
+                if config.n_realizations == 1:
+                    self.star_model_type = config.star_base_model
+                else:
+                    model = config.star_base_model.split('_')
+                    percent = (realization + 1) * config.base_percent
+                    model[1] = str(percent)
+                    self.star_model_type = '_'.join(model)
+
+                # The first tile's star catalog has already been loaded, so use it if possible
+                if config.tile_num != 0:
+                    # Otherwise, load in next star catalog
+                    gs_config = copy.deepcopy(config.gs_config)
+                    # As `model_type` is a required input for a des_star_catalog, we add the base
+                    # model as it will be the first star catalog used. Also add bands to
+                    # suppress warning.
+                    gs_config['input'][input_type]['model_type'] = self.star_model_type
+                    gs_config['input'][input_type]['bands'] = 'griz'
+                    gs_config['input'][input_type]['tile'] = self.tile_name
+
+                    # Don't need galaxy info, so remove for speed
+                    del gs_config['input'][config.input_types['gals']]
+
+                    # Make proxy catalog
+                    galsim.config.ProcessInput(gs_config)
+                    cat_proxy = gs_config['input_objs'][input_type][0]
+
+                    # Update star catalog
+                    self.input_cats[input_type] = cat_proxy.getCatalog()
+                    self.input_nobjects[input_type] = cat_proxy.getNObjects()
+
+                    # Update Nstars
+                    self.Nstars = self.input_nobjects[input_type]
+
+                # Grab star positions
+                ra = config.input_cats[input_type]['RA_new']
+                dec = config.input_cats[input_type]['DEC_new']
+                assert len(ra)==len(dec)
+                indices = np.arange(len(ra))
+                self.stars_pos = np.column_stack((ra, dec))
+                self.stars_indx = indices
+
+        return
+
     def generate_galaxies(self, config, realization):
         '''
-        Generate a list of galaxy positions for tile, for a given realization
+        Generate a list of galaxy positions and indices for tile, for a given realization
         (starts counting at 0).
         '''
 
         # Initialize galaxy positions and indices if this is the first realization
         if self.gals_pos is None:
 
-	    # TODO: may not be able to do the below implementation due to unequal row size.
-	    # We may just want to warn the user that a few will be lost
-	    ngals = self.gals_per_real
-#            if (config.n_galaxies is not None) and (realization == config.n_realizations):
-#                # TODO: Better to distribute remaining m<n galaxies to the first m realizations!
-#                # Add remaining galaxies on final realization tile
-#                ngals = self.gals_per_real + self.gals_remainder
-#            else:
-#                ngals = self.gals_per_real
+            # TODO: may not be able to do the below implementation due to unequal row size.
+            # We may just want to warn the user that a few will be lost
+            ngals = self.gals_per_real
+               # if (config.n_galaxies is not None) and (realization == config.n_realizations):
+               #     # TODO: Better to distribute remaining m<n galaxies to the first m realizations!
+               #     # Add remaining galaxies on final realization tile
+               #     ngals = self.gals_per_real + self.gals_remainder
+               # else:
+               #     ngals = self.gals_per_real
 
             self.gals_pos = np.zeros(shape=(config.n_realizations, ngals, 2))
             self.gals_indx = np.zeros(shape=(config.n_realizations, ngals), dtype=int)
 
-	# TODO: See note above
+        # TODO: See note above
         ngals = self.gals_per_real
 
         # Generate galaxy coordinates
-        #TODO: Could add more sampling methods than uniform
+        # TODO: Could add more sampling methods than uniform
         ra = sample_uniform_ra(self.ramin, self.ramax, self.gals_per_real, boundary_cross=self.ra_boundary_cross)
         dec = sample_uniform_dec(self.decmin, self.decmax, self.gals_per_real, unit='deg')
         # self.gals_pos[realization] = zip(ra, dec)
@@ -394,11 +473,13 @@ class Tile(object):
         # pudb.set_trace()
 
         # Generage galaxy indices (in input catalog)
-        #TODO: could add more sampling methods than uniform
-        indices = sample_uniform_indx(self.gals_per_real, config.input_nobjects, ngals)
+        # TODO: could add more sampling methods than uniform
+        gal_type = config.input_types['gals']
+        indices = sample_uniform_indx(0, config.input_nobjects[gal_type], ngals)
         self.gals_indx[realization] = indices
 
-        #TODO: Generate any other needed galaxy properties!
+        # Update Ngals
+        self.Ngals = ngals
 
         return
 
@@ -437,6 +518,9 @@ class Tile(object):
 
         # Reset injections
         self.has_injections = False
+        # NOTE: Could use these for tile-level numbers, but currently not needed
+        # self.Ngals = 0
+        # self.Nstars = 0
 
         return
 
@@ -450,78 +534,173 @@ class Tile(object):
 
         return
 
-    def add_gs_injection(self, chip, gals_indx, gals_pos_im):
+    def add_gs_injection(self, chip, inj_indx, inj_pos_im, inj_type):
         '''
         This function appends the global GalSim config with an additional simulation to
-        be done using nullwt chip-specific infomation and Balrog injected galaxy positions
+        be done using nullwt chip-specific infomation and Balrog injected galaxy/star positions
         in image coordinates.
-        NOTE/TODO: This is in contrast to doing the injection through the Config object.
-        In future, will likely remove the alternate approach (but may keep it for multiple
-        injection options).
         '''
 
-        # TODO: Should probably do some size checks on gals_pos_im.
-        # For now, just do the basics
-
         # Skip injection if no positions are passed
-        if len(gals_pos_im) == 0:
-            # TODO: Print warning!
-            # NOTE: Likely handled explicitly now; check this!
+        if len(inj_pos_im) == 0:
+            warnings.warn('No {} passed for injection; skipping chip {}'.format(inj_type, chip.name))
             return
 
         # pudb.set_trace()
 
-        # Initialize new output section in balrog config
-        self.bal_config.append({})
-        self.bal_config_len += 1
+        # If this is the first injection for the chip, then set up new entry in bal_config
+        if chip.types_injected == 0:
+            self.bal_config.append({})
+            self.bal_config_len += 1
 
         # Injection index
         i = self.bal_config_len - 1
 
-        # Set initial image, chip wcs, and galaxy positions
-        chip_file = chip.filename
-        x, y = gals_pos_im[:,0].tolist(), gals_pos_im[:,1].tolist()
-        nobjs = len(gals_pos_im)
-        # pudb.set_trace()
-        self.bal_config[i]['image'] = {
-            'initial_image' : chip_file,
-	    'nobjects' : nobjs,
-            'wcs' : { 'file_name' : chip_file },
-            'image_pos' : {
+        Ninput = len(self.input_types)
+        Ninject = len(inj_indx)
+
+        #-----------------------------------------------------------------------------------------------
+        # Now set up common config entries if chip's first injection
+
+        if chip.types_injected == 0:
+
+            # Setup 'image' field
+            chip_file = chip.filename
+            # TODO: Update w/ Ngals and Nstars
+            nobjs = '$@image.Ngals+@image.Nstars'
+            self.bal_config[i]['image'] = {
+                'initial_image' : chip_file,
+                'nobjects' : nobjs,
+                'wcs' : { 'file_name' : chip_file },
+            }
+
+            # Setup 'input' field (nothing besides dict init, for now)
+            self.bal_config[i]['input'] = {}
+
+            # Setup 'gal' field (nothing besides dict init, for now)
+            self.bal_config[i]['gal'] = {}
+
+            # Setup the 'psf' field
+            psf_file = chip.psf_filename
+            if psf_file is not None:
+                self.bal_config[i]['input'] = {
+                    'des_psfex' : {
+                        'file_name' : psf_file,
+                        'image_file_name' : chip_file,
+                    }
+                }
+
+            # Setup 'output' field
+            out_file = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), \
+                                    self.tile_name, chip.band, '{}_balrog_inj.fits'.format(chip.name))
+            self.bal_config[i]['output'] = {'file_name' : out_file}
+
+            # If multiple input types, add list setup
+            if len(self.input_types) > 1:
+                # TODO: Find a cleaner way to do this!
+                list_structure_gal = copy.deepcopy(self.bal_config[0]['gal'])
+                list_structure_im = copy.deepcopy(self.bal_config[0]['gal'])
+                self.bal_config[i]['gal'].update(list_structure_gal)
+                # TODO: Determine if we need M Jarvis's version of below:
+                self.bal_config[i]['gal'].update({
+                    'index' : {
+                        'type' : 'Eval',
+                        'str' : '0 if obj_num % (@image.Ngals + @image.Nstars) < @image.Ngals else 1'}
+                        # 'str' : '0 if obj_num < @image.Ngals else 1'}
+                    })
+                    # 'index' : '$0 if obj_num % (@image.Ngals+@image.Nstars) < @image.Ngals else 1'})
+                self.bal_config[i]['image'].update({'image_pos' : list_structure_im})
+                self.bal_config[i]['image']['image_pos'].update({
+                    'index' : {
+                        'type' : 'Eval',
+                        'str' : '0 if obj_num % (@image.Ngals + @image.Nstars) < @image.Ngals else 1'}
+                        # 'str' : '$0 if obj_num < @image.Ngals else 1'}
+                    })
+                    # 'index' : '$0 if obj_num % (@image.Ngals+@image.Nstars) < @image.Ngals else 1'})
+                # Clean up entries
+                for j in range(Ninput): self.bal_config[i]['image']['image_pos']['items'][j] = {}
+
+        #-----------------------------------------------------------------------------------------------
+        # If only one input type, don't use list structure
+
+        if Ninput == 1:
+
+            # Set object number and positions
+            x, y = inj_pos_im[:,0].tolist(), inj_pos_im[:,1].tolist()
+            nobjs = len(inj_pos_im)
+            self.bal_config[i]['image'].update({
+                'image_pos' : {
+                    'type' : 'XY',
+                    'x' : { 'type' : 'List', 'items' : x },
+                    'y' : { 'type' : 'List', 'items' : y }
+                }
+            })
+
+            # Set the injected objects' catalog indices and flux factor
+            indices = inj_indx.tolist()
+            ff = float(chip.flux_factor)
+            self.bal_config[i]['gal'].update({
+                'scale_flux' : ff,
+                'index' : {
+                    'type' : 'List',
+                    'items' : indices
+                }
+            })
+
+            # Set the band for injection
+            self.bal_config[i]['input'].update({
+                self.input_types.values()[0] : {'bands' : chip.band}
+            })
+
+        #-----------------------------------------------------------------------------------------------
+        # If multiple input types, use list structure
+
+        else:
+            # Get object index
+            indx = self.input_indx[inj_type]
+
+            # Make sure injection type indices are consistent
+            assert self.bal_config[0]['gal']['items'][indx]['type'] == self.inj_types[inj_type]
+
+            # Set object indices and flux factor
+            indices = inj_indx.tolist()
+            ff = float(chip.flux_factor)
+            self.bal_config[i]['gal']['items'][indx].update({
+                'scale_flux' : ff,
+                'index' : {
+                    'type' : 'List',
+                    'items' : indices
+                }
+            })
+
+            # Set object number and positions
+            if inj_type == 'gals': self.bal_config[i]['image'].update({'Ngals' : chip.Ngals})
+            elif inj_type == 'stars': self.bal_config[i]['image'].update({'Nstars' : chip.Nstars})
+            else: raise ValueError('For now, only `gals` or `stars` are valid injection types!')
+            x, y = inj_pos_im[:,0].tolist(), inj_pos_im[:,1].tolist()
+            self.bal_config[i]['image']['image_pos']['items'][indx].update({
                 'type' : 'XY',
                 'x' : { 'type' : 'List', 'items' : x },
                 'y' : { 'type' : 'List', 'items' : y }
-            }
-        }
+            })
 
-        # Set the injected galaxies' catalog indices
-        indices = gals_indx.tolist()
-        ff = float(chip.flux_factor)
-        self.bal_config[i]['gal'] = {
-            'scale_flux' : ff,
-            'index' : {
-                'type' : 'List',
-                'items' : indices
-            }
-        }
+            # Set the band for injection
+            self.bal_config[i]['input'].update({
+                self.input_types[inj_type] : {'bands' : chip.band}
+            })
 
-        # Set the band for injection
-        self.bal_config[i]['input'] = {
-            chip.input_type : {'bands' : chip.band}
-        }
+            # pudb.set_trace()
 
-        # Set the PSF input file, if present
-        psf_file = chip.psf_filename
-        if psf_file is not None:
-            self.bal_config[i]['input']['des_psfex'] = {
-                'file_name' : psf_file,
-                'image_file_name' : chip_file,
-            }
+            # NOTE: Any extra fields to be set for a given input can be added here.
+            # TODO: Currenlty doesn't know about data versions as config isn't passed. Either
+            # make tiles aware of data versions or find a better way to do this.
+            if (inj_type=='stars') and (self.input_types[inj_type]=='des_star_catalog'):
+                self.bal_config[i]['input'][self.input_types[inj_type]].update({
+                    'model_type' : self.star_model_type,
+                    'tile' : self.tile_name,
+                })
 
-        # Set the initial image and output filenames
-        out_file = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), self.tile_name, \
-                                chip.band, '{}_balrog_inj.fits'.format(chip.name))
-        self.bal_config[i]['output'] = {'file_name' : out_file}
+        chip.types_injected += 1
 
         if self.has_injections is False:
             self.has_injections = True
@@ -722,7 +901,15 @@ class Chip(object):
         self.tile_name = tile_name # Name of parent tile, if given
         self.band = band
         self.zeropoint = zeropoint
-        self.input_type = config.input_type
+        # TODO: For now, this shouldn't be needed. Can check later.
+        # self.input_types = config.input_types
+
+        # Will be set later
+        self.Ngals, self.Nstars = 0, 0
+
+        # Keeps track of how many input types for this chip have been added
+        # to bal_config by add_gs_injection()
+        self.types_injected = 0
 
         self._set_name(config)
         self._set_psf(config)
@@ -872,6 +1059,12 @@ class Chip(object):
 
         return in_chip, pos_im
 
+    def set_Ngals(self, Ng):
+        self.Ngals = Ng
+
+    def set_Nstars(self, Ns):
+        self.Nstars = Ns
+
     def save_without_injection(self, outfile):
         '''
         If there are no Balrog galaxies to inject in the chip area, then save
@@ -958,12 +1151,15 @@ class Config(object):
         self.output_dir = os.path.abspath(self.output_dir)
         self.tile_list = os.path.abspath(self.args.tile_list)
 
+        # Keeps track of current tile number
+        self.tile_num = 0
+
         # Process GalSim config file
         self._read_gs_config()
         # Process geometry file
         self._load_tile_geometry()
-        # Process input catalog
-        self._load_input_catalog()
+        # Process input catalog(s)
+        self._load_input_catalogs()
 
         return
 
@@ -1124,61 +1320,173 @@ class Config(object):
 
         return
 
-    def _load_input_catalog(self):
+    def _load_input_catalogs(self):
         '''
-        Load any relevant info from the input catalog (for now just ngmix)
+        Load any relevant info from the input catalog(s) (for now just ngmix and desStars)
         '''
 
         # Determine input type
         # TODO: For now just ngmix, but will want postage stamps in future
-        input_cat_type = self._determine_input_type()
+        input_cat_types = self._determine_input_types()
 
-        if input_cat_type is 'ngmix_catalog':
-            import ngmix_catalog
-            # As we are outside of the GalSim executable, we need to register
-            # the input type explicitly
-            galsim.config.RegisterInputType('ngmix_catalog', ngmix_catalog.ngmixCatalogLoader(
-                ngmix_catalog.ngmixCatalog, has_nobj=True))
+        self.input_cats = {}
+        self.input_nobjects = {}
 
-            # This avoids a printed warning, and sets up the input correctly
-            # as no bands are passed in bal_config
-            gs_config = self.gs_config[0]
-            gs_config['input']['ngmix_catalog']['bands'] = 'griz'
+        # Keep track of which index corresponds to gals vs stars.
+        # NOTE: Only one input catalog of each type is currently allowed!
+        input_indx = None
+        input_star_indx = None
+        self.input_indx = {}
+        self.input_types = {} # Input catalogs
+        self.inj_types = {} # Injection types from catalogs
+        self.sim_gals = False
+        self.sim_stars = False
 
-            # Return the number of objects in input catalog that will be injected
-            # NOTE: Calling `ProcessInputNObjects()` builds the input catalog
-            # in a minimal way that determines the number of objects from the
-            # original catalog that make it past all of the mask cuts, etc.
-            # self.input_nobjects = galsim.config.ProcessInputNObjects(gs_config)
+        # Don't want to modify self.gs_config during processing
+        gs_config = copy.deepcopy(self.gs_config[0])
 
-            # Now that we are saving truth tables, it is necessary to load in the entire
-            # catalog
-            galsim.config.ProcessInput(gs_config)
-            cat_proxy = self.gs_config[0]['input_objs']['ngmix_catalog'][0] # Actually a proxy
-            self.input_cat = cat_proxy.getCatalog()
-            self.input_nobjects = cat_proxy.getNObjects()
+        for i, input_type in enumerate(input_cat_types):
 
-            # TODO: See if we can load this, rather than set explicitly (but true for y3v02)
-            # Set input catalog zeropoint
-            self.input_zp = 30.0
+            if input_type == 'ngmix_catalog':
+                if self.data_version == 'y3v02':
+                    # Check that a galaxy cat type hasn't already been set
+                    if self.sim_gals is True:
+                        raise ValueError('Can\'t set multiple input galaxy catalogs!')
+                    else:
+                        self.sim_gals = True
+                        self.input_indx['gals'] = i
+                        self.input_types['gals'] = input_type
+                        # TODO: Can we grab the injection type from the registered GS catalog?
+                        self.inj_types['gals'] = 'ngmixGalaxy'
 
-        else:
-            # Add more types later!
-            raise ValueError('For now, only ngmix catalogs can be used for injections!')
+                    import ngmix_catalog
+
+                    # As we are outside of the GalSim executable, we need to register
+                    # the input type explicitly
+                    galsim.config.RegisterInputType('ngmix_catalog', ngmix_catalog.ngmixCatalogLoader(
+                        ngmix_catalog.ngmixCatalog, has_nobj=True))
+
+                    # This avoids a printed warning, and sets up the input correctly
+                    # as no bands are passed in bal_config
+                    gs_config['input'][input_type]['bands'] = 'griz'
+
+                    # TODO: See if we can load this, rather than set explicitly (but true for y3v02)
+                    # Set input catalog zeropoint
+                    self.input_zp = 30.0
+
+                else:
+                    # In future, can add updated input parsing
+                    raise ValueError('No input parsing defined for Ngmix catalogs for ' +
+                    'data version {}'.format(self.data_version))
+
+            elif input_type == 'des_star_catalog':
+                if self.data_version == 'y3v02':
+                    # Check that a star cat type hasn't already been set
+                    if self.sim_stars is True:
+                        raise ValueError('Can\'t set multiple input star catalogs!')
+                    else:
+                        self.sim_stars = True
+                        self.input_indx['stars'] = i
+                        self.input_types['stars'] = input_type
+                        # TODO: Can we grab the injection type from the registered GS catalog?
+                        self.inj_types['stars'] = 'desStar'
+
+                    # pudb.set_trace()
+
+                    import des_star_catalog
+
+                    # As we are outside of the GalSim executable, we need to register
+                    # the input type explicitly
+                    galsim.config.RegisterInputType('des_star_catalog',
+                            des_star_catalog.desStarCatalogLoader(
+                            des_star_catalog.desStarCatalog, has_nobj=True))
+
+                    # If des_star_catalog is to be used as an input for Balrog, then a `base_model`
+                    # must be passed as one of the optional arguments for the catalog. This is
+                    # detailed in `des_star_catalog.py`.
+                    valid_model_types = des_star_catalog.return_valid_model_types(
+                                            data_version=self.data_version)
+                    try:
+                        self.star_base_model = gs_config['input']['des_star_catalog']['base_model']
+                    except KeyError as e:
+                        raise KeyError('Must pass a base_model if using a des_star_catalog ' +
+                                       'for Balrog injections! See `des_star_catalog.py` for details.')
+
+                    if self.star_base_model not in valid_model_types:
+                        raise ValueError('The selected base_model {} '.format(self.star_base_model) +
+                                         'is not a valid des_star_catalog model type!\n ' +
+                                         'Valid types for data version {} are: {}'.format(
+                                             self.data_version, valid_model_types))
+
+                    prefix = self.star_base_model.split('_')[0]
+                    if prefix == 'Model':
+                        self.base_percent = 100
+                    elif prefix == 'Extra':
+                        self.base_percent = int(self.star_base_model.split('_')[1])
+                    else:
+                        # Then something very strange happened!
+                        raise ValueError
+
+                    # Now make sure that the passed base model percentage is consistent with the
+                    # desired number of realizations
+                    per_real = 100.0 / self.n_realizations
+                    if per_real != self.base_percent:
+                        raise ValueError('The number of realizations {} '.format(self.n_realizations) +
+                                         'is not consistent with the star catalog ' +
+                                         'base percentage {}\%'.format(self.base_percent))
+
+                    # As `model_type` is a required input for a des_star_catalog, we add the base
+                    # model as it will be the first star catalog used. Also add bands to
+                    # suppress warning.
+                    gs_config['input'][input_type]['model_type'] = self.star_base_model
+                    gs_config['input'][input_type]['bands'] = 'griz'
+
+                    # A tile name is also a required input, so grab the first one
+                    tile_list = load_tile_list(self.tile_list, self)
+                    first_tile = tile_list[0]
+                    gs_config['input'][input_type]['tile'] = first_tile
+
+                else:
+                    # In future, can add updated input parsing
+                    raise ValueError('No input parsing defined for DES star catalogs for ' +
+                    'data version {}'.format(self.data_version))
+
+            else:
+                # Add more types later!
+                raise ValueError('For now, only ngmix catalogs can be used for injections!')
+
+        # Return the number of objects in input catalog that will be injected
+        # NOTE: Calling `ProcessInputNObjects()` builds the input catalog
+        # in a minimal way that determines the number of objects from the
+        # original catalog that make it past all of the mask cuts, etc.
+        # self.input_nobjects = galsim.config.ProcessInputNObjects(gs_config)
+
+        # Now that we are saving truth tables, it is necessary to load in the entire
+        # catalog
+        galsim.config.ProcessInput(gs_config)
+
+        # Grab needed info from the proxy catalog
+        for i, input_type in enumerate(input_cat_types):
+            cat_proxy = gs_config['input_objs'][input_type][0] # Actually a proxy
+            self.input_cats[input_type] = cat_proxy.getCatalog()
+            self.input_nobjects[input_type] = cat_proxy.getNObjects()
 
         return
 
-    def _determine_input_type(self):
-        '''#TODO: For now we just select ngmix_catalog. In future, we may want to expand
-        this to handle postage stamp inputs, for example.
+    def _determine_input_types(self):
         '''
         # TODO: Check that is is one of the supported input types!
         # TODO: While just a placeholder method anyway, would be good to check that the
         # input catalog actually *is* an ngmix catalog!
+        '''
 
-        self.input_type = 'ngmix_catalog'
+        inputs = dict(self.gs_config[0]['input'])
+        self.input_types = []
 
-        return self.input_type
+        for it in inputs:
+            self.input_types.append(it)
+
+        return self.input_types
 
     def set_realization(self, i):
         '''
@@ -1192,6 +1500,11 @@ class Config(object):
 
         return
 
+    def set_tile_num(self, i):
+        self.tile_num = i
+
+        return
+
     def reset_gs_config(self):
         '''
         This function resets the gs_config after a tile is run.
@@ -1202,7 +1515,7 @@ class Config(object):
         # TODO: Test, & make more robust!
         if self.gs_config_modified is True:
             # New tile, so reset config to original input
-            self.gs_config = self.orig_gs_config
+            self.gs_config = copy.deepcopy(self.orig_gs_config)
             self.gs_config_modified = False
 
         # If gs_config_modified is False, then there is nothing to reset!
@@ -1407,9 +1720,10 @@ def RunBalrog():
     # Now loop over all tiles slated for injection:
     # TODO: This should be parallelized with `multiprocessing` in future
     #       Or maybe numba?
-    for tile in tiles:
+    for i, tile in enumerate(tiles):
         # pudb.set_trace()
         config.reset_gs_config()
+        config.set_tile_num(i)
 
         if vb: print('Injecting Tile {}'.format(tile.tile_name))
 
@@ -1419,26 +1733,41 @@ def RunBalrog():
             # Reset gs config for each new realization
             tile.set_realization(real)
             tile.reset_bal_config(config)
-            tile.generate_galaxies(config, real)
+            tile.generate_objects(config, real)
             # Allow for different band injections in different tiles
             bands = tile.bands
             for band in bands:
                 # pudb.set_trace()
                 for chip in tile.chips[band]:
-                    # Determine which Balrog galaxies are contained in chip, and
-                    # get their image coordinates
-                    in_chip, pos_im = chip.contained_in_chip(tile.gals_pos[real])
-                    gals_pos = tile.gals_pos[real][in_chip] # NOTE: is this line needed?
-                    gals_pos_im = pos_im[in_chip]
-                    gals_indx = tile.gals_indx[real][in_chip]
+                    # Reset injection counter
+                    chip.types_injected = 0
+                    if config.sim_gals is True:
+                        # Determine which Balrog galaxies are contained in chip, and
+                        # get their image coordinates
+                        in_chip, pos_im = chip.contained_in_chip(tile.gals_pos[real])
+                        # gals_pos = tile.gals_pos[real][in_chip] # NOTE: is this line needed?
+                        gals_pos_im = pos_im[in_chip]
+                        gals_indx = tile.gals_indx[real][in_chip]
+                        chip.set_Ngals(len(gals_pos_im))
 
-                    # pudb.set_trace()
+                        # If any galaxies are contained in chip, add gs injection to config list
+                        if chip.Ngals > 0:
+                            tile.add_gs_injection(chip, gals_indx, gals_pos_im, inj_type='gals')
 
-                    # If any galaxies are contained in chip, add gs injection to
-                    # config list
-                    if len(gals_pos) > 0:
-                        tile.add_gs_injection(chip, gals_indx, gals_pos_im)
-                    else:
+                    if config.sim_stars is True:
+                        # Determine which Balrog stars are contained in chip, and
+                        # get their image coordinates
+                        in_chip, pos_im = chip.contained_in_chip(tile.stars_pos)
+                        # stars_pos = tile.stars_pos[real][in_chip] # NOTE: is this line needed?
+                        stars_pos_im = pos_im[in_chip]
+                        stars_indx = tile.stars_indx[in_chip]
+                        chip.set_Nstars(len(stars_pos_im))
+
+                        # If any stars are contained in chip, add gs injection to config list
+                        if chip.Nstars > 0:
+                            tile.add_gs_injection(chip, stars_indx, stars_pos_im, inj_type='stars')
+
+                    if (chip.Ngals + chip.Nstars) == 0:
                         # TODO: Eventually use a return_output_name() function
                         outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
                                    tile.tile_name, chip.band, '{}_balrog_inj.fits'.format(chip.name))
@@ -1450,10 +1779,10 @@ def RunBalrog():
             tile.write_bal_config()
             if vb is True: print('Running GalSim for tile...')
             tile.run_galsim(vb=vb)
-            if vb is True: print('Making truth catalog...')
-            outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
-                        tile.tile_name, '{}_{}_balrog_truth_cat.fits'.format(tile.tile_name, real))
-            tile.write_truth_catalog(config, outfile)
+            # if vb is True: print('Making truth catalog...')
+            # outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
+            #             tile.tile_name, '{}_{}_balrog_truth_cat.fits'.format(tile.tile_name, real))
+            # tile.write_truth_catalog(config, outfile)
 
             # pudb.set_trace()
 
