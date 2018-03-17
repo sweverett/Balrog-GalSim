@@ -1181,8 +1181,7 @@ class Config(object):
 
         # pudb.set_trace()
 
-        # Double NOTE! Making the switch to multi-output yaml files.
-        # NOTE: For now, we will not accept multi-output yaml files. We will work with
+        # For now, we will not accept multi-output yaml files. We will work with
         # the loaded config object and build a multi-output config OrderedDict ourselves.
         if len(self.gs_config) != 1:
             raise AttributeError('For now, multi-output yaml files are not accepted! The ',
@@ -1327,7 +1326,6 @@ class Config(object):
         '''
 
         # Determine input type
-        # TODO: For now just ngmix, but will want postage stamps in future
         input_cat_types = self._determine_input_types()
 
         self.input_cats = {}
@@ -1347,6 +1345,9 @@ class Config(object):
         gs_config = copy.deepcopy(self.gs_config[0])
 
         for i, input_type in enumerate(input_cat_types):
+            # TODO: This section could be generalized by making new `StarCatalog` and
+            # `GalaxyCatalog` classes that users can set the following methods for, and
+            # simply call those methods from here.
 
             if input_type == 'ngmix_catalog':
                 if self.data_version == 'y3v02':
@@ -1402,44 +1403,43 @@ class Config(object):
                             des_star_catalog.desStarCatalogLoader(
                             des_star_catalog.desStarCatalog, has_nobj=True))
 
-                    # If des_star_catalog is to be used as an input for Balrog, then a `base_model`
-                    # must be passed as one of the optional arguments for the catalog. This is
-                    # detailed in `des_star_catalog.py`.
+                    # TODO/NOTE: This is the old (and incorrect) star implementation; should be removed
+                    # once the correct version is finished.
+
                     valid_model_types = des_star_catalog.return_valid_model_types(
                                             data_version=self.data_version)
                     try:
-                        self.star_base_model = gs_config['input']['des_star_catalog']['base_model']
+                        self.star_model = gs_config['input']['des_star_catalog']['model_type']
                     except KeyError as e:
-                        raise KeyError('Must pass a base_model if using a des_star_catalog ' +
+                        raise KeyError('Must pass a model_type if using a des_star_catalog ' +
                                        'for Balrog injections! See `des_star_catalog.py` for details.')
 
-                    if self.star_base_model not in valid_model_types:
-                        raise ValueError('The selected base_model {} '.format(self.star_base_model) +
+                    if self.star_model not in valid_model_types:
+                        raise ValueError('The selected model_type {} '.format(self.star_model) +
                                          'is not a valid des_star_catalog model type!\n ' +
                                          'Valid types for data version {} are: {}'.format(
                                              self.data_version, valid_model_types))
 
-                    prefix = self.star_base_model.split('_')[0]
+                    prefix = self.star_model.split('_')[0]
                     if prefix == 'Model':
                         self.base_percent = 100
                     elif prefix == 'Extra':
                         self.base_percent = int(self.star_base_model.split('_')[1])
                     else:
-                        # Then something very strange happened!
+                        # Then something very strange happened! Should have been caught above
                         raise ValueError
 
                     # Now make sure that the passed base model percentage is consistent with the
                     # desired number of realizations
-                    per_real = 100.0 / self.n_realizations
-                    if per_real != self.base_percent:
-                        raise ValueError('The number of realizations {} '.format(self.n_realizations) +
-                                         'is not consistent with the star catalog ' +
-                                         'base percentage {}\%'.format(self.base_percent))
+                    # NOTE: No longer desired; Can inject any density in any # of realizations now
+                    # per_real = 100.0 / self.n_realizations
+                    # if per_real != self.base_percent:
+                    #     raise ValueError('The number of realizations {} '.format(self.n_realizations) +
+                    #                      'is not consistent with the star catalog ' +
+                    #                      'base percentage {}\%'.format(self.base_percent))
+                    # gs_config['input'][input_type]['model_type'] = self.star_model
 
-                    # As `model_type` is a required input for a des_star_catalog, we add the base
-                    # model as it will be the first star catalog used. Also add bands to
-                    # suppress warning.
-                    gs_config['input'][input_type]['model_type'] = self.star_base_model
+                    # Add bands to suppress a warning.
                     gs_config['input'][input_type]['bands'] = 'griz'
 
                     # A tile name is also a required input, so grab the first one
