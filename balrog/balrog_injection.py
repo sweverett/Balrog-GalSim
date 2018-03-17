@@ -43,6 +43,7 @@ import injector
 # TODO: Implement error handling for galaxy injections / gsparams! (I think fixed now)
 # TODO: Use fitsio when available!
 # TODO: Clean up evals in add_gs_injection()!
+# TODO: Switch over to new star injection implementation!
 
 # Some extra todo's:
 # TODO: Get rid of extra / on config file parsing!
@@ -1719,7 +1720,6 @@ def RunBalrog():
 
     # Now loop over all tiles slated for injection:
     # TODO: This should be parallelized with `multiprocessing` in future
-    #       Or maybe numba?
     for i, tile in enumerate(tiles):
         # pudb.set_trace()
         config.reset_gs_config()
