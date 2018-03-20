@@ -18,6 +18,7 @@ modules :
   - galsim.des
   - injector
   - ngmix_catalog
+  - des_star_catalog
 
 # These variables are not directly processed by GalSim; this simply allows a convenient way
 # to change multiple variable instances quickly throughout the config file.
@@ -32,6 +33,7 @@ some_variables :
   - &bal_dir '/data/des61.a/data/severett/Balrog-GalSim/'
   - &ngmix_dir '/data/des61.a/data/severett/Balrog-GalSim/inputs'
   - &ngmix_file 'DES0113-4331-y3v02a-mof-001.fits'
+  - &star_dir '/data/des20.b/data/sallam/Yanny-balrog/5sigma/'
 
 # Define the input files
 input :
@@ -56,15 +58,23 @@ input :
 
       # Set masking / selection thresholds for catalog
       t_frac : 0.5
+      t_min : 0.001
       t_max : 100
-      snr_min : 10.0
+      snr_min : 20.0
+
+    des_star_catalog :
+      base_dir : *star_dir
+      model_type :  'Model_16.5-26.5'
+      data_version : 'y3v02'
 
 # The gal field defines what kind of galaxy profile to use.
 gal :
-    # For now, Balrog is only desiged to inject ngmix galaxy models. In the future
-    # galaxy postage stamps may be supported. In principle, more general GalSim objects
-    # may work but are not currently supported.
-    type : ngmixGalaxy
+    type : List
+    items :
+        - # Galaxy component
+          type : ngmixGalaxy
+        - # Star component
+          type : desStar
 
     # NOTE: Here you would normally define various fields such as index to choose which galaxies
     # are injected. The balrog injection script takes care of position / index sampling, so
@@ -95,7 +105,10 @@ image :
     # NOTE: y-band currently not supported
     bands : 'griz'
     # To use a subset:
-    # bands : 'ri'
+    # bands : 'g'
+    
+    version : 'y3v02'
+    run_name : 'star_test'
 
     # Load WCS from DES chip file
     wcs :
@@ -108,7 +121,7 @@ image :
     n_galaxies : 5000 # per tile
 
     # Set the number of realizations / layers
-    n_realizations : 3
+    n_realizations : 2
     # n_realizations : 1
 
     # TODO: In future, we should load these fields automatically in script.
