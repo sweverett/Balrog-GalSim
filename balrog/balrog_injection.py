@@ -12,7 +12,6 @@
 
 import numpy as np
 import random as rand
-# import pudb
 import os, sys, errno
 import cPickle as pickle
 import warnings
@@ -39,13 +38,15 @@ from astropy.table import Table
 # Balrog Galsim image type
 import injector
 
+# Use for debugging
+import pudb
+
 #-------------------------------------------------------------------------------
 # Urgent todo's:
 # TODO: Implement error handling for galaxy injections / gsparams! (I think fixed now)
 # TODO: Use fitsio when available!
 # TODO: Clean up evals in add_gs_injection()!
-# TODO: Switch over to new star injection implementation!
-# TODO: Redo generate_galaxies() to match stars!
+# TODO: Change n_galaxies to be divided up per realization!
 
 # Some extra todo's:
 # TODO: Get rid of extra / on config file parsing!
@@ -1207,6 +1208,8 @@ class Config(object):
         Additionally, it ensures that only 1 of 'n_galaxies' or 'gal_density' is passed.)
         '''
 
+        # TODO: Some of this type checking should be moved into `injector.py`
+
         # Process input 'n_realizations':
         try:
             self.n_realizations = self.gs_config[0]['image']['n_realizations']
@@ -1267,7 +1270,7 @@ class Config(object):
         try:
             rname = self.gs_config[0]['image']['run_name']
             if not isinstance(rname, basestring):
-                raise ValueError("The input `run_name` must be a string!")
+                raise ValueError('The input `run_name` must be a string!')
             self.run_name = rname
         except KeyError:
             # TODO: Maybe come up with sensible default run name?
@@ -1275,28 +1278,21 @@ class Config(object):
             # self.run_name = 'None'
             self.run_name = None
 
-        # if not self.n_galaxies:
-        #     # Default is 1000 galaxies per tile
-        #     self.n_galaxies = 100
-        # if not self.gal_density:
-        #     # Default is 10 galaxies per arcmin^2
-        #     self.gal_density = 10.0 # arcmin^2
-
-        # Finally, calculate number of galaxy injects per *realization*
-        #TODO: Revisit to see if possible. It appeaers that tile areas may
-        # note be uniform. (Spoiler; they're not)
-        # if self.n_galaxies:
-        #     self.gals_per_real = self.n_galaxies / self.n_realizations
-        # if self.gal_density:
-        #     # By now, density must be in arcmin^2
-        #     tile_area =
-        # self.gals_per_real =
+        # Process input 'inj_objs_only'. This is used to test Balrog injections on blank images
+        try:
+            inj_objs_only = self.gs_config[0]['image']['inj_objs_only']
+            if type(inj_objs_only) is not bool:
+                raise ValueError('The field \'inj_objs_only\' must be set with a bool!')
+            self.inj_objs_only = inj_objs_only
+        except KeyError:
+            # Most runs will add objects to existing images
+            self.inj_objs_only = False
 
         return
 
     def _load_tile_geometry(self):
         '''
-        TODO: make more general
+        TODO: make more general to allow for non-DES tiles.
         '''
 
         self.geom_file = self.args.geom_file
@@ -1778,7 +1774,7 @@ def RunBalrog():
             tile.write_bal_config()
             if vb is True: print('Running GalSim for tile...')
             tile.run_galsim(vb=vb)
-            if vb is True: print('Making truth catalog...')
+
             tile.write_truth_catalog(config)
 
             # pudb.set_trace()

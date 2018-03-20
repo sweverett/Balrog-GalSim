@@ -12,7 +12,7 @@ class AddOnImageBuilder(galsim.config.image_scattered.ScatteredImageBuilder):
 
     def buildImage(self, config, base, image_num, obj_num, logger):
         im, cv = super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
-        initial_image_name = galsim.config.ParseValue(config,'initial_image', base, str)[0]
+        initial_image_name = galsim.config.ParseValue(config, 'initial_image', base, str)[0]
         initial_image = galsim.fits.read(initial_image_name)
         im += initial_image
         return im, cv
@@ -22,7 +22,8 @@ galsim.config.RegisterImageType('AddOn', AddOnImageBuilder())
 class BalrogImageBuilder(AddOnImageBuilder):
 
     def setup(self, config, base, image_num, obj_num, ignore, logger):
-        ignore = ignore + ['Ngals', 'Nstars', 'bands', 'n_realizations', 'n_galaxies', 'gal_density', 'version', 'run_name']
+        ignore = ignore + ['Ngals', 'Nstars', 'bands', 'n_realizations', 'n_galaxies', 'gal_density',
+                           'version', 'run_name', 'inj_objs_only']
         # full_xsize, full_ysize = super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
         full_xsize, full_ysize = super(BalrogImageBuilder, self).setup(config, base, image_num, obj_num, ignore, logger)
 
@@ -35,12 +36,21 @@ class BalrogImageBuilder(AddOnImageBuilder):
                     raise ValueError(arg + ' must be a positive integer!')
 
         if 'n_galaxies' in params and 'gal_density' in params:
-            raise AttributeError("Only one of `n_galaxies` or `gal_density` is allowed; not both.")
+            raise AttributeError('Only one of `n_galaxies` or `gal_density` is allowed; not both.')
+
+        # It can be useful to test Balrog by injecting objects into blank images rather
+        # than real ones. For now, this test does not generate any images itself but
+        # rather ignores existing information during injection.
+        if 'inj_objs_only' in params:
+            if type(params['inj_objs_onlyl']) is not bool:
+                raise ValueError('The field `inj_objs_only` must be set with a bool!')
 
         return full_xsize, full_ysize
 
     def buildImage(self, config, base, image_num, obj_num, logger):
-        return super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+        inj_objs_only = galsim.config.ParseValue(config, 'inj_objs_only', base, str)[0]
+        if inj_objs_only: return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+        else: return super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
 
 galsim.config.RegisterImageType('Balrog', BalrogImageBuilder())
 
