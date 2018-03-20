@@ -12,7 +12,6 @@
 
 import numpy as np
 import random as rand
-import pudb
 import os, sys, errno
 import cPickle as pickle
 import warnings
@@ -38,6 +37,9 @@ from astropy.table import Table
 
 # Balrog Galsim image type
 import injector
+
+# Can use for debugging
+#import pudb
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
