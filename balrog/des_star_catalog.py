@@ -45,7 +45,8 @@ class desStarCatalog(object):
 
     _req_params = { 'base_dir' : str, 'model_type' : str, 'tile' : str}
     # TODO: any others?
-    _opt_params = { 'file_type' : str, 'data_version' : str, 'bands': str, 'zeropoint' : float}
+    _opt_params = { 'file_type' : str, 'data_version' : str, 'bands': str, 'zeropoint' : float,
+                    'base_model' : str}
     _single_params = []
     _takes_rng = False
 
@@ -65,7 +66,7 @@ class desStarCatalog(object):
     # Dictionary of color band flux to array index in star catalog
     _band_index = {'g' : 0, 'r' : 1, 'i' : 2, 'z' : 3}
 
-    def __init__(self, base_dir, model_type, tile, file_type=None, data_version=None, bands=None, zeropoint=None):
+    def __init__(self, base_dir, model_type, tile, file_type=None, data_version=None, bands=None, zeropoint=None, base_model=None):
 
         if not os.path.isdir(base_dir):
             raise ValueError('{} is not a valid directory or does not exist!'.format(base_dir))
@@ -75,8 +76,7 @@ class desStarCatalog(object):
             warnings.warn('No data version passed - assuming `y3v02`.')
             data_version = 'y3v02'
         if data_version not in self._valid_data_versions:
-            raise ValueError('`{}` does not have an implementation built yet! '.format(self.data_version),
-                             'Feel free to add it!')
+            raise ValueError('`{}` does not have an implementation built yet! '.format(self.data_version))
         self.data_version = data_version
 
         self._set_valid_model_types()
@@ -89,6 +89,26 @@ class desStarCatalog(object):
             raise ValueError('{} is not a valid model type! '.format(model_type) +
                              'Currently allowed types are {}'.format(self._valid_model_types))
         self.model_type = model_type
+
+        # NOTE: This parameter is only used for Balrog simulations where multiple model types will be
+        # needed accross many 'realizations' of images. Must also be a valid model type, and must be a
+        # divisor of the selected model type.
+        #
+        # For example, a simulation with 10 realizations will need to use a model type of
+        # `Extra_%_percent` where % is a multiple of 10 up to 100. So the base_model would be
+        # `Extra_10_percent`.
+        if base_model:
+            if base_model not in self._valid_model_types:
+                raise ValueError('Base model {} is not a valid model type! '.format(model_type) +
+                                'Currently allowed types are {}'.format(self._valid_model_types))
+            prefix = base_model.split('_')[0]
+            if prefix == 'Model':
+                self.base_percent = 100
+            elif prefix == 'Extra':
+                self.base_percent = base_model.split('_')[1]
+            self.base_model = base_model
+        else:
+            self.base_model, self.base_percent = None, None
 
         if bands:
             if isinstance(bands, basestring):
@@ -138,21 +158,14 @@ class desStarCatalog(object):
         Given data version, construct the allowed model types from Sahar's star catalogs.
         '''
 
-        if self.data_version == 'y3v02':
-            # There are the full-density models...
-            self._valid_model_types = ['Model', 'Model_16.5-26.5', 'Model_16.5-27.5']
-            # ...and the 'extra' density models, which are partitioned by percentage
-            percents = np.arange(10, 110, 10, dtype=int)
-            for per in percents:
-                self._valid_model_types.append('Extra_{}_percent'.format(per))
-                self._valid_model_types.append('Extra_{}_percent_16.5-26.5'.format(per))
-                self._valid_model_types.append('Extra_{}_percent_16.5-27.5'.format(per))
+        # Uses public function to allow external use
+        self._valid_model_types = return_valid_model_types(data_version=self.data_version)
 
         return
 
     def _read_catalog(self):
         '''
-        # OLD: Setup file directory structure given base directory and model type.
+        Setup file directory structure given base directory and model type.
         Load in the star catalog for the given model type and tile name.
         '''
 
@@ -310,12 +323,12 @@ class desStarCatalog(object):
                 if band == 'g':
                     mag = gmag
                 elif band == 'r':
-                    mag = gmag + self.catalog['gr_Corr'][index]
+                    mag = gmag - self.catalog['gr_Corr'][index]
                 elif band == 'i':
-                    mag = gmag + self.catalog['gr_Corr'][index] + self.catalog['ri_Corr'][index]
+                    mag = gmag - self.catalog['gr_Corr'][index] - self.catalog['ri_Corr'][index]
                 elif band == 'z':
-                    mag = gmag + self.catalog['gr_Corr'][index] + self.catalog['ri_Corr'][index] \
-                               + self.catalog['iz_Corr'][index]
+                    mag = gmag - self.catalog['gr_Corr'][index] - self.catalog['ri_Corr'][index] \
+                               - self.catalog['iz_Corr'][index]
                 else:
                     raise ValueError('Band {} is not an allowed band input '.format(band) +
                                      'for data_version of {}!'.format(self.data_version))
@@ -420,6 +433,29 @@ class desStarCatalog(object):
                              }
     make_stars._single_params = []
     make_stars._takes_rng = True
+
+#####------------------------------------------------------------------------------------------------
+# Helper Functions
+
+def return_valid_model_types(data_version='y3v02'):
+    '''
+    Useful to have this separate from _set_valid_model_types() for outside use.
+    '''
+
+    if data_version == 'y3v02':
+        # There are the full-density models...
+        valid_model_types = ['Model', 'Model_16.5-26.5', 'Model_16.5-27.5']
+        # ...and the 'extra' density models, which are partitioned by percentage
+        percents = np.arange(10, 110, 10, dtype=int)
+        for per in percents:
+            valid_model_types.append('Extra_{}_percent'.format(per))
+            valid_model_types.append('Extra_{}_percent_16.5-26.5'.format(per))
+            valid_model_types.append('Extra_{}_percent_16.5-27.5'.format(per))
+
+    else:
+        raise ValueError('{} does not have an implementation built yet!'.format(data_version))
+
+    return valid_model_types
 
 #####------------------------------------------------------------------------------------------------
 

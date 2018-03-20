@@ -373,11 +373,7 @@ class ngmixCatalog(object):
         ct = self.cat_type
 
         # Grab galaxy shape and size (identical in all bands)
-        # T = self.catalog[cp+'_T'][index]
-        # TODO: Check this conversion! (Not listed in catalogs, but appears to work.)
-        # unit_conv = 60.0 # Convert between arcmin & arcsec
-        unit_conv = 1.0 # If no conversion is needed
-        T = unit_conv*self.catalog[cp+'_T'][index]
+        T = self.catalog[cp+'_T'][index]
         g1, g2 = self.catalog[cp+'_g'][index]
         # We don't want to put these galaxies at their original locations!
         # c1, c2 = self.catalog[cp+'_c'][index]
