@@ -17,5 +17,5 @@ def MakePlots():
     pass
 
 if __name__ == '__main__':
-    ret = RunPlots()
+    ret = MakePlots()
     sys.exit(ret)
