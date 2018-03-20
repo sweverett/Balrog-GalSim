@@ -14,7 +14,9 @@ import warnings
 import logging
 from past.builtins import basestring # Python 2&3 compatibility
 from astropy.io import ascii
-import pudb
+
+# Can use for debugging
+#import pudb
 
 class desStarCatalog(object):
     """ Class that handles Sahar's star catalogs for DES. These are cvs files with names typically
