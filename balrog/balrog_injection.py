@@ -12,6 +12,7 @@
 
 import numpy as np
 import random as rand
+# import pudb
 import os, sys, errno
 import cPickle as pickle
 import warnings
@@ -37,9 +38,6 @@ from astropy.table import Table
 
 # Balrog Galsim image type
 import injector
-
-# Can use for debugging
-#import pudb
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
@@ -780,7 +778,7 @@ class Tile(object):
 
         return
 
-    def write_truth_catalog(self, config, outfile):
+    def write_truth_catalog(self, config):
         '''
         Writes a fits file that contains the subset of the input catalog that has been
         injected into the current tile, as well as a few extra columns.
@@ -788,83 +786,66 @@ class Tile(object):
 
         # pudb.set_trace()
 
-        truth = config.input_cat[self.gals_indx[self.curr_real]]
+        outfiles = {}
+        truth = {}
 
-        # Now update ra/dec positions for truth catalog
-        truth['ra'] = self.gals_pos[self.curr_real][:,0]
-        truth['dec'] = self.gals_pos[self.curr_real][:,1]
 
-        try:
-            with fitsio.FITS(outfile, 'rw', clobber=True) as truth_table:
+        real = self.curr_real
+        base_outfile = os.path.join(config.output_dir, 'balrog_images', str(real),
+                       self.tile_name, '{}_{}_balrog_truth_cat'.format(self.tile_name, real))
 
-                truth_table.write(truth)
+        if config.sim_gals is True:
+            outfiles['gals'] = base_outfile + '_gals.fits'
+            truth['gals'] = config.input_cats[config.input_types['gals']][self.gals_indx[real]]
+            # Now update ra/dec positions for truth catalog
+            if config.input_types['gals'] == 'ngmix_catalog':
+                truth['gals']['ra'] = self.gals_pos[self.curr_real][:,0]
+                truth['gals']['dec'] = self.gals_pos[self.curr_real][:,1]
+        if config.sim_stars is True:
+            outfiles['stars'] = base_outfile + '_stars.fits'
+            truth['stars'] = config.input_cats[config.input_types['stars']][self.stars_indx[real]]
+            # Now update ra/dec positions for truth catalog
+            if config.input_types['stars'] == 'des_star_catalog':
+                truth['stars']['RA_new'] = self.stars_pos[self.curr_real][:,0]
+                truth['stars']['DEC_new'] = self.stars_pos[self.curr_real][:,1]
 
-                # Fill primary HDU with simulation metadata
-                # hdr = fits.Header()
-                hdr = {}
-                hdr['run_name'] = config.run_name
-                hdr['config_file'] = config.args.config_file
-                hdr['geom_file'] = config.geom_file
-                hdr['tile_list'] = config.args.tile_list
-                hdr['config_dir'] = config.config_dir
-                hdr['tile_dir'] = config.tile_dir
-                hdr['output_dir'] = config.output_dir
-                hdr['psf_dir'] = config.psf_dir
-                hdr['inj_time'] = str(datetime.datetime.now())
-                hdr['inj_bands'] = config.bands
-                hdr['input_type'] = config.input_type
-                if config.n_galaxies:
-                    hdr['n_galaxies'] = config.n_galaxies
-                if config.gal_density:
-                    hdr['gal_density'] = config.gal_density
-                hdr['n_realizations'] = config.n_realizations
-                hdr['curr_real'] = self.curr_real
-                hdr['data_version'] = config.data_version
-                # for arg in vars(config.args):
-                #     hdr[str(arg)] = getattr(config.args, arg)
+        for inj_type, outfile in outfiles.items():
+            try:
+                with fitsio.FITS(outfile, 'rw', clobber=True) as truth_table:
 
-                truth_table[0].write_keys(hdr)
+                    truth_table.write(truth[inj_type])
 
-        except IOError:
-            # Directory structure will not exist if galsim call failed
-            print('Warning: Injection for tile {}, realization {} failed! '
-                   'Skipping truth-table writing.'.format(self.tile_name, self.curr_real))
-            pass
+                    # Fill primary HDU with simulation metadata
+                    # hdr = fits.Header()
+                    hdr = {}
+                    hdr['run_name'] = config.run_name
+                    hdr['config_file'] = config.args.config_file
+                    hdr['geom_file'] = config.geom_file
+                    hdr['tile_list'] = config.args.tile_list
+                    hdr['config_dir'] = config.config_dir
+                    hdr['tile_dir'] = config.tile_dir
+                    hdr['output_dir'] = config.output_dir
+                    hdr['psf_dir'] = config.psf_dir
+                    hdr['inj_time'] = str(datetime.datetime.now())
+                    hdr['inj_bands'] = config.bands
+                    if config.n_galaxies:
+                        hdr['n_galaxies'] = config.n_galaxies
+                    if config.gal_density:
+                        hdr['gal_density'] = config.gal_density
+                    hdr['n_realizations'] = config.n_realizations
+                    hdr['curr_real'] = self.curr_real
+                    hdr['data_version'] = config.data_version
 
-        # truth_table = fitsio.FITS(outfile, 'rw', clobber=True)
+                    key = 'input_type_{}'.format(inj_type)
+                    hdr[key] = config.input_types[inj_type]
 
-        # NOTE: Old version based off of astropy
-        # truth_table = Table(truth)
+                    truth_table[0].write_keys(hdr)
 
-        # hdr['HIERARCH run_name'] = config.run_name
-        # for arg in vars(config.args):
-        #     hdr['HIERARCH '+str(arg)] = getattr(config.args, arg)
-        # hdr['HIERARCH inj_time'] = str(datetime.datetime.now())
-        # hdr['HIERARCH inj_bands'] = config.bands
-        # hdr['HIERARCH input_type'] = config.input_type
-        # if config.n_galaxies:
-        #     hdr['HIERARCH n_galaxies'] = config.n_galaxies
-        # if config.gal_density:
-        #     hdr['HIERARCH gal_density'] = config.gal_density
-
-        # hdr['HIERARCH n_realizations'] = config.n_realizations
-        # hdr['HIERARCH curr_real'] = self.curr_real
-        # hdr['HIERARCH data_version'] = config.data_version
-
-        # TODO: works w/ astropy 1.2.2 and above, but fermi doesn't currently have that :(
-        # Convert to HDU
-        # tHDU = fits.table_to_hdu(truth_table)
-
-        # pHDU = fits.PrimaryHDU(header=hdr)
-
-        # hdul = fits.HDUList([pHDU, tHDU])
-
-        # try:
-        #     hdul.writeto(outfile, overwrite=True)
-        # except IOError:
-        #     # Directory structure will not exist if galsim call failed
-        #     print('Warning: Injection for tile {}, realization {} failed! '
-        #            'Skipping truth-table writing.'.format(self.tile_name, self.curr_real))
+            except IOError:
+                # Directory structure will not exist if galsim call failed
+                print('Warning: Injection for tile {}, realization {} failed! '
+                    'Skipping truth-table writing.'.format(self.tile_name, self.curr_real))
+                return
 
         return
 
@@ -921,8 +902,6 @@ class Chip(object):
         self.tile_name = tile_name # Name of parent tile, if given
         self.band = band
         self.zeropoint = zeropoint
-        # TODO: For now, this shouldn't be needed. Can check later.
-        # self.input_types = config.input_types
 
         # Will be set later
         self.Ngals, self.Nstars = None, None
@@ -1799,10 +1778,8 @@ def RunBalrog():
             tile.write_bal_config()
             if vb is True: print('Running GalSim for tile...')
             tile.run_galsim(vb=vb)
-            # if vb is True: print('Making truth catalog...')
-            # outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
-            #             tile.tile_name, '{}_{}_balrog_truth_cat.fits'.format(tile.tile_name, real))
-            # tile.write_truth_catalog(config, outfile)
+            if vb is True: print('Making truth catalog...')
+            tile.write_truth_catalog(config)
 
             # pudb.set_trace()
 
@@ -1816,4 +1793,3 @@ def RunBalrog():
 if __name__ == '__main__':
     ret = RunBalrog()
     sys.exit(ret)
-
