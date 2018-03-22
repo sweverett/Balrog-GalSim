@@ -108,7 +108,9 @@ image :
     # bands : 'g'
     
     version : 'y3v02'
-    run_name : 'star_test'
+    run_name : 'blank_test'
+
+    inj_objs_only : True
 
     # Load WCS from DES chip file
     wcs :
@@ -121,7 +123,7 @@ image :
     n_galaxies : 5000 # per tile
 
     # Set the number of realizations / layers
-    n_realizations : 2
+    n_realizations : 3
     # n_realizations : 1
 
     # TODO: In future, we should load these fields automatically in script.
