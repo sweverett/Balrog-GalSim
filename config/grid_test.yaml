@@ -1,0 +1,91 @@
+modules :
+  - galsim.des
+  - injector
+  - ngmix_catalog
+  - des_star_catalog
+
+# These variables are not directly processed by GalSim; this simply allows a convenient way
+# to change multiple variable instances quickly throughout the config file.
+some_variables :
+  # Pick a maximum fft size
+  - &max_fft 65536
+  # - &max_fft 32768
+  # - &max_fft 16384
+  # - &max_fft 8192
+  # - &max_fft 4096 # GalSim default (likely want higher)
+  # - &max_fft 64 # For testing purposes!
+  - &bal_dir '/data/des61.a/data/severett/Balrog-GalSim/'
+  - &ngmix_dir '/data/des61.a/data/severett/Balrog-GalSim/inputs'
+  - &ngmix_file 'DES0113-4331-y3v02a-mof-001.fits'
+
+# Define the input files
+input :
+    ngmix_catalog :
+      # Replace with your desired ngmix catalog!
+      dir : *ngmix_dir
+      file_name : *ngmix_file
+
+      # Choose which type of ngmix catalog you are inputting
+      # NB: for now, only Gauss, CM, and CM-MOF are accepted
+      catalog_type : 'mof'
+      # catalog_type : 'cm'
+      # catalog_type : 'gauss'
+      # NOTE: If you don't specify an input type, the loader will attempt to determine the type
+      # from the filename as standard ngmix catalogs include 'gauss', 'cm', or 'mof' in name. Still
+      # safer to specify, however.
+      
+      # To use all bands: 
+      # NOTE: Don't use this anymore! This is ONLY for ngmix-specific simulations. Will cause
+      # Balrog to inject *all* bands in *all* chip images. Only here as a warning
+      # bands : 'griz'
+
+      # Set masking / selection thresholds for catalog
+      t_frac : 0.5
+      t_min : 0.001
+      t_max : 100
+      snr_min : 20.0
+
+# The gal field defines what kind of galaxy profile to use.
+gal :
+    type : ngmixGalaxy
+
+psf :
+    # For DES chip images with PSFEx files
+    # NOTE: In figure, Piff PSFs may be used instead
+    type : DES_PSFEx
+
+stamp :
+    # Nothing required here, but feel free to add additional config options
+    gsparams :
+      # fft size is the most likely change you'll want to make
+      maximum_fft_size : *max_fft
+
+image :
+    # For injected images:
+    type : Balrog # Same as AddOn, but with some additional input attributes and checking
+
+    bands : 'griz'
+    
+    version : 'y3v02'
+    run_name : 'grid_test'
+
+    pos_sampling : 'grid'
+    inj_objs_only : True
+
+    # Load WCS from DES chip file
+    wcs :
+      type : Fits
+
+    # For the moment, 'grid' type images overwrite the number of galaxies by the correct
+    # number to fit the grid. Will update this when grid parameters can be passed
+    n_galaxies : 4096 # per tile
+
+    # Set the number of realizations / layers
+    n_realizations : 1
+
+    # TODO: In future, we should load these fields automatically in script.
+    xsize: 2048 # DES nullwt chip
+    ysize: 4096 # DES nullwt chip
+
+    # Number of processors to be used on GalSim injection step
+    nproc : 2

@@ -44,12 +44,15 @@ import injector
 #-------------------------------------------------------------------------------
 # Urgent todo's:
 # TODO: Implement error handling for galaxy injections / gsparams! (I think fixed now)
-# TODO: Use fitsio when available!
 # TODO: Clean up evals in add_gs_injection()!
 # TODO: Change n_galaxies to be divided up per realization!
+# TODO: Figure out injector.py parameter parsing issue!
+# TODO: Check pixel origin for transformations!
 
 # Some extra todo's:
-# TODO: Get rid of extra / on config file parsing!
+# TODO: Allow grid parameters to be passed!
+# TODO: Use fitsio when available!
+# TODO: Get rid of extra '/' on config file parsing!
 # TODO: Implement some print statements as warnings
 # TODO: Redistribute config.galaxies_remainder among first m<n reals, rather than all at end
 # TODO: Make filename concatenation more robust! (Mostly done)
@@ -191,7 +194,8 @@ class Tile(object):
         return
 
     def _set_wcs(self, config):
-        'Load WCS info for each tile from geometry file.'
+        '''Load WCS info for each tile from geometry file.
+        '''
 
         crpix1, crpix2 = config.geom['CRPIX1'][self.indx], config.geom['CRPIX2'][self.indx]
         crval1, crval2 = config.geom['CRVAL1'][self.indx], config.geom['CRVAL2'][self.indx]
@@ -477,19 +481,59 @@ class Tile(object):
                         self.Ngals.append(ngals)
 
                         # Generate galaxy coordinates
-                        # TODO: Could add more sampling methods than uniform
-                        ra = sample_uniform_ra(self.ramin, self.ramax, self.gals_per_real,
-                                               boundary_cross=self.ra_boundary_cross)
-                        dec = sample_uniform_dec(self.decmin, self.decmax, self.gals_per_real,
+                        if config.pos_sampling == 'uniform':
+                            ra = sample_uniform_ra(self.ramin, self.ramax, self.gals_per_real,
+                                                boundary_cross=self.ra_boundary_cross)
+                            dec = sample_uniform_dec(self.decmin, self.decmax, self.gals_per_real,
                                                  unit='deg')
-                        self.gals_pos.append(np.column_stack((ra, dec)))
+                            self.gals_pos.append(np.column_stack((ra, dec)))
+
+                            # Generate galaxy indices (in input catalog)
+                            indices = np.array(rand.sample(xrange(Ng), ngals))
+                            # indices = sample_uniform_indx(0, config.input_nobjects[gal_type], Ng)
+                            self.gals_indx.append(indices)
+
+                        elif config.pos_sampling == 'grid':
+                            # TODO: eventually make 'pos_sampling' be a galsim value so we can add
+                            # more user-defined structure
+
+                            # dr = abs(self.ramax - self.ramin) * np.cos(np.mean([self.decmax, self.decmin]))
+                            # dd = abs(self.decmax - self.decmin)
+
+                            # N = 70
+                            # r1, r2 = self.ramin, self.ramax
+                            # d1, d2 = self.decmin, self.decmax
+                            # im_r1, imr2 = 
+                            # bounds = np.array([[r1, d1], [r2, d1]])
+
+                            # n = np.arange()
+                            # ra = tile.r0 + n * (config.grid_spacing / 3600.0) * (1.0 / np.cos(tile.d0))
+                            # dec = tile.d0 + + n * (config.grid_spacing / 3600.0)
+
+                            # pudb.set_trace()
+
+                            # TODO: Pass in future!
+                            Npix_x, Npix_y = 10000, 10000
+                            # Nx, Ny = 70, 70
+                            gs = 40.0 / 3600.0 # grid spacing in deg
+                            pixscale = 7.306e-5 # taken from tile header
+                            im_gs = gs * (1.0 / pixscale) # pixels
+
+                            im_ra = np.arange(im_gs, Npix_x-im_gs, im_gs)
+                            im_dec = np.arange(im_gs, Npix_y-im_gs, im_gs)
+                            # Get all image coordinate pairs
+                            im_pos = np.array(np.meshgrid(im_ra, im_dec)).T.reshape(-1, 2)
+                            self.gals_pos.append(self.wcs.wcs_pix2world(im_pos, 1))
+
+                            # Generate galaxy indices (in input catalog)
+                            # TODO: For now, we ignore any passed n_gals or density and pick
+                            # the 'best' grid spacing. Will update in future!
+                            ngals = len(im_pos)
+                            indices = np.array(rand.sample(xrange(Ng), ngals))
+                            # indices = sample_uniform_indx(0, config.input_nobjects[gal_type], Ng)
+                            self.gals_indx.append(indices)
 
                         # pudb.set_trace()
-
-                        # Generage galaxy indices (in input catalog)
-                        indices = np.array(rand.sample(xrange(Ng), ngals))
-                        # indices = sample_uniform_indx(0, config.input_nobjects[gal_type], Ng)
-                        self.gals_indx.append(indices)
 
         return
 
@@ -641,6 +685,13 @@ class Tile(object):
                 for j in range(Ninput): self.bal_config[i]['image']['image_pos']['items'][j] = {}
 
         #-----------------------------------------------------------------------------------------------
+        # Set common entries independent of list structure
+
+        if inj_type == 'gals': self.bal_config[i]['image'].update({'Ngals' : chip.Ngals})
+        elif inj_type == 'stars': self.bal_config[i]['image'].update({'Nstars' : chip.Nstars})
+        else: raise ValueError('For now, only `gals` or `stars` are valid injection types!')
+
+        #-----------------------------------------------------------------------------------------------
         # If only one input type, don't use list structure
         if Ninput == 1:
 
@@ -692,10 +743,7 @@ class Tile(object):
                 }
             })
 
-            # Set object number and positions
-            if inj_type == 'gals': self.bal_config[i]['image'].update({'Ngals' : chip.Ngals})
-            elif inj_type == 'stars': self.bal_config[i]['image'].update({'Nstars' : chip.Nstars})
-            else: raise ValueError('For now, only `gals` or `stars` are valid injection types!')
+            # Set object positions
             x, y = inj_pos_im[:,0].tolist(), inj_pos_im[:,1].tolist()
             self.bal_config[i]['image']['image_pos']['items'][indx].update({
                 'type' : 'XY',
@@ -905,7 +953,7 @@ class Chip(object):
         self.zeropoint = zeropoint
 
         # Will be set later
-        self.Ngals, self.Nstars = None, None
+        self.Ngals, self.Nstars = 0, 0
 
         # Keeps track of how many input types for this chip have been added
         # to bal_config by add_gs_injection()
@@ -1288,6 +1336,18 @@ class Config(object):
             # Most runs will add objects to existing images
             self.inj_objs_only = False
 
+        # Process input 'pos_sampling'
+        valid_pos_sampling = ['uniform', 'grid']
+        try:
+            ps = self.gs_config[0]['image']['pos_sampling']
+            if ps not in valid_pos_sampling:
+                raise ValueError('{} is not a valid position sampling method. '.format(ps) +
+                                 'Currently allowed methods are {}'.format(valid_pos_sampling))
+            self.pos_sampling = ps
+        except KeyError:
+            # Most runs use uniform sampling
+            self.pos_sampling = 'uniform'
+
         return
 
     def _load_tile_geometry(self):
@@ -1296,12 +1356,6 @@ class Config(object):
         '''
 
         self.geom_file = self.args.geom_file
-
-        # now a required parameter!
-        # if self.geom_file is None:
-        #     # TODO: Make reasonable assumption about file in local directory
-        #     # (e.g. serach for 'Y{}A{}GEOM', or similar)
-        #     raise Exception('For now, must pass a geometry file! (e.g. `Y3A2_COADDTILE_GEOM.fits`)')
 
         # Load unique area bounds from DES coadd tile geometry file
         with fits.open(self.geom_file) as hdu_geom:

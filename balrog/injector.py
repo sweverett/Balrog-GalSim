@@ -1,6 +1,6 @@
 import galsim
 import logging
-import pdb
+import pudb
 ## Class for injecting simulated galaxies into pre-existing images.
 
 
@@ -22,14 +22,22 @@ galsim.config.RegisterImageType('AddOn', AddOnImageBuilder())
 class BalrogImageBuilder(AddOnImageBuilder):
 
     def setup(self, config, base, image_num, obj_num, ignore, logger):
+        # TODO: Clean up and fix! Most params are not being passed as expected
         ignore = ignore + ['Ngals', 'Nstars', 'bands', 'n_realizations', 'n_galaxies', 'gal_density',
-                           'version', 'run_name', 'inj_objs_only']
+                           'version', 'run_name', 'inj_objs_only', 'pos_sampling']
         # full_xsize, full_ysize = super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
         full_xsize, full_ysize = super(BalrogImageBuilder, self).setup(config, base, image_num, obj_num, ignore, logger)
 
         # Note that we only type-check, not set default values; GalSim has no knowledge of these parameters and
         # default behaviour is handled in balrog.py
-        params = galsim.config.GetAllParams(config, base, ignore=ignore)[0]
+        opt = {'Ngals':int, 'Nstars':int, 'bands':str, 'n_realizations':int, 'n_galaxies':int,
+                'gal_density':float, 'version':str, 'run_name':str, 'inj_objs_only':bool, 'pos_sampling':str}
+        params = galsim.config.GetAllParams(config, base, opt=opt)[0]
+        # print('config[inj_objs_only] = {}'.format(config['inj_objs_only']))
+        # print('params = {}'.format(params))
+        # print('config = {}'.format(config))
+        # print('config[_get] = {}'.format(config['_get']))
+        # print('base = {}'.format(base))
         for arg in ['n_realizations', 'n_galaxies']:
             if arg in params:
                 if params[arg] < 0 or (type(params[arg]) is not int):
@@ -48,9 +56,16 @@ class BalrogImageBuilder(AddOnImageBuilder):
         return full_xsize, full_ysize
 
     def buildImage(self, config, base, image_num, obj_num, logger):
-        inj_objs_only = galsim.config.ParseValue(config, 'inj_objs_only', base, str)[0]
-        if inj_objs_only: return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
-        else: return super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+        # pudb.set_trace()
+        # params = galsim.config.GetAllParams(config, base)[0]
+        # print('params2 = {}'.format(params))
+        try:
+            if config['inj_objs_only'] is True:
+                return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+            else:
+                return super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+        except KeyError:
+            return super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
 
 galsim.config.RegisterImageType('Balrog', BalrogImageBuilder())
 
