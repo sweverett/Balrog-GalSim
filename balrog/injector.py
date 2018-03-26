@@ -19,20 +19,23 @@ class AddOnImageBuilder(galsim.config.image_scattered.ScatteredImageBuilder):
 
 galsim.config.RegisterImageType('AddOn', AddOnImageBuilder())
 
+# --------------------------------------------------------------------------------------------------
+
 class BalrogImageBuilder(AddOnImageBuilder):
 
     def setup(self, config, base, image_num, obj_num, ignore, logger):
-        # TODO: Clean up and fix! Most params are not being passed as expected
-        ignore = ignore + ['Ngals', 'Nstars', 'bands', 'n_realizations', 'n_galaxies', 'gal_density',
-                           'version', 'run_name', 'inj_objs_only', 'pos_sampling']
+        extra_ignore = ignore + ['Ngals', 'Nstars', 'bands', 'n_realizations', 'n_galaxies',
+                                 'gal_density', 'version', 'run_name', 'inj_objs_only', 'pos_sampling']
         # full_xsize, full_ysize = super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
-        full_xsize, full_ysize = super(BalrogImageBuilder, self).setup(config, base, image_num, obj_num, ignore, logger)
+        full_xsize, full_ysize = super(BalrogImageBuilder, self).setup(config, base, image_num,
+                                                                       obj_num, extra_ignore, logger)
 
         # Note that we only type-check, not set default values; GalSim has no knowledge of these parameters and
         # default behaviour is handled in balrog.py
         opt = {'Ngals':int, 'Nstars':int, 'bands':str, 'n_realizations':int, 'n_galaxies':int,
                 'gal_density':float, 'version':str, 'run_name':str, 'inj_objs_only':bool, 'pos_sampling':str}
         params = galsim.config.GetAllParams(config, base, opt=opt)[0]
+        # TODO: Clean up and fix! Most params are not being passed as expected
         # print('config[inj_objs_only] = {}'.format(config['inj_objs_only']))
         # print('params = {}'.format(params))
         # print('config = {}'.format(config))
@@ -57,15 +60,19 @@ class BalrogImageBuilder(AddOnImageBuilder):
 
     def buildImage(self, config, base, image_num, obj_num, logger):
         # pudb.set_trace()
-        # params = galsim.config.GetAllParams(config, base)[0]
-        # print('params2 = {}'.format(params))
         try:
-            if config['inj_objs_only'] is True:
+            print('config[inj_objs_only] = {}'.format(config['inj_objs_only']))
+            ioo = dict(config['inj_objs_only'])
+            if (type(ioo) is bool) and (ioo is True):
+                return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+            elif (type(ioo) is dict) and (ioo['value'] is True):
                 return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
             else:
+                # Default is to add on top of initial images
                 return super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+
         except KeyError:
+            # Default is to add on top of initial images
             return super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
 
 galsim.config.RegisterImageType('Balrog', BalrogImageBuilder())
-
