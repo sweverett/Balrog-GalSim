@@ -70,8 +70,8 @@ image :
 
     pos_sampling : 'grid'
     inj_objs_only :
-        'value' : True
-        'noise' : True
+        value : True
+        noise : True
 
     # Load WCS from DES chip file
     wcs :
