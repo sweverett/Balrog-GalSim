@@ -1,6 +1,6 @@
 import galsim
 import logging
-import pudb
+# import pudb
 ## Class for injecting simulated galaxies into pre-existing images.
 
 
