@@ -2,7 +2,6 @@ modules :
   - galsim.des
   - injector
   - ngmix_catalog
-  - des_star_catalog
 
 # These variables are not directly processed by GalSim; this simply allows a convenient way
 # to change multiple variable instances quickly throughout the config file.
@@ -70,7 +69,9 @@ image :
     run_name : 'grid_test'
 
     pos_sampling : 'grid'
-    inj_objs_only : True
+    inj_objs_only :
+        'value' : True
+        'noise' : True
 
     # Load WCS from DES chip file
     wcs :
@@ -78,7 +79,8 @@ image :
 
     # For the moment, 'grid' type images overwrite the number of galaxies by the correct
     # number to fit the grid. Will update this when grid parameters can be passed
-    n_galaxies : 4096 # per tile
+    n_galaxies : 4096 # for 1 realization
+    # n_galaxies : 12288 # for 3 realizations
 
     # Set the number of realizations / layers
     n_realizations : 1
