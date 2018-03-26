@@ -39,11 +39,7 @@ from astropy.table import Table
 import injector
 
 # Use for debugging
-<<<<<<< HEAD
-#import pudb
-=======
 # import pudb
->>>>>>> b9d3004c5147b226f8c850c30a6b794888b58496
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
