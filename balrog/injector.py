@@ -64,7 +64,6 @@ class BalrogImageBuilder(AddOnImageBuilder):
     def buildImage(self, config, base, image_num, obj_num, logger):
         # pudb.set_trace()
         try:
-            print('config[inj_objs_only] = {}'.format(config['inj_objs_only']))
             ioo = dict(config['inj_objs_only'])
             if (type(ioo) is bool) and (ioo is True):
                 return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
