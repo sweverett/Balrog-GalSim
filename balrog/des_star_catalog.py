@@ -414,6 +414,30 @@ class desStarCatalog(object):
 
     #------------------------------------------------------------------------------------------------
 
+    def indices_in_region(self, rlims, dlims, boundary_cross=False):
+        '''
+        Returns the indices of all stars contained within the ra/dec limits.
+        '''
+
+        r1, r2 = rlims[0], rlims[1]
+        d1, d2 = dlims[0], dlims[1]
+
+        if not boundary_cross:
+            indices = np.where( (self.catalog['RA_new']>r1) &
+                                                (self.catalog['RA_new']<r2) &
+                                                (self.catalog['DEC_new']>d1) &
+                                                (self.catalog['DEC_new']<d2) )[0]
+        else:
+            # Account for positions crossing accross RA=0/360
+            indices = np.where(
+                ( (self.catalog['RA_new']>=r1) & (self.catalog['RA_new']<360) ) | # r1<ra<360
+                ( (self.catalog['RA_new']>0) & (self.catalog['RA_new']<=r2) )  & # 0<ra<r2
+                ( (self.catalog['DEC_new']>d1) & (self.catalog['DEC_new']<d2) ) )[0]
+
+        return indices
+
+    #------------------------------------------------------------------------------------------------
+
     def getNObjects(self):
         # Used by input/logger methods
         return self.nobjects

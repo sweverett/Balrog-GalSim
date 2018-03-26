@@ -39,7 +39,11 @@ from astropy.table import Table
 import injector
 
 # Use for debugging
+<<<<<<< HEAD
 #import pudb
+=======
+# import pudb
+>>>>>>> b9d3004c5147b226f8c850c30a6b794888b58496
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
@@ -48,9 +52,11 @@ import injector
 # TODO: Change n_galaxies to be divided up per realization!
 # TODO: Figure out injector.py parameter parsing issue!
 # TODO: Check pixel origin for transformations!
+# TODO: Remove all stars not contained in unique region!
 
 # Some extra todo's:
 # TODO: Allow grid parameters to be passed!
+# TODO: Have grid correctly handle chips w/ no injections on them
 # TODO: Use fitsio when available!
 # TODO: Get rid of extra '/' on config file parsing!
 # TODO: Implement some print statements as warnings
@@ -145,6 +151,9 @@ class Tile(object):
 
         # Load zeropoint list from file
         self._load_zeropoints(config)
+
+        # Set noise properties
+        self._set_noise(config)
 
         # TODO: TESTING! Can remove in future
         config.flux_factors[self.tile_name] = {}
@@ -253,12 +262,6 @@ class Tile(object):
         # TODO: Should allow other formats (e.g. JSON) in future.
         '''
 
-        # Create new config file
-        # TODO: Moved to set_bal_config_name() below; remove after testing
-        # filename = 'bal_config_' + str(self.curr_real) + '_' + self.tile_name + '.yaml'
-        # self.bal_config_dir = config.output_dir + '/configs/'
-        # self.bal_config_file = self.bal_config_dir + filename
-
         self.set_bal_config_name(config)
 
         # Create bal config directory if it does not already exist
@@ -322,7 +325,21 @@ class Tile(object):
 
         return
 
-    def _create_chip_list(self,config):
+    def _set_noise(self, config):
+        '''
+        Set any tile-wide noise properties from the config.
+        '''
+
+        if config.inj_objs_only['noise'] is True:
+            self.noise_model = 'CCD'
+        # Can add more noise models here!
+        # elif ...
+        else:
+            self.noise_model = None
+
+        return
+
+    def _create_chip_list(self, config):
         '''
         Given nullweight file locations, create chip lists for each band.
         '''
@@ -425,7 +442,14 @@ class Tile(object):
                     # Make proxy catalog
                     galsim.config.ProcessInput(gs_config)
                     cat_proxy = gs_config['input_objs'][input_type][0]
+                    print('Counts 1 = {}'.format(cat_proxy.getNObjects()))
+                    # TODO: Part of solution to #25
+                    # indices = cat_proxy.indices_in_region([self.ramin, self.ramax],
+                    #                                       [self.decmin, self.decmax],
+                    #                                       boundary_cross=self.ra_boundary_cross)
+                    print('Counts 2 = {}'.format(cat_proxy.getNObjects()))
                     Ns = cat_proxy.getNObjects()
+                    print('Ns = {}'.format(Ns))
 
                     # Update star catalog
                     config.input_cats[input_type] = cat_proxy.getCatalog()
@@ -446,8 +470,12 @@ class Tile(object):
                     # needed values for all realizations now.
                     for real in range(Nr):
                         inds = indices[real]
-                        self.stars_indx.append(inds)
                         r, d = ra[inds], dec[inds]
+
+                        # TODO: Cut out any stars not contained in *unique* tile region!
+                        # Part of solution to #25
+
+                        self.stars_indx.append(inds)
                         self.stars_pos.append(np.column_stack((r, d)))
                         self.Nstars.append(len(inds))
 
@@ -637,6 +665,20 @@ class Tile(object):
                 'nobjects' : nobjs,
                 'wcs' : { 'file_name' : chip_file },
             }
+
+            # If noise is to be added, do it here
+            # pudb.set_trace()
+            if self.noise_model is not None:
+                if self.noise_model == 'CCD':
+                    self.bal_config[i]['image']['noise'] = {
+                        'type' : self.noise_model,
+                        'sky_level_pixel' : chip.sky_sigma**2,
+                        'gain' : float(np.mean(chip.gain)),
+                        'read_noise' : float(np.mean(chip.read_noise))
+                    }
+            # pudb.set_trace()
+            # Can add more noise models here!
+            # elif ...
 
             # Setup 'input' field (nothing besides dict init, for now)
             self.bal_config[i]['input'] = {}
@@ -962,6 +1004,7 @@ class Chip(object):
         self._set_name(config)
         self._set_psf(config)
         self._set_wcs()
+        self._set_noise(config)
         self._set_flux_factor(config)
 
         return
@@ -1014,7 +1057,7 @@ class Chip(object):
             self.psf_filename = None
         return
 
-    def _set_wcs(self, config=None):
+    def _set_wcs(self):
         hdr = fits.getheader(self.filename)
         # Get chip WCS
         self.wcs = wcs.WCS(hdr)
@@ -1068,6 +1111,20 @@ class Chip(object):
         self.naxis2_range = [np.min(self.corners_im[:,1]), np.max(self.corners_im[:,1])]
 
         # pudb.set_trace()
+
+        return
+
+    def _set_noise(self, config):
+        '''
+        If desired, grab noise values from the chip header.
+        '''
+
+        if config.data_version == 'y3v02':
+            hdr = fitsio.read_header(self.filename)
+            self.sky_var = [hdr['SKYVARA'], hdr['SKYVARB']]
+            self.sky_sigma = hdr['SKYSIGMA']
+            self.gain = [hdr['GAINA'], hdr['GAINB']]
+            self.read_noise = [hdr['RDNOISEA'], hdr['RDNOISEB']]
 
         return
 
@@ -1328,13 +1385,23 @@ class Config(object):
 
         # Process input 'inj_objs_only'. This is used to test Balrog injections on blank images
         try:
-            inj_objs_only = self.gs_config[0]['image']['inj_objs_only']
-            if type(inj_objs_only) is not bool:
-                raise ValueError('The field \'inj_objs_only\' must be set with a bool!')
-            self.inj_objs_only = inj_objs_only
+            inj_objs_only = dict(self.gs_config[0]['image']['inj_objs_only'])
+            if type(inj_objs_only) is bool:
+                # Default is to include chip noise in injection
+                self.inj_objs_only = {'value':inj_objs_only, 'noise':True}
+            elif type(inj_objs_only) is dict:
+                self.inj_objs_only = {}
+                keys = ['value', 'noise']
+                for key, val in inj_objs_only.items():
+                    if key not in keys:
+                        raise ValueError('{} is not a valid key for `inj_objs_only`! '.format(key) +
+                                         'You may only pass the keys {}'.format(keys))
+                    self.inj_objs_only[key] = val
+            else:
+                raise ValueError('The field \'inj_objs_only\' must be set with a bool or dict!')
         except KeyError:
             # Most runs will add objects to existing images
-            self.inj_objs_only = False
+            self.inj_objs_only = {'value':False, 'noise':False}
 
         # Process input 'pos_sampling'
         valid_pos_sampling = ['uniform', 'grid']
@@ -1794,7 +1861,6 @@ def RunBalrog():
                         # Determine which Balrog galaxies are contained in chip, and
                         # get their image coordinates
                         in_chip, pos_im = chip.contained_in_chip(tile.gals_pos[real])
-                        # gals_pos = tile.gals_pos[real][in_chip] # NOTE: is this line needed?
                         gals_pos_im = pos_im[in_chip]
                         gals_indx = tile.gals_indx[real][in_chip]
                         chip.set_Ngals(len(gals_pos_im))
@@ -1807,7 +1873,6 @@ def RunBalrog():
                         # Determine which Balrog stars are contained in chip, and
                         # get their image coordinates
                         in_chip, pos_im = chip.contained_in_chip(tile.stars_pos[real])
-                        # stars_pos = tile.stars_pos[real][in_chip] # NOTE: is this line needed?
                         stars_pos_im = pos_im[in_chip]
                         stars_indx = tile.stars_indx[real][in_chip]
                         chip.set_Nstars(len(stars_pos_im))
@@ -1828,7 +1893,7 @@ def RunBalrog():
             tile.write_bal_config()
             if vb is True: print('Running GalSim for tile...')
             tile.run_galsim(vb=vb)
-
+            if vb is True: print('Truth Catalog...')
             tile.write_truth_catalog(config)
 
             # pudb.set_trace()
