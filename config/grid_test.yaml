@@ -66,7 +66,7 @@ image :
     bands : 'griz'
     
     version : 'y3v02'
-    run_name : 'grid_test'
+    run_name : 'grid_with_noise'
 
     pos_sampling : 'grid'
     inj_objs_only :
