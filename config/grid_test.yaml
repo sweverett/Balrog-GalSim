@@ -13,8 +13,8 @@ some_variables :
   # - &max_fft 8192
   # - &max_fft 4096 # GalSim default (likely want higher)
   # - &max_fft 64 # For testing purposes!
-  - &bal_dir '/data/des61.a/data/severett/Balrog-GalSim/'
-  - &ngmix_dir '/data/des61.a/data/severett/Balrog-GalSim/inputs'
+  - &bal_dir '/home/spencer/research/balrog/Balrog-GalSim'
+  - &ngmix_dir '/home/spencer/research/balrog/ngmix_cats'
   - &ngmix_file 'DES0113-4331-y3v02a-mof-001.fits'
 
 # Define the input files
@@ -69,9 +69,9 @@ image :
     run_name : 'grid_with_noise'
 
     pos_sampling : 'grid'
-    inj_objs_only :
-        value : True
-        noise : True
+    inj_objs_only : 
+      value : True
+      noise : True
 
     # Load WCS from DES chip file
     wcs :
