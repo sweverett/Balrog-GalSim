@@ -1381,11 +1381,13 @@ class Config(object):
 
         # Process input 'inj_objs_only'. This is used to test Balrog injections on blank images
         try:
-            inj_objs_only = dict(self.gs_config[0]['image']['inj_objs_only'])
+            inj_objs_only = self.gs_config[0]['image']['inj_objs_only']
             if type(inj_objs_only) is bool:
                 # Default is to include chip noise in injection
                 self.inj_objs_only = {'value':inj_objs_only, 'noise':True}
-            elif type(inj_objs_only) is dict:
+            elif isinstance(inj_objs_only, dict):
+                # Is likely an OrderedDict, so convert
+                inj_objs_only = dict(inj_objs_only)
                 self.inj_objs_only = {}
                 keys = ['value', 'noise']
                 for key, val in inj_objs_only.items():
