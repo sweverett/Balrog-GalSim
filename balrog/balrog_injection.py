@@ -39,7 +39,7 @@ from astropy.table import Table
 import injector
 
 # Use for debugging
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
@@ -438,12 +438,12 @@ class Tile(object):
                     # Make proxy catalog
                     galsim.config.ProcessInput(gs_config)
                     cat_proxy = gs_config['input_objs'][input_type][0]
-                    print('Counts 1 = {}'.format(cat_proxy.getNObjects()))
+                    # print('Counts 1 = {}'.format(cat_proxy.getNObjects()))
                     # TODO: Part of solution to #25
                     # indices = cat_proxy.indices_in_region([self.ramin, self.ramax],
                     #                                       [self.decmin, self.decmax],
                     #                                       boundary_cross=self.ra_boundary_cross)
-                    print('Counts 2 = {}'.format(cat_proxy.getNObjects()))
+                    # print('Counts 2 = {}'.format(cat_proxy.getNObjects()))
                     Ns = cat_proxy.getNObjects()
                     print('Ns = {}'.format(Ns))
 
@@ -768,6 +768,7 @@ class Tile(object):
             indx = self.input_indx[inj_type]
 
             # Make sure injection type indices are consistent
+            # pudb.set_trace()
             assert self.bal_config[0]['gal']['items'][indx]['type'] == self.inj_types[inj_type]
 
             # Set object indices and flux factor
@@ -1447,8 +1448,7 @@ class Config(object):
 
         # Keep track of which index corresponds to gals vs stars.
         # NOTE: Only one input catalog of each type is currently allowed!
-        input_indx = None
-        input_star_indx = None
+        # TODO: Remove below after testing!
         self.input_indx = {}
         self.input_types = {} # Input catalogs
         self.inj_types = {} # Injection types from catalogs
@@ -1568,7 +1568,11 @@ class Config(object):
 
             else:
                 # Add more types later!
-                raise ValueError('For now, only ngmix catalogs can be used for injections!')
+                # warnings.warn('Input type {} not used as an injected object type. '.format(input_type) +
+                #               'May still be used to modify injections, e.g. global shear parameters.')
+                # pudb.set_trace()
+                input_cat_types.remove(input_type)
+                raise ValueError('For now, only {} can be used for injections!'.format(_supported_input_types))
 
         # Return the number of objects in input catalog that will be injected
         # NOTE: Calling `ProcessInputNObjects()` builds the input catalog
@@ -1581,7 +1585,12 @@ class Config(object):
         galsim.config.ProcessInput(gs_config)
 
         # Grab needed info from the proxy catalog
-        for i, input_type in enumerate(input_cat_types):
+        # for i, input_type in enumerate(input_cat_types):
+        # for  input_type in enumerate(self.input_types)
+        # pudb.set_trace()
+        for input_type in self.input_types.values():
+            # Only do this for injection types (gals, stars)
+            # if i not in self.input_indx.values(): continue
             cat_proxy = gs_config['input_objs'][input_type][0] # Actually a proxy
             self.input_cats[input_type] = cat_proxy.getCatalog()
             self.input_nobjects[input_type] = cat_proxy.getNObjects()
@@ -1599,6 +1608,12 @@ class Config(object):
         self.input_types = []
 
         for it in inputs:
+            if it not in _supported_input_types:
+                # We only want to include actual injection inputs due to the list structure
+                # used by Galsim's multiple 'gal' injections.
+                warnings.warn('Input type {} is not currently supported for injection. '.format(it) +
+                              'This is ok for other inputs, e.g. a shear power spectrum.')
+                continue
             self.input_types.append(it)
 
         return self.input_types
