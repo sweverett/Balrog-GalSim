@@ -26,11 +26,7 @@ import yaml
 import argparse
 import datetime
 import itertools
-# TODO: Have automatic check for astropy vs. fitsio!
-# try: import fitsio
 import fitsio
-# except: import astropy
-# from fitsio import FITS, FITSHDR, etc.
 from astropy.io import fits
 from astropy import wcs
 from astropy.table import Table
@@ -43,7 +39,8 @@ import pudb
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
-# TODO: Implement error handling for galaxy injections / gsparams! (I think fixed now)
+# TODO: Implement error handling for galaxy injections / gsparams! (Working solution, but need
+#       to look into more detail per Erin)
 # TODO: Clean up evals in add_gs_injection()!
 # TODO: Figure out injector.py parameter parsing issue!
 # TODO: Check pixel origin for transformations!
@@ -52,18 +49,12 @@ import pudb
 # Some extra todo's:
 # TODO: Allow grid parameters to be passed!
 # TODO: Have grid correctly handle chips w/ no injections on them
-# TODO: Use fitsio when available!
-# TODO: Get rid of extra '/' on config file parsing!
+# TODO: Have code automatically check fitsio vs astropy
 # TODO: Implement some print statements as warnings
-# TODO: Redistribute config.galaxies_remainder among first m<n reals, rather than all at end
-# TODO: Make filename concatenation more robust! (Mostly done)
-# TODO: Clean up old gs_config!! (Maybe allow different options?)
-        # NOTE: gs_config implementation does not work and can be deleted. Using alternative
 # TODO: More general geometry file inputs
 # TODO: Add check for python path!
 # TODO: Figure out permission issue!
 # TODO: Make a log system!
-# TODO: Should be able to handle passing geometry file and directories in config OR command line consistently!
 # TODO: Add a single seed for each tile w/r/t noise realizations
 
 # Questions:
@@ -89,9 +80,8 @@ _supported_input_types = ['ngmix_catalog', 'des_star_catalog']#, 'postage_stamps
 
 class Tile(object):
     """
-    # TODO: more details.
-    A `Tile` is a square ?x? deg^2 subsection of the DES footprint.
-    Tiles overlap by 2 arcmin, but balrog galaxies are only injected in the unique
+    A `Tile` is a square ~0.7x0.7 deg^2 subsection of the DES footprint.
+    Tiles overlap by 2 arcmin, but Balrog galaxies are only injected in the unique
     footrpint area.
     """
 
@@ -149,7 +139,7 @@ class Tile(object):
         # Set noise properties
         self._set_noise(config)
 
-        # TODO: TESTING! Can remove in future
+        # TESTING: Can remove in future
         config.flux_factors[self.tile_name] = {}
 
         self._create_chip_list(config)
@@ -279,10 +269,6 @@ class Tile(object):
         assert len(self.bal_config) == 1
         self.bal_config_len = 1
 
-        # Keep track if balrog config has been modified from original
-        # TODO/NOTE: Probably don't need for this implementation; delete soon.
-        # self.bal_config_modified is False:
-
         return
 
     def _load_zeropoints(self, config, s_begin=0, s_end=4):
@@ -347,18 +333,15 @@ class Tile(object):
             self.chip_list[band] = []
             self.chips[band] = []
             # Get list of files in nullwt directory
-            #TODO: Check if the directory exists! (check if solution works)
             try:
                 file_list = os.listdir(b_dir)
             except OSError:
-                # This tile does not have chip images in this band
+                #
                 file_list = None
                 continue
-            # Check that it is a nullwt fits file
+            # Check that it is an appropriate fits file to be injected into
             for f in file_list:
-                #TODO: Check if fits file is actually a nullwt image
-                # ischip = self.is_nullwt_chip(f)
-                if f.endswith('nullwt.fits'): self.chip_list[band].append(f)
+                if self.is_chip_image(config, f): self.chip_list[band].append(f)
 
                 # Grab chip zeropoint for this file
                 # QUESTION: Should we allow chips that aren't in the .dat file and
@@ -375,6 +358,19 @@ class Tile(object):
 
         return
 
+
+    def is_chip_image(self, config, chip_file):
+        '''
+        Checks if passed file is an appropriate chip injection image given data version.
+        '''
+
+        if config.data_version == 'y3v02':
+            # TODO: Come up with a more robust check!
+            if chip_file.endswith('nullwt.fits'):
+                return True
+            else:
+                return False
+
     def set_realization(self, i):
         '''
         Sets parameters relevant to the current injection realization i.
@@ -382,7 +378,7 @@ class Tile(object):
 
         self.curr_real = i
 
-        # TODO: More relevant functions?
+        # If necessary, add more relevant details
 
         return
 
@@ -398,7 +394,7 @@ class Tile(object):
         if config.sim_gals is True:
             self.generate_galaxies(config, realization)
 
-        # TODO: Can add new simulation types later
+        # TODO: Can add new simulation types later. Transients, maybe?
 
         return
 
@@ -518,6 +514,7 @@ class Tile(object):
                             # TODO: eventually make 'pos_sampling' be a galsim value so we can add
                             # more user-defined structure
 
+                            # First pass at grid making...
                             # dr = abs(self.ramax - self.ramin) * np.cos(np.mean([self.decmax, self.decmin]))
                             # dd = abs(self.decmax - self.decmin)
 
@@ -561,7 +558,7 @@ class Tile(object):
     def write_bal_config(self):
         '''
         Write appended balrog config to a yaml file.
-        # TODO: In future, allow more config types!
+        TODO: In future, allow more config types! JSON?
         '''
 
         # Writes final tile-wide GalSim config file for current realization
@@ -649,7 +646,6 @@ class Tile(object):
 
             # Setup 'image' field
             chip_file = chip.filename
-            # TODO: Update w/ Ngals and Nstars
             nobjs = '$@image.Ngals+@image.Nstars'
             self.bal_config[i]['image'] = {
                 'Ngals' : 0,
@@ -821,7 +817,6 @@ class Tile(object):
 
         # If there are no galaxies to inject, simply save chip file to balrog directory
         if self.has_injections is False:
-            # TODO: Actually implement! For now, we just won't write.
             # NOTE: Can't run galsim executable (besides being a waste of time) as
             # the base layer yaml config won't be valid without extra additions.
             return
@@ -859,7 +854,7 @@ class Tile(object):
             output, error = process.communicate()
 
         # TODO: Would be nice to do something with the output / errors in future.
-        # maybe implement an additional log?
+        # maybe implement an additional log? ISSUE: 8
 
         return
 
@@ -1018,7 +1013,6 @@ class Chip(object):
         '''
         Set the psf type / configuration for the chip.
         '''
-        # TODO: For now just PSFEx, but should allow for Piff (or others!) in future.
         # Can load in type from global GalSim config file
         try:
             # If present, grab config psf type
@@ -1052,40 +1046,41 @@ class Chip(object):
         return
 
     def _set_wcs(self):
+        '''
+        Get corners (chip not perfectly aligned to RA/DEC coordinate system).
+        Especially useful for galaxy position rejection.
+        NOTE: The nullwt chips are not oriented in the standard way.
+        In a typical (RA,DEC) projection space:
+
+        DEC increasing up
+        .
+        .
+        1-----------4
+        -           -
+        -           -
+        2-----------3....RA increasing right
+
+        In the DES nullwt chip orientation:
+
+        RA increasing up
+        .
+        .
+        4-------3
+        -       -
+        -       -
+        -       -
+        -       -
+        1-------2....DEC decreasing right
+
+        Because of the strange orientation, wcs_world2pix([ra, dec]) will
+        return correct image coordinates but will be flipped from what we
+        normally expect; i.e. IN_PIX: (x,y) ~= (DEC, RA).
+        This will affect how we implement contained_in_chip().
+        '''
+
         hdr = fits.getheader(self.filename)
         # Get chip WCS
         self.wcs = wcs.WCS(hdr)
-
-        # Get corners (chip not perfectly aligned to RA/DEC coordinate system)
-        # Especially useful for galaxy position rejection.
-        #TODO: Determine if we actually need this!
-        #NOTE: The nullwt chips are not oriented in the standard way.
-        # In a typical (RA,DEC) projection space:
-        #
-        # DEC increasing up
-        # .
-        # .
-        # 1-----------4
-        # -           -
-        # -           -
-        # 2-----------3....RA increasing right
-        #
-        # In the DES nullwt chip orientation:
-        #
-        # RA increasing up
-        # .
-        # .
-        # 4-------3
-        # -       -
-        # -       -
-        # -       -
-        # -       -
-        # 1-------2....DEC decreasing right
-        #
-        # Because of the strange orientation, wcs_world2pix([ra, dec]) will
-        # return correct image coordinates but will be flipped from what we
-        # normally expect; i.e. IN_PIX: (x,y) ~= (DEC, RA).
-        # This will affect how we implement contained_in_chip().
 
         self.ramin, self.ramax = hdr['RACMIN'], hdr['RACMAX']
         self.decmin, self.decmax = hdr['DECCMIN'], hdr['DECCMAX']
@@ -1129,7 +1124,7 @@ class Chip(object):
         '''
         self.flux_factor = np.power(10.0, 0.4 * (self.zeropoint - config.input_zp))
 
-        # TODO: TESTING! Can remove in future
+        # TESTING: Can remove in future
         config.flux_factors[self.tile_name][self.name] = self.flux_factor
 
         return
@@ -1231,7 +1226,7 @@ class Config(object):
         self.output_dir = args.output_dir
         self.vb = args.verbose
 
-        # TODO: TESTING! Can remove in future
+        # TESTING: Can remove in future
         self.flux_factors = {}
 
         # NOTE: Most type checking of previous command-line args
@@ -1254,7 +1249,7 @@ class Config(object):
 
     def _read_gs_config(self):
         # Process .yaml config file
-        # TODO: Allow multiple config types
+        # TODO: Allow multiple config types (JSON)
 
         self.gs_config_file = os.path.join(self.config_dir, self.args.config_file)
         # Add config directory path, if needed
@@ -1321,7 +1316,7 @@ class Config(object):
         try:
             # Assumes units in galaxies per arcmin^2
             self.gal_density = self.gs_config[0]['image']['gal_density']
-            #TODO: Should allow for more unit input types! e.g.:
+            # TODO: Should allow for more unit input types! e.g.:
             # den_unit = self.gs_config[0]['image']['gal_density']['unit']
             # self.gal_density = convert_units(val=self.gal_density, u1 = den_unit, u2 = 'arcmin^2')
         except KeyError:
@@ -1468,7 +1463,7 @@ class Config(object):
 
     def _load_tile_geometry(self):
         '''
-        TODO: make more general to allow for non-DES tiles.
+        TODO: Make more general to allow for non-DES tiles.
         '''
 
         # Load unique area bounds from DES coadd tile geometry file
@@ -1496,7 +1491,6 @@ class Config(object):
 
         # Keep track of which index corresponds to gals vs stars.
         # NOTE: Only one input catalog of each type is currently allowed!
-        # TODO: Remove below after testing!
         self.input_indx = {}
         self.input_types = {} # Input catalogs
         self.inj_types = {} # Injection types from catalogs
@@ -1564,9 +1558,6 @@ class Config(object):
                     galsim.config.RegisterInputType('des_star_catalog',
                             des_star_catalog.desStarCatalogLoader(
                             des_star_catalog.desStarCatalog, has_nobj=True))
-
-                    # TODO/NOTE: This is the old (and incorrect) star implementation; should be removed
-                    # once the correct version is finished.
 
                     valid_model_types = des_star_catalog.return_valid_model_types(
                                             data_version=self.data_version)
@@ -1669,12 +1660,9 @@ class Config(object):
     def set_realization(self, i):
         '''
         Sets parameters relevant to the current injection realization i.
-        NOTE/TODO: May remove in future to store locally in tiles instead.
         '''
 
         self.curr_real = i
-
-        # TODO: More relevant functions?
 
         return
 
@@ -1690,7 +1678,6 @@ class Config(object):
         on a single batch.
         '''
 
-        # TODO: Test, & make more robust!
         if self.gs_config_modified is True:
             # New tile, so reset config to original input
             self.gs_config = copy.deepcopy(self.orig_gs_config)
@@ -1809,7 +1796,6 @@ def open_txt_list(filename):
         return [line.strip() for line in file]
 
 def setup_output_dir(config, tiles):
-    # TODO: See if we can add anything else here!
     out_dir = config.output_dir
     images = os.path.join(out_dir, 'balrog_images')
     configs = os.path.join(out_dir, 'configs')
@@ -1887,7 +1873,7 @@ def RunBalrog():
     setup_output_dir(config, tiles)
 
     # Now loop over all tiles slated for injection:
-    # TODO: This should be parallelized with `multiprocessing` in future
+    # TODO: This could be parallelized in future
     for i, tile in enumerate(tiles):
         # pudb.set_trace()
         config.reset_gs_config()
@@ -1895,7 +1881,7 @@ def RunBalrog():
 
         if vb: print('Injecting Tile {}'.format(tile.tile_name))
 
-        # TODO: This (maybe?) should be parallelized with `multiprocessing` in future
+        # TODO: This (maybe?) could be parallelized with `multiprocessing` in future
         #       Or maybe numba?
         for real in range(config.n_realizations):
             # Reset gs config for each new realization
@@ -1950,7 +1936,7 @@ def RunBalrog():
 
             # pudb.set_trace()
 
-    # TODO: TESTING; Can remove in future
+    # TESTING: Can remove in future
     outfile = os.path.join(config.output_dir, 'configs', 'tile_flux_factors.p')
     with open(outfile, 'wb') as f: pickle.dump(config.flux_factors, f)
     # pudb.set_trace()
