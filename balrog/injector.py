@@ -27,8 +27,9 @@ galsim.config.RegisterImageType('AddOn', AddOnImageBuilder())
 class BalrogImageBuilder(AddOnImageBuilder):
 
     def setup(self, config, base, image_num, obj_num, ignore, logger):
-        extra_ignore = ignore + ['Ngals', 'Nstars', 'bands', 'n_realizations', 'n_galaxies',
-                                 'gal_density', 'version', 'run_name', 'inj_objs_only', 'pos_sampling']
+        extra_ignore = ignore + ['tile_list', 'geom_file', 'tile_dir', 'config_dir', 'psf_dir',
+                                 'version', 'run_name', 'Ngals', 'Nstars', 'bands', 'n_galaxies',
+                                 'n_realizations', 'gal_density', 'inj_objs_only', 'pos_sampling']
         # full_xsize, full_ysize = super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
         full_xsize, full_ysize = super(BalrogImageBuilder, self).setup(config, base, image_num,
                                                                        obj_num, extra_ignore, logger)
@@ -64,10 +65,10 @@ class BalrogImageBuilder(AddOnImageBuilder):
     def buildImage(self, config, base, image_num, obj_num, logger):
         # pudb.set_trace()
         try:
-            ioo = dict(config['inj_objs_only'])
+            ioo = config['inj_objs_only']
             if (type(ioo) is bool) and (ioo is True):
                 return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
-            elif (type(ioo) is dict) and (ioo['value'] is True):
+            elif (isinstance(ioo, dict)) and (ioo['value'] is True):
                 return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
             else:
                 # Default is to add on top of initial images

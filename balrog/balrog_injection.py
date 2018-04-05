@@ -45,7 +45,6 @@ import pudb
 # Urgent todo's:
 # TODO: Implement error handling for galaxy injections / gsparams! (I think fixed now)
 # TODO: Clean up evals in add_gs_injection()!
-# TODO: Change n_galaxies to be divided up per realization!
 # TODO: Figure out injector.py parameter parsing issue!
 # TODO: Check pixel origin for transformations!
 # TODO: Remove all stars not contained in unique region!
@@ -958,8 +957,8 @@ def create_tiles(config):
     return tiles
 
 def load_tile_list(tile_list_file, config):
-    #TODO: Allow many file types
 
+    # TODO: Make this check more robust...
     if tile_list_file.lower().endswith('.csv'):
         tile_list = open_csv_list(tile_list_file)
     elif tile_list_file.lower().endswith('.txt'):
@@ -1222,37 +1221,26 @@ class Config(object):
     well as additional simulation parameters.
     '''
 
+    # Process configuration file
     def __init__(self, args):
-        # Process configuration file
-
-        #TODO: Initialize all class attributes defined alter to None
-
-        # Save command-line arguments. 'args' is a Namespace, can access fields
-        # as 'arg.config_dir'
+        # Save command-line arguments; args is type Namespace
         self.args = args
-        self.vb = args.verbose
-        # self.input_cat_file = args.input_catalog # Can now set in config file
-        self.tile_dir = args.tile_dir
         self.config_dir = args.config_dir
+        self.geom_file = args.geom_file
+        self.tile_list = args.tile_list
+        self.tile_dir = args.tile_dir
         self.psf_dir = args.psf_dir
         self.output_dir = args.output_dir
+        self.vb = args.verbose
 
         # TODO: TESTING! Can remove in future
         self.flux_factors = {}
 
-        # Set directory defaults if none passed
-        if self.tile_dir is None: self.tile_dir = ''
+        # NOTE: Most type checking of previous command-line args
+        # (tile_list, geom_file, etc.) is handled in 'read_bal_gs_config()'
+        # to allow inputs in config file
         if self.config_dir is None: self.config_dir = ''
-        if self.psf_dir is None: self.psf_dir = 'psfs'
-        if self.output_dir is None: self.output_dir = 'balrog_outputs/'
-        # TODO: Allow multiple config file types (.yaml, .json, etc.)
-
-        # pudb.set_trace()
-        # Set absolute paths
-        self.tile_dir = os.path.abspath(self.tile_dir)
         self.config_dir = os.path.abspath(self.config_dir)
-        self.output_dir = os.path.abspath(self.output_dir)
-        self.tile_list = os.path.abspath(self.args.tile_list)
 
         # Keeps track of current tile number
         self.tile_num = 0
@@ -1311,6 +1299,11 @@ class Config(object):
         '''
 
         # TODO: Some of this type checking should be moved into `injector.py`
+
+        if self.gs_config[0]['image']['type'] != 'Balrog':
+            raise ValueError('GalSim image type must be \'Balrog\'!')
+
+        self.parse_command_args()
 
         # Process input 'n_realizations':
         try:
@@ -1416,12 +1409,69 @@ class Config(object):
 
         return
 
+    def parse_command_args(self):
+        '''
+        Parse inputs that may have been passed as command-line arguments.
+        '''
+
+        # pudb.set_trace()
+
+        # NOTE: config_dir and verbose have already been parsed correctly
+        args = {'tile_list':self.tile_list, 'geom_file':self.geom_file, 'tile_dir':self.tile_dir,
+                'psf_dir':self.psf_dir, 'output_dir':self.output_dir}
+
+        base = {'tile_list':'image', 'geom_file':'image', 'tile_dir':'image', 'psf_dir':'image',
+                'output_dir':'output'}
+
+        req = ['tile_list', 'geom_file']
+        opt = ['tile_dir', 'psf_dir', 'output_dir']
+
+        for arg, arg_val in args.items():
+            try:
+                # Have to handle `output_dir` to be consistent with GalSim
+                if arg == 'output_dir':
+                    config_val = self.gs_config[0][base[arg]]['dir']
+                else:
+                    config_val = self.gs_config[0][base[arg]][arg]
+                if arg_val and config_val != arg_val:
+                    # The following works for both files and directories
+                    if not os.path.samefile(arg_val, config_val):
+                        raise ValueError('Command-line argument {}={} '.format(arg, arg_val) +
+                                        'is inconsistent with config value of {}!'.format(config_val))
+                val = config_val
+
+            except KeyError:
+                if arg_val is None and arg in req:
+                    raise ValueError('Must pass {} in command line or config file!'.format(arg))
+                val = arg_val
+
+            # Do any needed special processing of arg or set default
+            if arg == 'tile_list':
+                self.tile_list = os.path.abspath(val)
+            elif arg == 'geom_file':
+                self.geom_file = os.path.abspath(val)
+            elif arg == 'tile_dir':
+                if val is None:
+                    val = ''
+                self.tile_dir = os.path.abspath(val)
+            elif arg == 'psf_dir':
+                if val is None:
+                    val = 'psfs'
+                # Do not want to append CWD to `psf_dir`
+                self.psf_dir = val
+            elif arg == 'output_dir':
+                if val is None:
+                    val = 'balrog_outputs/'
+                self.output_dir = os.path.abspath(val)
+            # Can add others if needed
+            # elif ...
+
+        return
+
     def _load_tile_geometry(self):
         '''
         TODO: make more general to allow for non-DES tiles.
         '''
-
-        self.geom_file = self.args.geom_file
 
         # Load unique area bounds from DES coadd tile geometry file
         with fits.open(self.geom_file) as hdu_geom:
@@ -1657,7 +1707,7 @@ class Config(object):
 
 def setup_config(args):
     '''
-    # TODO: For now, just create new config object. Can make more complex later.
+    For now, just create new config object. Can make more complex later if needed.
     '''
 
     config = Config(args)
@@ -1793,12 +1843,12 @@ def parse_args():
     # Global GalSim config file with options that will be applied to all injection images.
     parser.add_argument('config_file', help='.yaml or .json confg file that specifies the desired GalSim'
                         'simulation and injection.')
-    # Required argument for tile list
-    parser.add_argument('tile_list', help='.txt or .csv file containing list of tiles to be processed.')
-    # Required argument for tile geometry file
-    parser.add_argument('geom_file', help='Tile geometry file (e.g. `Y3A2_COADDTILE_GEOM`)')
     # Optional argument for config file(s) directory location (if not .)
     parser.add_argument('-c', '--config_dir', help='Directory that houses the GalSim and related config files.')
+    # Required argument for tile geometry file
+    parser.add_argument('-g', '--geom_file', help='Tile geometry file (e.g. `Y3A2_COADDTILE_GEOM`)')
+    # Optional argument for tile list
+    parser.add_argument('-l', '--tile_list', help='.txt or .csv file containing list of tiles to be processed.')
     # Optional argument for DES tiles directory location
     parser.add_argument('-t', '--tile_dir', help='Directory of DES tiles containing single exposure images.')
     # Optional argument for a tile's psf directory name (if not contained in tile_dir/{TILE}/psfs)
@@ -1807,17 +1857,6 @@ def parse_args():
     parser.add_argument('-o', '--output_dir', help='Directory that houses output Balrog images.')
     # Optional argument for verbose messages
     parser.add_argument('-v', '--verbose', action='store_true', help='Turn on verbose mode for additional messages.')
-
-
-    #TODO: Might add this functionality later, but for now these parameters are specified in GalSim config file
-    # Required argument for input catalog
-    # parser.add_argument('input_catalog', help='(For now) input ngmix catalog whose galaxies will be injected.')
-    # Optional argument for injection density (arcmin^2)
-    # parser.add_argument('-r', '--realization_density', help='Galaxy injection density (in arcmin^2).')
-    # Optional argument for total injection number N
-    # parser.add_argument('-n,', '--number', help='Total number of galaxies to be injected into tile.')
-
-    # TODO: Should be able to handle passing geometry file and directories in config OR command line consistently!
 
     return parser.parse_args()
 
