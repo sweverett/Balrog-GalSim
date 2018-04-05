@@ -1783,12 +1783,14 @@ def setup_output_dir(config, tiles):
 
 def parse_args():
     '''
-    Parse command line arguments.
-    TODO: There are likely more optional inputs that need to be added.
+    Parse command line arguments. Many of the following can be set in the `bal_config` file as well;
+    these are kept here only for convenience with previous versions where the arguments were
+    required. Passing a value through both methods is fine, as long as they are not inconsistent with
+    one another.
     '''
 
     parser = argparse.ArgumentParser()
-    # Required argument for GalSim config file
+    # Global GalSim config file with options that will be applied to all injection images.
     parser.add_argument('config_file', help='.yaml or .json confg file that specifies the desired GalSim'
                         'simulation and injection.')
     # Required argument for tile list
