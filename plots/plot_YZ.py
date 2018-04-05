@@ -5,6 +5,7 @@
 ##this file also contains the followign functions readfiles(), match_func(), running_medians()
 ## dm_m_plot(), dm_T_plot(), dm_dT_plot() 
 
+from sys import argv
 import numpy as np
 import astropy.io.fits as pyfits
 import matplotlib.pyplot as plt
@@ -587,13 +588,19 @@ def dm_dT_plot(t_gm, o_gm, t_sm, o_sm, up_perc=1, lo_perc=99, figname=None):
      plt.savefig(figname)
      return figname
 
-def make_all(basepath=None, tile_list=None, realizations=None):
+def make_all(basepath=None, tile_list=None, realizations=None, outdir=None):
     if basepath is None:
        basepath='/data/des71.a/data/kuropat/blank_test/y3v02/balrog_images/'
     if realizations is None:
        realizations=os.listdir(basepath)   
     if tile_list is None:
        tile_list=os.listdir( os.path.join(basepath, realizations[0]) )
+    if outdir is None:
+        outdir = os.getcwd()
+
+    # Make output directory if it does not yet exist
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
 
     ##read in files
     tg, ts, oo=read_files(basepath, tile_list, realizations)
@@ -604,13 +611,33 @@ def make_all(basepath=None, tile_list=None, realizations=None):
     ### make plots
     names=[]
     ##Diff_m vs True_m plots
-    names=np.append(names, dm_m_plot(truth_gm, obs_gm, truth_sm, obs_sm, figname='dm_m_YZ.png'))
+    fn1 = os.path.join(outdir, 'dm_m_YZ.png')
+    names=np.append(names, dm_m_plot(truth_gm, obs_gm, truth_sm, obs_sm, figname=fn1))
     ##Diff_m vs Obs_T plots
-    names=np.append(names, dm_T_plot(truth_gm, obs_gm, truth_sm, obs_sm, figname='dm_T_YZ.png'))
+    fn2 = os.path.join(outdir, 'dm_T_YZ.png')
+    names=np.append(names, dm_T_plot(truth_gm, obs_gm, truth_sm, obs_sm, figname=fn2))
     ##Diff_m vs diff T plots
-    names=np.append(names, dm_dT_plot(truth_gm, obs_gm, truth_sm, obs_sm, figname='dm_dT_gals_YZ.png'))
+    fn3 = os.path.join(outdir, 'dm_dT_gals_YZ.png')
+    names=np.append(names, dm_dT_plot(truth_gm, obs_gm, truth_sm, obs_sm, figname=fn3))
     print 'genearted plots: ', names
     return names
 
 if __name__ == "__main__":
-    make_all()
+
+    ## We can make this fancier, but for now this is simple enough. Could use argparse instead.
+
+    # First argument is basepath
+    try:
+        print(argv[1])
+        basepath = argv[1]
+    except IndexError:
+        basepath = None
+
+    # Second argument is output directory
+    try:
+        print(argv[2])
+        outdir = argv[2]
+    except IndexError:
+        outdir = None
+
+    make_all(basepath=basepath, outdir=outdir)
