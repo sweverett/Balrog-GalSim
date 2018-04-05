@@ -124,15 +124,14 @@ class Tile(object):
         self._determine_unique_area(config)
         self._set_wcs(config)
 
+        # NOTE: `n_galaxies` and `gal_density` are now defined to be *per realization*
         # Set the number of galaxies injected per realization
-        # TODO: We can remove this by replicating what was done with stars w/o np arrays
         if config.n_galaxies:
             # Then fixed number of galaxies regardless of tile size
-            self.gals_per_real = int(config.n_galaxies / config.n_realizations)
-            self.gals_remainder = int(config.n_galaxies % config.n_realizations)
+            self.gals_per_real = config.n_galaxies
         else:
             # Then gal_density was set; galaxy number depends on area
-            self.gals_per_real = round((self.u_area * config.gal_density) / (1.0 * config.n_realizations))
+            self.gals_per_real = round(self.u_area * config.gal_density)
 
         # Set tile directory structure
         self.dir = os.path.join(config.tile_dir, self.tile_name)
@@ -499,7 +498,6 @@ class Tile(object):
                     Nr = config.n_realizations
 
                     for real in range(Nr):
-                        # TODO: Should make this more general
                         ngals = self.gals_per_real
                         self.Ngals.append(ngals)
 
