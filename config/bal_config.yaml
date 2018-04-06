@@ -32,7 +32,7 @@ some_variables :
   # - &max_fft 64 # For testing purposes!
   - &bal_dir '/data/des61.a/data/severett/Balrog-GalSim/'
   - &ngmix_dir '/data/des61.a/data/severett/Balrog-GalSim/inputs'
-  - &ngmix_file 'DES0113-4331-y3v02a-mof-001.fits'
+  - &ngmix_file 'y3_balrog_test_input.fits'
   - &star_dir '/data/des20.b/data/sallam/Yanny-balrog/5sigma/'
 
 # Define the input files
@@ -100,6 +100,13 @@ stamp :
 image :
     # For injected images:
     type : Balrog # Same as AddOn, but with some additional input attributes and checking
+    
+    # Can add some of the command-line arguments here as well; see README
+    # OK to pass either way or both, as long as they are consistent
+    # geom_file : '/path/to/geom_file.fits'
+    # tile_list : /path/to/tile_list.csv'
+    # tile_dir : /path/to/tiles/'
+    # psf_dir : 'psfs' # Default for DES; don't need to include
 
     # To use all bands:
     # NOTE: y-band currently not supported
@@ -108,10 +115,17 @@ image :
     # bands : 'g'
     
     version : 'y3v02'
-    run_name : 'blank_test'
+    run_name : 'TEST'
 
-    inj_objs_only : True
+    # Can choose to ignore existing image data and only include injected objects
+    # inj_objs_only : True
+    # Or if you want to include chip noise:
+    # inj_obs_only : {val : True, noise : True}
 
+    # Can inject objects onto a grid
+    # NOTE: For now, grid parameters are hard coded including galaxy #
+    # pos_sampling : grid
+    
     # Load WCS from DES chip file
     wcs :
       type : Fits
@@ -132,10 +146,8 @@ image :
 
     # Number of processors to be used on GalSim injection step
     nproc : 2
+    # nproc : -1 # To use all available cores
 
-# The injection script handles output, so the field is not needed in the base config.
-# TODO: Output directory is currently handled as a command line option for the script,
-# but we should allow it to be set here as well.
 # output :
-    # dir : 'output_bal_tests'
-    # file_name : 'TEST.fits'
+# Can include parent-level output directory here as well
+    # dir : '/path/to/outdir/'
