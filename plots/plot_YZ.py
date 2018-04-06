@@ -75,6 +75,17 @@ def match_func(ra1st, dec1st, ra2st, dec2st, cat1, cat2, comp_dis=0.5):
            print 'Catalog empty!'
            return [], []
 
+def estimate_dist(ra1, dec1, ra2, dec2):
+        cosA=np.cos(np.mean(0)*np.pi/180.0)
+        cosB=np.cos(np.mean(0)*np.pi/180.0)
+        A= np.array([ra1*cosA, dec1]).transpose()
+        B= np.array([ra2*cosB, dec2]).transpose()
+        tree = cKDTree( B)
+        dis, inds = tree.query(A , k=2, p=2)
+        dis=dis*3600.0
+        disB=dis[:, 1]
+        return disB
+
 def running_medians(xx, yy, binsize=1):
     bins_lo=np.arange(np.min(xx), np.max(xx), binsize)
     bins_up=bins_lo+binsize
@@ -588,6 +599,28 @@ def dm_dT_plot(t_gm, o_gm, t_sm, o_sm, up_perc=1, lo_perc=99, figname=None):
      plt.savefig(figname)
      return figname
 
+def dT_dist_plot(t_gm, o_gm, t_sm, o_sm, oo, up_perc=1, lo_perc=99, figname=None):
+  plt.figure()
+  if len(t_gm) > 0:
+    ind=np.where((o_gm['cm_T'])> 0 & (o_gm['cm_T']< 10.0**15.0))
+    t_gm=t_gm[ind]
+    o_gm=o_gm[ind]
+    dists=estimate_dist(t_gm['ra'], t_gm['dec'], oo['ra'], oo['dec'])
+    xx=o_gm['cm_weight']#-t_gm['cm_TdByTe']
+    yy=o_gm['cm_T']/t_gm['cm_T']
+    ind=np.where((yy>-10)&(yy < 10))
+    xx=xx[ind];yy=yy[ind]
+    plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
+    plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
+    plt.xlim([np.percentile(xx, up_perc), np.percentile(xx, lo_perc)])
+  plt.tight_layout()
+  if figname is None:
+     plt.show()
+     return []
+  else:
+     plt.savefig(figname)
+     return figname
+
 def make_all(basepath=None, tile_list=None, realizations=None, outdir=None):
     if basepath is None:
        basepath='/data/des71.a/data/kuropat/blank_test/y3v02/balrog_images/'
@@ -598,9 +631,10 @@ def make_all(basepath=None, tile_list=None, realizations=None, outdir=None):
     if outdir is None:
         outdir = os.getcwd()
 
-    # Make output directory if it does not yet exist
+    ## Make output directory if it does not yet exist
     if not os.path.exists(outdir):
-        os.makedirs(outdir)
+       print 'output dir doesnt exist. Please make the output dir.'
+       sys.exit(0)
 
     ##read in files
     tg, ts, oo=read_files(basepath, tile_list, realizations)
@@ -619,7 +653,11 @@ def make_all(basepath=None, tile_list=None, realizations=None, outdir=None):
     ##Diff_m vs diff T plots
     fn3 = os.path.join(outdir, 'dm_dT_gals_YZ.png')
     names=np.append(names, dm_dT_plot(truth_gm, obs_gm, truth_sm, obs_sm, figname=fn3))
-    print 'genearted plots: ', names
+    ##Diff T vs distance to nearest neighbor plots
+    # commented out. my experiment plot
+    #fn4 = os.path.join(outdir, 'dT_dist_gals_YZ.png')
+    #names=np.append(names, dT_dist_plot(truth_gm, obs_gm, truth_sm, obs_sm, oo, figname=fn4))
+    print 'generated plots: ', names
     return names
 
 if __name__ == "__main__":
