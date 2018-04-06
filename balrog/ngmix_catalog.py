@@ -226,6 +226,7 @@ class ngmixCatalog(object):
 
         # General flags
         self.flags = self.catalog['flags']
+        self.obj_flags = self.catalog['obj_flags']
 
         # ngmix catalog-specific flags
         self.ngmix_flags = self.catalog[self.col_prefix+'_flags']
@@ -251,6 +252,7 @@ class ngmixCatalog(object):
 
         # For now, remove objects with any flags present
         mask[self.flags != 0] = False
+        mask[self.obj_flags !=0] = False
         mask[self.ngmix_flags !=0] = False
         # Extra flags for 'mof' catalogs
         if self.cat_type == 'mof':
