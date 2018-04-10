@@ -823,8 +823,8 @@ class Tile(object):
 
         # A new GalSim config file for Balrog injections has been created and all simulations
         # can now be run simultaneously using all GalSim machinery
-        #bashCommand = 'galsim {} -v 2 -l gs_logfile'.format(self.bal_config_file)
-        bashCommand = 'galsim {}'.format(self.bal_config_file)
+        # bashCommand = 'galsim {} -v 2 -l gs_logfile -p'.format(self.bal_config_file)
+        bashCommand = 'galsim {} -p'.format(self.bal_config_file)
 
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
 
@@ -1879,11 +1879,8 @@ def RunBalrog():
         config.reset_gs_config()
         config.set_tile_num(i)
 
-        if vb: print('Injecting Tile {}'.format(tile.tile_name))
-
-        # TODO: This (maybe?) could be parallelized with `multiprocessing` in future
-        #       Or maybe numba?
         for real in range(config.n_realizations):
+            if vb: print('Injecting Tile {}; realization {}'.format(tile.tile_name, real))
             # Reset gs config for each new realization
             tile.set_realization(real)
             tile.reset_bal_config(config)
