@@ -604,303 +604,69 @@ def dm_dT_plot(t_gm, o_gm, t_sm, o_sm, up_perc=1, lo_perc=99, figname=None):
 
 def df_f_plot(t_gf, o_gf, t_sf, o_sf, up_perc=1, lo_perc=99, figname=None):
   plt.figure(figsize=(9, 9))
-  if len(t_gm) > 0:
-    #--------------------------------------------------------------------------
-    plt.subplot(431)
-    yy=o_gm['cm_flux'][:, 0]-t_gm['cm_flux'][:, 0]
-    xx=t_gm['cm_flux'][:, 0]
-    ind=np.where((yy>-10)&(yy < 10))
-    xx=xx[ind];yy=yy[ind]
-    plt.xlim([14, 28])
-    plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-    plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-    plt.plot([14, 28], [0, 0], 'b:')
-    xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-    plt.plot(xx_bin, yy_med, 'r--')
-    plt.plot(xx_bin, yy_lo, 'r--')
-    plt.plot(xx_bin, yy_hi, 'r--')
-    plt.title('Galaxies (cm_flux)', fontsize=10)
-    plt.xlabel('True cm_flux (g) ', fontsize=10)
-    plt.ylabel('Obs -True cm_flux (g)', fontsize=8)
+  if len(t_gf) > 0:
+    bands = ['g', 'r', 'i', 'z']
+    for i in range(4):
+        plt.subplot(4,3,3*i+1)
+        yy=o_gf['cm_flux'][:, i]-t_gf['cm_flux'][:, i]
+        xx=t_gf['cm_flux'][:, i]
+        ind=np.where((yy>-10**4)&(yy < 10**4)&(o_gf['flags']==0)&(o_gf['cm_T']<100))
+        xx=xx[ind];yy=yy[ind]
+        plt.xlim([0, 10**4])
+        plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
+        plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
+        plt.plot([0, 10**4], [0, 0], 'k:')
+        xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
+        # plt.plot(xx_bin, yy_med, 'r--')
+        # plt.plot(xx_bin, yy_lo, 'r--')
+        # plt.plot(xx_bin, yy_hi, 'r--')
+        if i==0:
+            plt.title('Galaxies Flux (cm_flux)', fontsize=10)
+        plt.xlabel('True cm_flux ({})'.format(bands[i]), fontsize=10)
+        plt.ylabel('Obs -True cm_flux ({})'.format(bands[i]), fontsize=8)
 
-    # Chi scatter
-    plt.subplot(432)
-    yy=o_gm['cm_flux'][:, 0]-t_gm['cm_flux'][:, 0] / o_gm['cm_flux_err'][:, 0]
-    # Use old xx and ind
-    yy=yy[ind]
+        # Chi scatter
+        plt.subplot(4,3,3*i+2)
+        yy=(o_gf['cm_flux'][:, i]-t_gf['cm_flux'][:, i]) / np.sqrt(o_gf['cm_flux_cov'][:, i, i])
+        # Use old xx and ind
+        yy=yy[ind]
 
-    plt.xlim([14, 28])
-    plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-    plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-    plt.plot([14, 28], [0, 0], 'b:')
-    xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-    plt.plot(xx_bin, yy_med, 'r--')
-    plt.plot(xx_bin, yy_lo, 'r--')
-    plt.plot(xx_bin, yy_hi, 'r--')
-    plt.xlabel('True cm_flux chi (g) ', fontsize=10)
-    plt.ylabel('Obs -True cm_flux chi (g)', fontsize=8)
+        plt.xlim([0, 10**4])
+        plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
+        plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
+        plt.plot([0, 10**4], [0, 0], 'k:')
+        xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
+        # plt.plot(xx_bin, yy_med, 'r--')
+        # plt.plot(xx_bin, yy_lo, 'r--')
+        # plt.plot(xx_bin, yy_hi, 'r--')
+        if i==0:
+            plt.title('Galaxies Flux Chi (cm_flux / cm_flux_err)', fontsize=10)
+        plt.xlabel('True cm_flux chi ({})'.format(bands[i]), fontsize=10)
+        plt.ylabel('Obs -True cm_flux chi ({})'.format(bands[i]), fontsize=8)
 
-    # Chi scatter histogram
-    plt.subplot(433)
-    plt.hist(yy, ec='k')
-    plt.xlabel('Obs -True cm_flux chi (g)', fontsize=8)
-    plt.ylabel('Counts')
+        # Chi scatter histogram
+        yy=(o_gf['cm_flux'][:, i]-t_gf['cm_flux'][:, i]) / np.sqrt(o_gf['cm_flux_cov'][:, i, i])
+        xx=t_gf['cm_flux'][:, i]
+        # Makes histograms more uniform
+        ind=np.where((yy>-10**2)&(yy < 10**2)&(o_gf['flags']==0)&(o_gf['cm_T']<100))
+        xx=xx[ind]
+        yy=yy[ind]
+        plt.subplot(4,3,3*i+3)
+        plt.xlim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
+        plt.hist(yy, ec='k', bins=100)
+        plt.gca().axvline(x=0, linestyle=':', linewidth=2)
+        if i==0:
+            plt.title('Galaxies Chi Distribution', fontsize=10)
+        plt.xlabel('Obs -True cm_flux chi ({})'.format(bands[i]), fontsize=8)
+        plt.ylabel('Counts')
 
-    #--------------------------------------------------------------------------
-
-    plt.subplot(434) 
-    yy=o_gm['cm_flux'][:, 1]-t_gm['cm_flux'][:, 1]
-    xx=t_gm['cm_flux'][:, 1]
-    ind=np.where((yy>-10)&(yy < 10))
-    xx=xx[ind];yy=yy[ind]
-    plt.xlim([14, 28])
-    plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-    plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-    plt.plot([14, 28], [0, 0], 'b:')
-    xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-    plt.plot(xx_bin, yy_med, 'r--')
-    plt.plot(xx_bin, yy_lo, 'r--')
-    plt.plot(xx_bin, yy_hi, 'r--')
-    plt.xlabel('True cm_flux (r) ', fontsize=10)
-    plt.ylabel('Obs -True cm_flux (r)', fontsize=8)
-
-    # Chi scatter
-    plt.subplot(435)
-    yy=o_gm['cm_flux'][:, 1]-t_gm['cm_flux'][:, 1] / o_gm['cm_flux_err'][:, 1]
-    # Use old xx and ind
-    yy=yy[ind]
-
-    plt.xlim([14, 28])
-    plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-    plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-    plt.plot([14, 28], [0, 0], 'b:')
-    xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-    plt.plot(xx_bin, yy_med, 'r--')
-    plt.plot(xx_bin, yy_lo, 'r--')
-    plt.plot(xx_bin, yy_hi, 'r--')
-    plt.xlabel('True cm_flux chi (r) ', fontsize=10)
-    plt.ylabel('Obs -True cm_flux chi (r)', fontsize=8)
-
-    # Chi scatter histogram
-    plt.subplot(436)
-    plt.hist(yy, ec='k')
-    plt.xlabel('Obs -True cm_flux chi (r)', fontsize=8)
-    plt.ylabel('Counts')
-
-    #--------------------------------------------------------------------------
-
-    plt.subplot(437)
-    yy=o_gm['cm_flux'][:, 2]-t_gm['cm_flux'][:, 2]
-    xx=t_gm['cm_flux'][:, 2]
-    ind=np.where((yy>-10)&(yy < 10))
-    xx=xx[ind];yy=yy[ind]
-    plt.xlim([14, 28])
-    plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-    plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-    plt.plot([14, 28], [0, 0], 'b:')
-    xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-    plt.plot(xx_bin, yy_med, 'r--')
-    plt.plot(xx_bin, yy_lo, 'r--')
-    plt.plot(xx_bin, yy_hi, 'r--')
-    plt.xlabel('True cm_flux(i) ', fontsize=10)
-    plt.ylabel('Obs -True cm_flux(i)', fontsize=8)
-
-    # Chi scatter
-    plt.subplot(438)
-    yy=o_gm['cm_flux'][:, 2]-t_gm['cm_flux'][:, 2] / o_gm['cm_flux_err'][:, 2]
-    # Use old xx and ind
-    yy=yy[ind]
-
-    plt.xlim([14, 28])
-    plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-    plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-    plt.plot([14, 28], [0, 0], 'b:')
-    xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-    plt.plot(xx_bin, yy_med, 'r--')
-    plt.plot(xx_bin, yy_lo, 'r--')
-    plt.plot(xx_bin, yy_hi, 'r--')
-    plt.xlabel('True cm_flux chi (i) ', fontsize=10)
-    plt.ylabel('Obs -True cm_flux chi (i)', fontsize=8)
-
-    # Chi scatter histogram
-    plt.subplot(439)
-    plt.hist(yy, ec='k')
-    plt.xlabel('Obs -True cm_flux chi (i)', fontsize=8)
-    plt.ylabel('Counts')
-
-    #--------------------------------------------------------------------------
-
-    plt.subplot(4, 3, 10)
-    yy=o_gm['cm_flux'][:, 3]-t_gm['cm_flux'][:, 3]
-    xx=t_gm['cm_flux'][:, 3]
-    ind=np.where((yy>-10)&(yy < 10))
-    xx=xx[ind];yy=yy[ind]
-    plt.xlim([14, 28])
-    plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-    plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-    plt.plot([14, 28], [0, 0], 'b:')
-    xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-    plt.plot(xx_bin, yy_med, 'r--')
-    plt.plot(xx_bin, yy_lo, 'r--')
-    plt.plot(xx_bin, yy_hi, 'r--')
-    plt.xlabel('True cm_flux (z) ', fontsize=10)
-    plt.ylabel('Obs -True cm_flux (z)', fontsize=8)
-
-    # Chi scatter
-    plt.subplot(4, 3, 11)
-    yy=o_gm['cm_flux'][:, 3]-t_gm['cm_flux'][:, 3] / o_gm['cm_flux_err'][:, 3]
-    # Use old xx and ind
-    yy=yy[ind]
-
-    plt.xlim([14, 28])
-    plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-    plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-    plt.plot([14, 28], [0, 0], 'b:')
-    xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-    plt.plot(xx_bin, yy_med, 'r--')
-    plt.plot(xx_bin, yy_lo, 'r--')
-    plt.plot(xx_bin, yy_hi, 'r--')
-    plt.xlabel('True cm_flux chi (z) ', fontsize=10)
-    plt.ylabel('Obs -True cm_flux chi (z)', fontsize=8)
-
-    # Chi scatter histogram
-    plt.subplot(4, 3, 12)
-    plt.hist(yy, ec='k')
-    plt.xlabel('Obs -True cm_flux chi (z)', fontsize=8)
-    plt.ylabel('Counts')
-
-  # if len(t_sm) > 0:
-  #   plt.subplot(432)
-  #   xx=t_sm['g_Corr']
-  #   yy=o_sm['cm_mag'][:, 0]-xx
-  #   ind=np.where((yy>-10)&(yy < 10))
-  #   xx=xx[ind];yy=yy[ind]
-  #   plt.xlim([14, 28])
-  #   plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-  #   plt.scatter(xx, yy, 1, marker='o', alpha=0.2, label=None)
-  #   plt.plot([14, 28], [0, 0], 'b:')
-  #   xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-  #   plt.plot(xx_bin, yy_med, 'r--', label='50, 15.9, 84.1 percentiles')
-  #   plt.plot(xx_bin, yy_lo, 'r--')
-  #   plt.plot(xx_bin, yy_hi, 'r--')
-  #   plt.title('Stars (cm_mag comparison)', fontsize=10)
-  #   plt.xlabel('True mag (g) ', fontsize=10)
-  #   plt.ylabel('Obs cm_mag -True mag (g)', fontsize=8)
-  #   plt.legend(loc=3, fontsize=8)   
-
-  #   plt.subplot(435)
-  #   xx=t_sm['g_Corr']-t_sm['gr_Corr']
-  #   yy=o_sm['cm_mag'][:, 1]-xx
-  #   ind=np.where((yy>-10)&(yy < 10))
-  #   xx=xx[ind];yy=yy[ind]
-  #   plt.xlim([14, 28])
-  #   plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-  #   plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-  #   plt.plot([14, 28], [0, 0], 'b:')
-  #   xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-  #   plt.plot(xx_bin, yy_med, 'r--')
-  #   plt.plot(xx_bin, yy_lo, 'r--')
-  #   plt.plot(xx_bin, yy_hi, 'r--')
-  #   plt.xlabel('True mag (r) ', fontsize=10)
-  #   plt.ylabel('Obs cm_mag -True mag (r)', fontsize=8)
-
-  #   plt.subplot(438)
-  #   xx=t_sm['g_Corr']-t_sm['gr_Corr']-t_sm['ri_Corr']
-  #   yy=o_sm['cm_mag'][:, 2]-xx
-  #   ind=np.where((yy>-10)&(yy < 10))
-  #   xx=xx[ind];yy=yy[ind]
-  #   plt.xlim([14, 28])
-  #   plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-  #   plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-  #   plt.plot([14, 28], [0, 0], 'b:')
-  #   xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-  #   plt.plot(xx_bin, yy_med, 'r--')
-  #   plt.plot(xx_bin, yy_lo, 'r--')
-  #   plt.plot(xx_bin, yy_hi, 'r--')
-  #   plt.xlabel('True mag (i) ', fontsize=10)
-  #   plt.ylabel('Obs cm_mag -True mag (i)', fontsize=8)
-
-  #   plt.subplot(4, 3, 11)
-  #   xx=t_sm['g_Corr']-t_sm['gr_Corr']-t_sm['ri_Corr']-t_sm['iz_Corr']
-  #   yy=o_sm['cm_mag'][:, 3]-xx
-  #   ind=np.where((yy>-10)&(yy < 10))
-  #   xx=xx[ind];yy=yy[ind]
-  #   plt.xlim([14, 28])
-  #   plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-  #   plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-  #   plt.plot([14, 28], [0, 0], 'b:')
-  #   xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-  #   plt.plot(xx_bin, yy_med, 'r--')
-  #   plt.plot(xx_bin, yy_lo, 'r--')
-  #   plt.plot(xx_bin, yy_hi, 'r--')
-  #   plt.xlabel('True mag (z) ', fontsize=10)
-  #   plt.ylabel('Obs cm_mag -True mag (z)', fontsize=8)
-
-  #   plt.subplot(433)
-  #   xx=t_sm['g_Corr']
-  #   yy=o_sm['psf_mag'][:, 0]-xx
-  #   ind=np.where((yy>-10)&(yy < 10))
-  #   xx=xx[ind];yy=yy[ind]
-  #   plt.xlim([14, 28])
-  #   plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-  #   plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-  #   plt.plot([14, 28], [0, 0], 'b:')
-  #   xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-  #   plt.plot(xx_bin, yy_med, 'r--')
-  #   plt.plot(xx_bin, yy_lo, 'r--')
-  #   plt.plot(xx_bin, yy_hi, 'r--')
-  #   plt.plot([14, 28], [0, 0], 'r:')
-  #   plt.title('Stars (psf_mag comparison)', fontsize=10)
-  #   plt.xlabel('True mag (g) ', fontsize=10)
-  #   plt.ylabel('Obs psf_mag -True mag (g)', fontsize=8)
-
-  #   plt.subplot(436)
-  #   xx=t_sm['g_Corr']-t_sm['gr_Corr']
-  #   yy=o_sm['psf_mag'][:, 1]-xx
-  #   ind=np.where((yy>-10)&(yy < 10))
-  #   xx=xx[ind];yy=yy[ind]
-  #   plt.xlim([14, 28])
-  #   plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-  #   plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-  #   plt.plot([14, 28], [0, 0], 'b:')
-  #   xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-  #   plt.plot(xx_bin, yy_med, 'r--')
-  #   plt.plot(xx_bin, yy_lo, 'r--')
-  #   plt.plot(xx_bin, yy_hi, 'r--')
-  #   plt.xlabel('True mag (r) ', fontsize=10)
-  #   plt.ylabel('Obs psf_mag -True mag (r)', fontsize=8)
-
-  #   plt.subplot(439)
-  #   xx=t_sm['g_Corr']-t_sm['gr_Corr']-t_sm['ri_Corr']
-  #   yy=o_sm['psf_mag'][:, 2]-xx
-  #   ind=np.where((yy>-10)&(yy < 10))
-  #   xx=xx[ind];yy=yy[ind]
-  #   plt.xlim([14, 28])
-  #   plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-  #   plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-  #   plt.plot([14, 28], [0, 0], 'b:')
-  #   xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-  #   plt.plot(xx_bin, yy_med, 'r--')
-  #   plt.plot(xx_bin, yy_lo, 'r--')
-  #   plt.plot(xx_bin, yy_hi, 'r--')
-  #   plt.xlabel('True mag (i) ', fontsize=10)
-  #   plt.ylabel('Obs psf_mag -True mag (i)', fontsize=8)
-
-  #   plt.subplot(4, 3, 12)
-  #   xx=t_sm['g_Corr']-t_sm['gr_Corr']-t_sm['ri_Corr']-t_sm['iz_Corr']
-  #   yy=o_sm['psf_mag'][:, 3]-xx
-  #   ind=np.where((yy>-10)&(yy < 10))
-  #   xx=xx[ind];yy=yy[ind]
-  #   plt.xlim([14, 28])
-  #   plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-  #   plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-  #   plt.plot([14, 28], [0, 0], 'b:')
-  #   xx_bin, yy_med, yy_lo, yy_hi=running_medians(xx, yy)
-  #   plt.plot(xx_bin, yy_med, 'r--')
-  #   plt.plot(xx_bin, yy_lo, 'r--')
-  #   plt.plot(xx_bin, yy_hi, 'r--')
-  #   plt.xlabel('True mag (z) ', fontsize=10)
-  #   plt.ylabel('Obs psf_mag -True mag (z)', fontsize=8)
+  plt.tight_layout()
+  if figname is None:
+     plt.show()
+     return []
+  else:
+     plt.savefig(figname)
+     return figname
 
 def dT_dist_plot(t_gm, o_gm, t_sm, o_sm, oo, up_perc=1, lo_perc=99, figname=None):
   plt.figure()
@@ -947,9 +713,6 @@ def make_all(basepath=None, tile_list=None, realizations=None, outdir=None):
 
     ### make plots
     names=[]
-    ##Diff_f vs True_f plots
-    fn4 = os.path.join(outdir, 'df_f_spencer.png')
-    names=np.append(names, df_f_plot(truth_gm, obs_gm, truth_sm, obs_sm, up_perc=0, lo_perc=100, figname=fn4))
     ##Diff_m vs True_m plots
     fn1 = os.path.join(outdir, 'dm_m_YZ.png')
     names=np.append(names, dm_m_plot(truth_gm, obs_gm, truth_sm, obs_sm, figname=fn1))
@@ -963,6 +726,10 @@ def make_all(basepath=None, tile_list=None, realizations=None, outdir=None):
     # commented out. my experiment plot
     #fn4 = os.path.join(outdir, 'dT_dist_gals_YZ.png')
     #names=np.append(names, dT_dist_plot(truth_gm, obs_gm, truth_sm, obs_sm, oo, figname=fn4))
+    ##Diff_f vs True_f plots
+    fn4 = os.path.join(outdir, 'df_f_spencer.png')
+    # names=np.append(names, df_f_plot(truth_gm, obs_gm, truth_sm, obs_sm, up_perc=0, lo_perc=100, figname=fn4))
+    names=np.append(names, df_f_plot(truth_gm, obs_gm, truth_sm, obs_sm, figname=fn4))
     print 'generated plots: ', names
     return names
 
