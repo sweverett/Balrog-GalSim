@@ -35,7 +35,7 @@ from astropy.table import Table
 import injector
 
 # Use for debugging
-import pudb
+#import pudb
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
