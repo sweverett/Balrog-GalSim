@@ -599,7 +599,6 @@ def dm_dT_plot(t_gm, o_gm, t_sm, o_sm, up_perc=1, lo_perc=99, figname=None):
      plt.savefig(figname)
      return figname
 
-<<<<<<< HEAD
 #------------------------------------------------------------------------------
 # Plots added by Spencer
 
@@ -903,7 +902,6 @@ def df_f_plot(t_gf, o_gf, t_sf, o_sf, up_perc=1, lo_perc=99, figname=None):
   #   plt.xlabel('True mag (z) ', fontsize=10)
   #   plt.ylabel('Obs psf_mag -True mag (z)', fontsize=8)
 
-=======
 def dT_dist_plot(t_gm, o_gm, t_sm, o_sm, oo, up_perc=1, lo_perc=99, figname=None):
   plt.figure()
   if len(t_gm) > 0:
@@ -918,7 +916,6 @@ def dT_dist_plot(t_gm, o_gm, t_sm, o_sm, oo, up_perc=1, lo_perc=99, figname=None
     plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
     plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
     plt.xlim([np.percentile(xx, up_perc), np.percentile(xx, lo_perc)])
->>>>>>> bf1b1447b055336d0baee5de57841971cb4ecf5c
   plt.tight_layout()
   if figname is None:
      plt.show()
@@ -926,23 +923,6 @@ def dT_dist_plot(t_gm, o_gm, t_sm, o_sm, oo, up_perc=1, lo_perc=99, figname=None
   else:
      plt.savefig(figname)
      return figname
-<<<<<<< HEAD
-    # t_gm=t_gm[ind]
-    # o_gm=o_gm[ind]
-    # plt.subplot(411)
-    # yy=o_gm['cm_mag'][:, 0]-t_gm['cm_mag'][:, 0]
-    # xx=(o_gm['cm_T']-t_gm['cm_T'])
-    # ind=np.where((yy>-10)&(yy < 10))
-    # xx=xx[ind];yy=yy[ind]
-    # plt.xlim([-10, 10000])
-    # plt.ylim([np.percentile(yy, up_perc), np.percentile(yy, lo_perc)])
-    # plt.scatter(xx, yy, 1, marker='o', alpha=0.2)
-    # plt.plot([-1000, 10000], [0, 0], 'b:')
-    # plt.xscale('symlog')
-    # plt.xlabel('cm_T Obs-Truth', fontsize=10)
-    # plt.ylabel('Obs-True cm_mag (g)', fontsize=8)
-=======
->>>>>>> bf1b1447b055336d0baee5de57841971cb4ecf5c
 
 def make_all(basepath=None, tile_list=None, realizations=None, outdir=None):
     if basepath is None:
@@ -967,6 +947,9 @@ def make_all(basepath=None, tile_list=None, realizations=None, outdir=None):
 
     ### make plots
     names=[]
+    ##Diff_f vs True_f plots
+    fn4 = os.path.join(outdir, 'df_f_spencer.png')
+    names=np.append(names, df_f_plot(truth_gm, obs_gm, truth_sm, obs_sm, up_perc=0, lo_perc=100, figname=fn4))
     ##Diff_m vs True_m plots
     fn1 = os.path.join(outdir, 'dm_m_YZ.png')
     names=np.append(names, dm_m_plot(truth_gm, obs_gm, truth_sm, obs_sm, figname=fn1))
@@ -980,9 +963,6 @@ def make_all(basepath=None, tile_list=None, realizations=None, outdir=None):
     # commented out. my experiment plot
     #fn4 = os.path.join(outdir, 'dT_dist_gals_YZ.png')
     #names=np.append(names, dT_dist_plot(truth_gm, obs_gm, truth_sm, obs_sm, oo, figname=fn4))
-    ##Diff_f vs True_f plots
-    fn4 = os.path.join(outdir, 'df_f_spencer.png')
-    names=np.append(names, df_f_plot(truth_gm, obs_gm, truth_sm, obs_sm, up_perc=0, lo_perc=100, figname=fn4))
     print 'generated plots: ', names
     return names
 
