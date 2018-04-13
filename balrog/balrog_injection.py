@@ -953,30 +953,7 @@ class Tile(object):
                 # Combine balrog image with extra extentions
                 combine_fits_extensions(combined_fits, bal_fits, orig_fits, config=config)
 
-        # out_band_dir = {}
-        # for band in self.bands:
-        #     if config.vb:
-        #         print('Copying {}-band...'.format(band))
-
-        #     b_dir = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), \
-        #                                       self.tile_name, band)
-        #     out_band_dir[band] = b_dir
-
-        #     try:
-        #         file_list = os.listdir(b_dir)
-        #     except OSError:
-        #         file_list = None
-        #         continue
-
-        #     for f in file_list:
-        #         if self.is_chip_image(config, f): self.chip_list[band].append(f)
-
-        #         # Add chip to list
-        #         filename = os.path.join(b_dir, f)
-        #         # pudb.set_trace()
-        #         self.chips[band].append(Chip(filename, band, config, tile_name=self.tile_name,
-        #                                         zeropoint=zp))
-        return
+                return
 
 #-------------------------
 # Related Tile functions
