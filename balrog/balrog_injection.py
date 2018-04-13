@@ -1001,18 +1001,21 @@ def combine_fits_extensions(combined_file, bal_file, orig_file, config=None):
     combined_temp = template.split('.fits')[0]
     imName = combined_temp + '_sci.fits'
     weightName = combined_temp + '_wgt.fits'
+    weight_me_Name = combined_temp + '_wgt_me.fits'
     maskName = combined_temp + '_msk.fits'
 
     # Read in simulated image and pre-injection extensions
     sciIm, sciHdr = fitsio.read(bal_file, ext=0, header=True)
     wgtIm, wgtHdr = fitsio.read(orig_file, ext=1, header=True)
-    mskIm, mskHdr = fitsio.read(orig_file, ext=2, header=True)
+    wgt_me_Im, wgt_me_Hdr = fitsio.read(orig_file, ext=2, header=True)
+    mskIm, mskHdr = fitsio.read(orig_file, ext=3, header=True)
 
     # If injecting on blank images, then set these to some sensible values
     if config:
         if config.inj_objs_only['value'] is True:
-            mskIm.fill(0)
             wgtIm.fill(np.max(wgtIm))
+            wgt_me_Im.fill(np.max(wgt_me_Im))
+            mskIm.fill(0)
 
     # Delete original file if writing to file of the same name
     if combined_file == orig_file:
@@ -1025,17 +1028,21 @@ def combine_fits_extensions(combined_file, bal_file, orig_file, config=None):
     fits = fitsio.FITS(combined_file,'rw')
     fits.write(sciIm, header=sciHdr)
     fits.write(wgtIm, header=wgtHdr)
+    fits.write(wgt_me_Im, header=wgtHdr)
     fits.write(mskIm, header=mskHdr)
 
     # Put back EXTNAME into headers
     fits[0].write_key('EXTNAME', 'SCI', comment="Extension name")
     fits[1].write_key('EXTNAME', 'WGT', comment="Extension name")
-    fits[2].write_key('EXTNAME', 'MSK', comment="Extension name")
+    fits[2].write_key('EXTNAME', 'WGT_ME', comment="Extension name")
+    fits[3].write_key('EXTNAME', 'MSK', comment="Extension name")
 
     # Clean temp files
     if os.path.exists(imName):
         os.remove(imName)
     if os.path.exists(weightName):
+        os.remove(weightName)
+    if os.path.exists(weight_me_Name):
         os.remove(weightName)
     if os.path.exists(maskName):
         os.remove(maskName)
