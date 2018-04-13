@@ -35,7 +35,7 @@ from astropy.table import Table
 import injector
 
 # Use for debugging
-#import pudb
+# import pudb
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
@@ -824,7 +824,7 @@ class Tile(object):
         # A new GalSim config file for Balrog injections has been created and all simulations
         # can now be run simultaneously using all GalSim machinery
         # bashCommand = 'galsim {} -v 2 -l gs_logfile -p'.format(self.bal_config_file)
-        bashCommand = 'galsim {} -p'.format(self.bal_config_file)
+        bashCommand = 'galsim {} -v 1'.format(self.bal_config_file)
 
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
 
@@ -929,6 +929,55 @@ class Tile(object):
 
         return
 
+    def copy_extensions(self, config):
+        '''
+        Copy the remaining initial chip image extensions (e.g. weight and mask maps)
+        to the new balrog injected images.
+        '''
+
+        # pudb.set_trace()
+        for band in self.bands:
+            out_band_dir = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), \
+                                            self.tile_name, band)
+            chips = self.chips[band]
+            for chip in chips:
+                orig_fits = chip.filename
+
+                # Grabbed from `add_gs_injection()`
+                bal_fits = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), \
+                                        self.tile_name, chip.band, '{}_balrog_inj.fits'.format(chip.name))
+
+                # As we want to rewrite orig_fits with bal_fits, we pass the same name for combined_fits
+                combined_fits = bal_fits
+
+                # Combine balrog image with extra extentions
+                combine_fits_extensions(combined_fits, bal_fits, orig_fits, config=config)
+
+        # out_band_dir = {}
+        # for band in self.bands:
+        #     if config.vb:
+        #         print('Copying {}-band...'.format(band))
+
+        #     b_dir = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), \
+        #                                       self.tile_name, band)
+        #     out_band_dir[band] = b_dir
+
+        #     try:
+        #         file_list = os.listdir(b_dir)
+        #     except OSError:
+        #         file_list = None
+        #         continue
+
+        #     for f in file_list:
+        #         if self.is_chip_image(config, f): self.chip_list[band].append(f)
+
+        #         # Add chip to list
+        #         filename = os.path.join(b_dir, f)
+        #         # pudb.set_trace()
+        #         self.chips[band].append(Chip(filename, band, config, tile_name=self.tile_name,
+        #                                         zeropoint=zp))
+        return
+
 #-------------------------
 # Related Tile functions
 
@@ -964,6 +1013,57 @@ def load_tile_list(tile_list_file, config):
         print('Loaded {} tiles...'.format(len(tile_list)))
 
     return tile_list
+
+def combine_fits_extensions(combined_file, bal_file, orig_file, config=None):
+    '''
+    Combine other needed image extensions (e.g. weight and mask maps).
+    Modified from Nikolay's original version in BalrogPipeline.py.
+    '''
+
+    template = combined_file.split('/')[-1]
+    combined_temp = template.split('.fits')[0]
+    imName = combined_temp + '_sci.fits'
+    weightName = combined_temp + '_wgt.fits'
+    maskName = combined_temp + '_msk.fits'
+
+    # Read in simulated image and pre-injection extensions
+    sciIm, sciHdr = fitsio.read(bal_file, ext=0, header=True)
+    wgtIm, wgtHdr = fitsio.read(orig_file, ext=1, header=True)
+    mskIm, mskHdr = fitsio.read(orig_file, ext=2, header=True)
+
+    # If injecting on blank images, then set these to some sensible values
+    if config:
+        if config.inj_objs_only['value'] is True:
+            mskIm.fill(0)
+            wgtIm.fill(np.max(wgtIm))
+
+    # Delete original file if writing to file of the same name
+    if combined_file == orig_file:
+        os.remove(orig_file)
+
+    # Write all 3 extensions in the output file
+    if os.path.exists(combined_file):
+        os.remove(combined_file)
+
+    fits = fitsio.FITS(combined_file,'rw')
+    fits.write(sciIm, header=sciHdr)
+    fits.write(wgtIm, header=wgtHdr)
+    fits.write(mskIm, header=mskHdr)
+
+    # Put back EXTNAME into headers
+    fits[0].write_key('EXTNAME', 'SCI', comment="Extension name")
+    fits[1].write_key('EXTNAME', 'WGT', comment="Extension name")
+    fits[2].write_key('EXTNAME', 'MSK', comment="Extension name")
+
+    # Clean temp files
+    if os.path.exists(imName):
+        os.remove(imName)
+    if os.path.exists(weightName):
+        os.remove(weightName)
+    if os.path.exists(maskName):
+        os.remove(maskName)
+
+    return
 
 #-------------------------------------------------------------------------------
 # Chip
@@ -1928,6 +2028,8 @@ def RunBalrog():
             tile.write_bal_config()
             if vb is True: print('Running GalSim for tile...')
             tile.run_galsim(vb=vb)
+            if vb is True: print('Copying extra image planes...')
+            tile.copy_extensions(config)
             if vb is True: print('Truth Catalog...')
             tile.write_truth_catalog(config)
 
