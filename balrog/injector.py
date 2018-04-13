@@ -2,7 +2,7 @@ import galsim
 import logging
 
 # Can use for debugging
-# import pudb
+import pudb
 
 ## Class for injecting simulated galaxies into pre-existing images.
 
@@ -63,7 +63,6 @@ class BalrogImageBuilder(AddOnImageBuilder):
         return full_xsize, full_ysize
 
     def buildImage(self, config, base, image_num, obj_num, logger):
-        # pudb.set_trace()
         try:
             ioo = config['inj_objs_only']
             if (type(ioo) is bool) and (ioo is True):
