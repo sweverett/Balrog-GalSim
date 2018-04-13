@@ -35,7 +35,7 @@ from astropy.table import Table
 import injector
 
 # Use for debugging
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
@@ -606,7 +606,7 @@ class Tile(object):
 
         return
 
-    def add_gs_injection(self, chip, inj_indx, inj_pos_im, inj_type):
+    def add_gs_injection(self, config, chip, inj_indx, inj_pos_im, inj_type):
         '''
         This function appends the global GalSim config with an additional simulation to
         be done using nullwt chip-specific infomation and Balrog injected galaxy/star positions
@@ -617,12 +617,6 @@ class Tile(object):
 
         if (inj_type != 'gals') and (inj_type != 'stars'):
             raise ValueError('Currently, the only injection types allowed are \'gals\' and \'stars\'.')
-
-        if len(inj_indx) == 0:
-            # NOTE: Should not occur, but just in case
-            print('No objects of type {} were passed on injection '.format(inj_type) +
-                  'to chip {}. Skipping injection.'.format(chip.name))
-            return
 
         # pudb.set_trace()
 
@@ -636,6 +630,19 @@ class Tile(object):
 
         Ninput = len(self.input_types)
         Ninject = len(inj_indx)
+
+        # TODO: Need to relook at this!
+        # if len(inj_indx) == 0:
+        #     if config.inj_objs_only['value'] is True:
+        #         # This is needed to correctly do grid runs for chip overlaps with no injections!
+        #         self.bal_config[i] = {
+        #             'stamp': {'skip' : True}}
+        #         # self.bal_config[i]['image'].update({'Ngals' : 0})
+        #         # self.bal_config[i]['stamp'].update({'skip' : True})
+        #     else:
+        #         print('No objects of type {} were passed on injection '.format(inj_type) +
+        #             'to chip {}. Skipping injection.'.format(chip.name))
+        #         return
 
         #-----------------------------------------------------------------------------------------------
         # Now set up common config entries if chip's first injection
@@ -674,6 +681,9 @@ class Tile(object):
 
             # Setup 'gal' field (nothing besides dict init, for now)
             self.bal_config[i]['gal'] = {}
+
+            # Setup 'stamp' field (nothing besides dict init, for now)
+            self.bal_config[i]['stamp'] = {}
 
             # Setup the 'psf' field
             psf_file = chip.psf_filename
@@ -718,8 +728,12 @@ class Tile(object):
         #-----------------------------------------------------------------------------------------------
         # Set common entries independent of list structure
 
-        if inj_type == 'gals': self.bal_config[i]['image'].update({'Ngals' : chip.Ngals})
-        elif inj_type == 'stars': self.bal_config[i]['image'].update({'Nstars' : chip.Nstars})
+        if inj_type == 'gals':
+            self.bal_config[i]['image'].update({'Ngals' : chip.Ngals})
+
+        elif inj_type == 'stars':
+            self.bal_config[i]['image'].update({'Nstars' : chip.Nstars})
+
         else: raise ValueError('For now, only `gals` or `stars` are valid injection types!')
 
         #-----------------------------------------------------------------------------------------------
@@ -953,7 +967,7 @@ class Tile(object):
                 # Combine balrog image with extra extentions
                 combine_fits_extensions(combined_fits, bal_fits, orig_fits, config=config)
 
-                return
+        return
 
 #-------------------------
 # Related Tile functions
@@ -997,31 +1011,25 @@ def combine_fits_extensions(combined_file, bal_file, orig_file, config=None):
     Modified from Nikolay's original version in BalrogPipeline.py.
     '''
 
-    template = combined_file.split('/')[-1]
-    combined_temp = template.split('.fits')[0]
-    imName = combined_temp + '_sci.fits'
-    weightName = combined_temp + '_wgt.fits'
-    weight_me_Name = combined_temp + '_wgt_me.fits'
-    maskName = combined_temp + '_msk.fits'
-
     # Read in simulated image and pre-injection extensions
-    sciIm, sciHdr = fitsio.read(bal_file, ext=0, header=True)
+    sciIm = fitsio.read(bal_file, ext=0)
+    sciHdr = fitsio.read_header(orig_file, ext=0)
     wgtIm, wgtHdr = fitsio.read(orig_file, ext=1, header=True)
     wgt_me_Im, wgt_me_Hdr = fitsio.read(orig_file, ext=2, header=True)
     mskIm, mskHdr = fitsio.read(orig_file, ext=3, header=True)
 
     # If injecting on blank images, then set these to some sensible values
+    # pudb.set_trace()
     if config:
         if config.inj_objs_only['value'] is True:
-            wgtIm.fill(np.max(wgtIm))
-            wgt_me_Im.fill(np.max(wgt_me_Im))
+            inv_sky_var = 1.0 / (sciHdr['SKYSIGMA']**2)
+            wgtIm.fill(inv_sky_var)
+            wgt_me_Im.fill(inv_sky_var)
             mskIm.fill(0)
 
-    # Delete original file if writing to file of the same name
-    if combined_file == orig_file:
-        os.remove(orig_file)
-
     # Write all 3 extensions in the output file
+    # NOTE: Usually combined_file will be the same name as bal_file,
+    # so we delete the original injection and replace it with the new extensions
     if os.path.exists(combined_file):
         os.remove(combined_file)
 
@@ -1036,16 +1044,6 @@ def combine_fits_extensions(combined_file, bal_file, orig_file, config=None):
     fits[1].write_key('EXTNAME', 'WGT', comment="Extension name")
     fits[2].write_key('EXTNAME', 'WGT_ME', comment="Extension name")
     fits[3].write_key('EXTNAME', 'MSK', comment="Extension name")
-
-    # Clean temp files
-    if os.path.exists(imName):
-        os.remove(imName)
-    if os.path.exists(weightName):
-        os.remove(weightName)
-    if os.path.exists(weight_me_Name):
-        os.remove(weightName)
-    if os.path.exists(maskName):
-        os.remove(maskName)
 
     return
 
@@ -1984,9 +1982,11 @@ def RunBalrog():
                         gals_indx = tile.gals_indx[real][in_chip]
                         chip.set_Ngals(len(gals_pos_im))
 
+                        # pudb.set_trace()
                         # If any galaxies are contained in chip, add gs injection to config list
+                        # if (chip.Ngals > 0) or (config.inj_objs_only['value'] is True):
                         if chip.Ngals > 0:
-                            tile.add_gs_injection(chip, gals_indx, gals_pos_im, inj_type='gals')
+                            tile.add_gs_injection(config, chip, gals_indx, gals_pos_im, inj_type='gals')
 
                     if config.sim_stars is True:
                         # Determine which Balrog stars are contained in chip, and
@@ -1997,13 +1997,16 @@ def RunBalrog():
                         chip.set_Nstars(len(stars_pos_im))
 
                         # If any stars are contained in chip, add gs injection to config list
+                        # if (chip.Nstars > 0) or (config.inj_objs_only['value'] is True):
                         if chip.Nstars > 0:
-                            tile.add_gs_injection(chip, stars_indx, stars_pos_im, inj_type='stars')
+                            tile.add_gs_injection(config, chip, stars_indx, stars_pos_im, inj_type='stars')
 
                     if (chip.Ngals + chip.Nstars) == 0:
+                        # Don't want to skip image for a blank run; need to blank out the image!
+                        # if config.inj_objs_only['value'] is False:
                         # TODO: Eventually use a return_output_name() function
                         outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
-                                   tile.tile_name, chip.band, '{}_balrog_inj.fits'.format(chip.name))
+                                tile.tile_name, chip.band, '{}_balrog_inj.fits'.format(chip.name))
                         chip.save_without_injection(outfile)
 
             # Once all chips in tile have had Balrog injections, run modified config file
@@ -2023,7 +2026,6 @@ def RunBalrog():
     outfile = os.path.join(config.output_dir, 'configs', 'tile_flux_factors.p')
     with open(outfile, 'wb') as f: pickle.dump(config.flux_factors, f)
     # pudb.set_trace()
-
     return
 
 if __name__ == '__main__':
