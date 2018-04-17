@@ -13,7 +13,9 @@ import logging
 from past.builtins import basestring # Python 2&3 compatibility
 # import pudb
 
-#TODO: Include noise, pixscale
+# TODO: Include noise, pixscale
+# TODO: Understand T=0 cases! (shouldn't be)
+# TODO: Handle case of gparams=None
 
 class ngmixCatalog(object):
     """ Class that handles galaxy catalogs from ngmix. These are fits files with names typically
@@ -51,7 +53,7 @@ class ngmixCatalog(object):
 
     _req_params = { 'file_name' : str }
     _opt_params = { 'dir' : str, 'catalog_type' : str, 'bands': str, 'snr_min' : float,
-                    'snr_max' : float, 't_frac' : float}
+                    'snr_max' : float, 't_frac' : float, 't_min' : float, 't_max' : float}
     _single_params = []
     _takes_rng = False
 
@@ -73,7 +75,7 @@ class ngmixCatalog(object):
     _cat_col_prefix = {'gauss' : 'gauss', 'cm' : 'cm', 'mof' : 'cm'}
 
     def __init__(self, file_name, dir=None, catalog_type=None, bands=None, snr_min=None, snr_max=None,
-                 t_frac=None, _nobjects_only=False):
+                 t_frac=None, t_min=None, t_max=None, _nobjects_only=False):
 
         if dir:
             if not isinstance(file_name, basestring):
@@ -81,7 +83,7 @@ class ngmixCatalog(object):
             import os
             file_name = os.path.join(dir,file_name)
         if not isinstance(file_name, basestring):
-            raise ValueError("The inputted filename must be a string!")
+            raise ValueError("The input filename must be a string!")
         self.file_name = file_name
 
         if catalog_type:
@@ -134,18 +136,32 @@ class ngmixCatalog(object):
                 raise ValueError("The signal-to-noise ratio `snr` must be positive!")
             self.snr_min = snr_min
         else:
-            # Always reject snr<0
             self.snr_min = 0.0
 
         if snr_max:
             if snr_max < 0.0:
                 raise ValueError("The signal-to-noise ratio `snr` must be positive!")
             elif snr_min and (snr_min > snr_max):
-                raise ValueError("`snr_max` must be greater than `snr_min`!")
+                raise ValueError("`t_max` must be greater than `t_min`!")
             self.snr_max = snr_max
         else:
-            # Used for defaults
             self.snr_max = None
+
+        if t_min:
+            if t_min < 0.0:
+                raise ValueError("The object size cutoff `t_min` must be positive!".format())
+            self.t_min = t_min
+        else:
+            self.t_min = 0.0
+
+        if t_max:
+            if t_max < 0.0:
+                raise ValueError("The object size cutoff `t_max` must be positive!".format())
+            elif t_min and (t_min > t_max):
+                raise ValueError("`t_max` must be greater than `t_min`!")
+            self.t_max = t_max
+        else:
+            self.t_max = None
 
         if t_frac:
             if t_frac < 0.0:
@@ -199,17 +215,26 @@ class ngmixCatalog(object):
         # Do mask cut
         self.maskCut()
 
+        # pudb.set_trace()
+
         return
 
     #------------------------------------------------------------------------------------------------
 
     def getFlags(self):
         """Retrieve object flags, where implementation depends on catalog type."""
-        self.flags = self.catalog[self.col_prefix+'_flags']
+
+        # General flags
+        self.flags = self.catalog['flags']
+        self.obj_flags = self.catalog['obj_flags']
+
+        # ngmix catalog-specific flags
+        self.ngmix_flags = self.catalog[self.col_prefix+'_flags']
 
         # TODO: Check for additional flags
         if self.cat_type == 'mof':
-            self.flags_mof = self.catalog[self.col_prefix+'_mof_flags']
+            # mof has additional flags
+            self.mof_flags = self.catalog[self.col_prefix+'_mof_flags']
 
         return
 
@@ -227,9 +252,11 @@ class ngmixCatalog(object):
 
         # For now, remove objects with any flags present
         mask[self.flags != 0] = False
+        mask[self.obj_flags !=0] = False
+        mask[self.ngmix_flags !=0] = False
         # Extra flags for 'mof' catalogs
         if self.cat_type == 'mof':
-            mask[self.flags_mof != 0] = False
+            mask[self.mof_flags != 0] = False
 
         # Remove any object with `T/T_err` < t_frac
         T_fraction = self.catalog[cp+'_T'] / self.catalog[cp+'_T_err']
@@ -239,6 +266,11 @@ class ngmixCatalog(object):
         mask[self.catalog[cp+'_s2n_r'] < self.snr_min] = False
         if self.snr_max:
             mask[self.catalog[cp+'_s2n_r'] > self.snr_max] = False
+
+        # Remove objects with size T outside of desired bounds
+        mask[self.catalog[cp+'_T'] < self.t_min] = False
+        if self.t_max:
+            mask[self.catalog[cp+'_T'] > self.t_max] = False
 
         # TODO: Quick fix for the moment, should figure out rigorous cutoff
         # Looks like we likely want SNR > 10 and T/T_err>0.5; leaving for the moment
@@ -329,7 +361,7 @@ class ngmixCatalog(object):
 
     #------------------------------------------------------------------------------------------------
 
-    def ngmix2gs(self,index,gsparams):
+    def ngmix2gs(self, index, gsparams):
         """
         This function handles the conversion of a ngmix galaxy to a GS object. The required conversion is
         different for each ngmix catalog type.
@@ -343,11 +375,7 @@ class ngmixCatalog(object):
         ct = self.cat_type
 
         # Grab galaxy shape and size (identical in all bands)
-        # T = self.catalog[cp+'_T'][index]
-        # TODO: Check this conversion! (Not listed in catalogs, but appears to work.)
-        # unit_conv = 60.0 # Convert between arcmin & arcsec
-        unit_conv = 1.0 # If no conversion is needed
-        T = unit_conv*self.catalog[cp+'_T'][index]
+        T = self.catalog[cp+'_T'][index]
         g1, g2 = self.catalog[cp+'_g'][index]
         # We don't want to put these galaxies at their original locations!
         # c1, c2 = self.catalog[cp+'_c'][index]
@@ -356,7 +384,10 @@ class ngmixCatalog(object):
         gsobjects = []
 
         # Convert from dict to actual GsParams object
-        gsp = galsim.GSParams(**gsparams)
+        # TODO: Currently fails if gsparams isn't passed!
+        if gsparams: gsp = galsim.GSParams(**gsparams)
+        else: gsp = None
+        # galsim.GSParams(**gsparams)
 
         # Only here for testing purposes
         # print('\nOBJ ID: {}\n'.format(self.catalog['id'][index]))
@@ -506,6 +537,9 @@ class ngmixCatalog(object):
         # Used by input/logger methods
         return self.ntotal
 
+    def getCatalog(self):
+        return self.catalog
+
     # TODO: Write remaining `get` methods once saved columns are determined
 
     #------------------------------------------------------------------------------------------------
@@ -551,16 +585,21 @@ class BalGMixCM(ngmix.gmix.GMixCM):
         for i in xrange(len(self)):
             flux = data['p'][i]
             T = data['irr'][i] + data['icc'][i]
+            # assert(T!=0.0)
+            if T==0:
+                # TODO: Explore this issue more! T is being stored as nonzero -
+                #       what is causing this?
+                continue
             e1 = (data['icc'][i] - data['irr'][i])/T
             e2 = 2.0*data['irc'][i]/T
 
             rowshift = data['row'][i]-row
             colshift = data['col'][i]-col
 
-            g1,g2 = e1e2_to_g1g2(e1,e2)
+            g1,g2 = ngmix.shape.e1e2_to_g1g2(e1,e2)
 
-            Tround = moments.get_Tround(T, g1, g2)
-            sigma_round = sqrt(Tround/2.0)
+            Tround = ngmix.moments.get_Tround(T, g1, g2)
+            sigma_round = np.sqrt(Tround/2.0)
 
             gsobj = galsim.Gaussian(flux=flux, sigma=sigma_round,gsparams=gsparams)
 
