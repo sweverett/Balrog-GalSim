@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Run: $chmod +x ms_matcher
+
+in1=$1
+in2=$2
+out=$3
+ra1=$4
+dec1=$5
+ra2=$6
+dec2=$7
+overwrite=$8
+
+
+# Check if match has already been performed #
+if [ -f ${out} ] && [ "${overwrite}" == "False" ]; then
+	echo "Matched catalog already exists. Not overwriting ${out} ..."
+	echo " "
+fi
+
+
+# Perform match if matched catalog does not already exist or if overwrite is True #
+if [[ (! -f ${out}) ||  ("${overwrite}" == "True") ]]; then
+	echo "Matching ..."
+	/data/des30.a/data/kgrabow/stilts tmatch2 in1=${in1} ifmt1=fits in2=${in2} values1="${ra1} ${dec1}" values2="${ra2} ${dec2}" matcher=sky params=1.0 fixcols=all join=1and2 out=${out} ofmt=csv
+fi
+
