@@ -1,0 +1,134 @@
+###################################################################################################
+# This is a short config file for testing the injection of ngmix catalog objects into existing fits
+# images as part of the Y3 Balrog pipeline. No promises are made (yet) for its completeness or
+# working state!
+#
+# Balrog yaml files are slightly different than their normal GalSim counterparts. It cannot be run
+# with a standard galsim executable of the form `galsim balrog_config.yaml`; instead, it is passed
+# as an input to the python script `balrog_injection.py`. This serves as the base of a multi-output
+# yaml file that all of the individual chip simulations will inherit from. Do not set any fields or
+# variables here that are not universal.
+#
+# Spencer Everett
+# USCS
+# 1/30/2018
+###################################################################################################
+
+modules :
+  - galsim.des
+  - injector
+  - ngmix_catalog
+  - des_star_catalog
+
+# These variables are not directly processed by GalSim; this simply allows a convenient way
+# to change multiple variable instances quickly throughout the config file.
+some_variables :
+  # Pick a maximum fft size
+  - &max_fft 65536
+  # - &max_fft 32768
+  # - &max_fft 16384
+  # - &max_fft 8192
+  # - &max_fft 4096 # GalSim default (likely want higher)
+  # - &max_fft 64 # For testing purposes!
+  - &ngmix_dir '/home/spencer/research/balrog/ngmix_cats'
+  # - &ngmix_file 'DES0113-4331-y3v02a-mof-001.fits'
+  - &ngmix_file 'y3_balrog_test_input_mof.fits'
+
+# Define the input files
+input :
+    cosmos_catalog :
+        dir : '/home/spencer/research/balrog/inputs/cosmos/'
+        filename : 'real_galaxy_catalog_25.2_example.fits'
+
+    des_star_catalog :
+        base_dir : '/home/spencer/research/balrog/stars/5sigma'
+        model_type :  'Model_16.5-26.5'
+        #model_type :  'Extra_10_percent_16.5-26.5'
+        # tile : 'DES0347-5540'
+        data_version : 'y3v02'
+        # bands : 'griz'
+
+# The gal field defines what kind of galaxy profile to use.
+gal :
+    type : List
+    items :
+      - # Galaxy component
+        type : ngmixGalaxy
+        # shear :
+        #   type : G1G2
+        #   g1 : 0.4
+        #   g2 : 0.6
+      - # Star component
+        type : desStar
+
+    # NOTE: Here you would normally define various fields such as index to choose which galaxies
+    # are injected. The balrog injection script takes care of position / index sampling, so
+    # you will likely leave the rest of the field blank.
+
+psf :
+    # For DES chip images with PSFEx files
+    # NOTE: In figure, Piff PSFs may be used instead
+    type : DES_PSFEx
+
+    # If for some reason you want to use a different PSF model, any standard GalSim
+    # PSF's are allowed (but you might get a warning!)
+    # type : Gaussian
+    # sigma : 0.5  # arcsec
+    # No need to specify a flux, since flux=1 is the right thing for a PSF.
+
+stamp :
+    # Nothing required here, but feel free to add additional config options
+    gsparams :
+      # fft size is the most likely change you'll want to make
+      maximum_fft_size : *max_fft
+
+image :
+    # For injected images:
+    type : Balrog # Same as AddOn, but with some additional input attributes and checking
+
+    # Can add some of the command-line arguments here as well.
+    # Ok if they are passed both ways, as long as they are consistent.
+    geom_file : '/home/spencer/research/balrog/Balrog-GalSim/inputs/Y3A2_COADDTILE_GEOM.fits'
+    tile_list : '/home/spencer/research/balrog/Balrog-GalSim/inputs/tilelist.csv'
+    tile_dir : '/home/spencer/research/balrog/tiles/'
+    # psf_dir : 'psfs' # Default for DES
+
+    # To use all bands:
+    # NOTE: y-band currently not supported
+    # bands : 'griz'
+    # To use a subset:
+    bands : 'ri'
+
+    version : 'y3v02'
+    run_name : 'cosmos_test'
+
+    # Load WCS from DES chip file
+    wcs :
+      type : Fits
+
+    # Must set galaxy density or total number of injected galaxies per tile **per realization**
+    # gal_density : 10 # per arcmin^2
+    n_galaxies : 5000 # per tile per realization
+
+    # Set the realizations to be done
+    # NOTE: This replaces the old keyword `n_realizations` (although it will still be processed
+    # correctly for now). You can pass a single realization value, a range using a dictionary
+    # filled with min/max, or a list of individual values:
+    # n_realizations : 1 # DEPRECATED!
+    realizations : [1]
+    # realizations : {'min' : 2, 'max' : 4}
+    #realizations : [1, 3, 5]
+
+    # TODO: In future, we should load these fields automatically in script.
+    xsize: 2048 # DES nullwt chip
+    ysize: 4096 # DES nullwt chip
+
+    # Number of processors to be used on GalSim injection step
+    # nproc : -1
+    nproc : 1
+
+    # inj_objs_only : True
+    # pos_sampling : grid
+
+output :
+    dir : '/home/spencer/research/balrog/Balrog-GalSim/tests/cosmos_test/'
