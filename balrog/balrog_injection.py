@@ -35,7 +35,7 @@ from astropy.table import Table
 import injector
 
 # Use for debugging
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
@@ -413,11 +413,13 @@ class Tile(object):
 
             if config.data_version == 'y3v02':
                 # The first time, divide up catalog randomly between realizations
-                if realization == 0:
-                    # Can't guarantee star count consistency, so use lists
-                    self.stars_indx = []
-                    self.stars_pos = []
-                    self.Nstars = []
+                if realization == config.realizations[0]:
+                    # Can't guarantee star count consistency, so use dicts
+                    # (moved from lists as realizations are no longer guaranteed
+                    # to be contiguous)
+                    self.stars_indx = {}
+                    self.stars_pos = {}
+                    self.Nstars = {}
 
                     self.star_model = config.star_model
 
@@ -439,7 +441,6 @@ class Tile(object):
                     #                                       boundary_cross=self.ra_boundary_cross)
                     # print('Counts 2 = {}'.format(cat_proxy.getNObjects()))
                     Ns = cat_proxy.getNObjects()
-                    print('Ns = {}'.format(Ns))
 
                     # Update star catalog
                     config.input_cats[input_type] = cat_proxy.getCatalog()
@@ -458,16 +459,18 @@ class Tile(object):
 
                     # Sahar's DES Y3 star catalogs are all pre-computed, so we can set
                     # needed values for all realizations now.
-                    for real in range(Nr):
-                        inds = indices[real]
+                    # pudb.set_trace()
+                    for real in config.realizations:
+                        j = int(np.where(real==np.array(config.realizations))[0])
+                        inds = indices[j]
                         r, d = ra[inds], dec[inds]
 
                         # TODO: Cut out any stars not contained in *unique* tile region!
                         # Part of solution to #25
 
-                        self.stars_indx.append(inds)
-                        self.stars_pos.append(np.column_stack((r, d)))
-                        self.Nstars.append(len(inds))
+                        self.stars_indx[real] = inds
+                        self.stars_pos[real] = np.column_stack((r, d))
+                        self.Nstars[real] = len(inds)
 
         return
 
@@ -484,18 +487,18 @@ class Tile(object):
             gal_type = config.input_types['gals']
             if config.data_version == 'y3v02':
                 # Generate galaxy positions and indices if this is the first realization
-                if realization == 0:
-                    # Can't guarantee galaxy count consistency, so use lists
-                    self.gals_pos = []
-                    self.gals_indx = []
-                    self.Ngals = []
+                if realization == config.realizations[0]:
+                    # Can't guarantee galaxy count consistency, so use dicts
+                    self.gals_pos = {}
+                    self.gals_indx = {}
+                    self.Ngals = {}
 
                     Ng = config.input_nobjects[gal_type]
                     Nr = config.n_realizations
 
-                    for real in range(Nr):
+                    for real in config.realizations:
                         ngals = self.gals_per_real
-                        self.Ngals.append(ngals)
+                        self.Ngals[real] = ngals
 
                         # Generate galaxy coordinates
                         if config.pos_sampling == 'uniform':
@@ -503,12 +506,12 @@ class Tile(object):
                                                 boundary_cross=self.ra_boundary_cross)
                             dec = sample_uniform_dec(self.decmin, self.decmax, self.gals_per_real,
                                                  unit='deg')
-                            self.gals_pos.append(np.column_stack((ra, dec)))
+                            self.gals_pos[real] = np.column_stack((ra, dec))
 
                             # Generate galaxy indices (in input catalog)
                             indices = np.array(rand.sample(xrange(Ng), ngals))
                             # indices = sample_uniform_indx(0, config.input_nobjects[gal_type], Ng)
-                            self.gals_indx.append(indices)
+                            self.gals_indx[real] = indices
 
                         elif config.pos_sampling == 'grid':
                             # TODO: eventually make 'pos_sampling' be a galsim value so we can add
@@ -541,7 +544,7 @@ class Tile(object):
                             im_dec = np.arange(im_gs, Npix_y-im_gs, im_gs)
                             # Get all image coordinate pairs
                             im_pos = np.array(np.meshgrid(im_ra, im_dec)).T.reshape(-1, 2)
-                            self.gals_pos.append(self.wcs.wcs_pix2world(im_pos, 1))
+                            self.gals_pos[real] = self.wcs.wcs_pix2world(im_pos, 1)
 
                             # Generate galaxy indices (in input catalog)
                             # TODO: For now, we ignore any passed n_gals or density and pick
@@ -549,7 +552,7 @@ class Tile(object):
                             ngals = len(im_pos)
                             indices = np.array(rand.sample(xrange(Ng), ngals))
                             # indices = sample_uniform_indx(0, config.input_nobjects[gal_type], Ng)
-                            self.gals_indx.append(indices)
+                            self.gals_indx[real] = indices
 
                         # pudb.set_trace()
 
@@ -590,9 +593,6 @@ class Tile(object):
 
         # Reset injections
         self.has_injections = False
-        # NOTE: Could use these for tile-level numbers, but currently not needed
-        # self.Ngals = 0
-        # self.Nstars = 0
 
         return
 
@@ -926,7 +926,7 @@ class Tile(object):
                         hdr['n_galaxies'] = config.n_galaxies
                     if config.gal_density:
                         hdr['gal_density'] = config.gal_density
-                    hdr['n_realizations'] = config.n_realizations
+                    hdr['realizations'] = config.realizations
                     hdr['curr_real'] = self.curr_real
                     hdr['data_version'] = config.data_version
 
@@ -1380,12 +1380,48 @@ class Config(object):
 
         self.parse_command_args()
 
-        # Process input 'n_realizations':
+        # Process input 'realizations':
         try:
-            self.n_realizations = self.gs_config[0]['image']['n_realizations']
+            reals = self.gs_config[0]['image']['realizations']
+            if type(reals) is int:
+                self.n_realizations = 1
+                self.realizations = np.array([reals])
+            elif isinstance(reals, list):
+                if all(isinstance(x, int) for x in reals):
+                    self.n_realizations = len(reals)
+                    self.realizations = list(reals)
+                else:
+                    raise TypeError('Passed realizations must be integers!')
+            elif isinstance(reals, dict):
+                try:
+                    max_real = reals['max']
+                    min_real = reals['min']
+                    if min_real >= max_real:
+                        raise ValueError('Key `min_real` must be less than `max_real`!')
+                    if all(isinstance(x, int) for x in [min_real, max_real]):
+                        self.realizations = [x for x in range(min_real, max_real+1)]
+                        self.n_realizations = len(self.realizations)
+                    else:
+                        raise TypeError('The realization values `min` and `max` must be ints!')
+                except KeyError as e:
+                    print(e + '\nThe only valid keys for `realizations` are `min` and `max`!')
         except KeyError:
-            # Default is 1 realization
-            self.n_realizations = 1
+            # DEPRECATED: Parse `n_realizations` for older configs
+            try:
+                n_reals = self.gs_config[0]['image']['n_realizations']
+                # If it has been passed, warn user but try to use
+                warnings.warn('DEPRECATED: `n_realizations` has been deprecated. Please use ' +
+                            'new argument `realizations` instead.')
+                if isinstance(n_reals, int):
+                    self.n_realizations = n_reals
+                    self.realizations = [x for x in range(n_reals)]
+                else:
+                    raise TypeError('The value `n_realizations` must be an int!')
+            except KeyError:
+                # Default is to use realization 0
+                warnings.warn('No realization passed; using default of 0.')
+                self.n_realizations = 1
+                self.realizations = np.array([0])
 
         # Process input 'n_galaxies':
         try:
@@ -1663,16 +1699,6 @@ class Config(object):
                     else:
                         # Then something very strange happened! Should have been caught above
                         raise ValueError
-
-                    # Now make sure that the passed base model percentage is consistent with the
-                    # desired number of realizations
-                    # NOTE: No longer desired; Can inject any density in any # of realizations now
-                    # per_real = 100.0 / self.n_realizations
-                    # if per_real != self.base_percent:
-                    #     raise ValueError('The number of realizations {} '.format(self.n_realizations) +
-                    #                      'is not consistent with the star catalog ' +
-                    #                      'base percentage {}\%'.format(self.base_percent))
-                    # gs_config['input'][input_type]['model_type'] = self.star_model
 
                     # Add bands to suppress a warning.
                     gs_config['input'][input_type]['bands'] = 'griz'
@@ -1961,7 +1987,7 @@ def RunBalrog():
         config.reset_gs_config()
         config.set_tile_num(i)
 
-        for real in range(config.n_realizations):
+        for real in config.realizations:
             if vb: print('Injecting Tile {}; realization {}'.format(tile.tile_name, real))
             # Reset gs config for each new realization
             tile.set_realization(real)
