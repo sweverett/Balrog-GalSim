@@ -867,8 +867,8 @@ class Tile(object):
 
         # A new GalSim config file for Balrog injections has been created and all simulations
         # can now be run simultaneously using all GalSim machinery
-        # bashCommand = 'galsim {} -v 2 -l gs_logfile -p'.format(self.bal_config_file)
-        bashCommand = 'galsim {} -v 1'.format(self.bal_config_file)
+        #bashCommand = 'galsim {} -v 2 -l gs_logfile'.format(self.bal_config_file)
+        bashCommand = 'galsim {}'.format(self.bal_config_file)
 
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
 
