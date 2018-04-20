@@ -35,7 +35,7 @@ from astropy.table import Table
 import injector
 
 # Use for debugging
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
@@ -318,7 +318,7 @@ class Tile(object):
 
         # pudb.set_trace()
 
-        if config.inj_objs_only['noise'] == 'BKG':
+        if config.inj_objs_only['noise'] in ['BKG', 'BKG+CCD']:
             self.bkg_file_list = {}
             self.bkg_files = {}
             for band in config.bands:
@@ -691,16 +691,16 @@ class Tile(object):
             }
 
             # If noise is to be added, do it here
-            # pudb.set_trace()
+            pudb.set_trace()
             if self.noise_model is not None:
-                if self.noise_model in ['CCD', 'BKG+noise']:
+                if self.noise_model in ['CCD', 'BKG+CCD']:
                     self.bal_config[i]['image']['noise'] = {
                         'type' : self.noise_model,
                         'sky_level_pixel' : chip.sky_sigma**2,
                         'gain' : float(np.mean(chip.gain)),
                         'read_noise' : float(np.mean(chip.read_noise))
                     }
-                if self.noise_model in ['BKG', 'BKG+noise']:
+                if self.noise_model in ['BKG', 'BKG+CCD']:
                     # Use chip background file as initial image instead
                     self.bal_config[i]['image'].update({'initial_image' : chip.bkg_file})
             # Can add more noise models here!
@@ -1247,7 +1247,7 @@ class Chip(object):
         Set chip background file, if needed for grid test.
         '''
 
-        if config.inj_objs_only['noise'] == 'BKG':
+        if config.inj_objs_only['noise'] in ['BKG', 'BKG+CCD']:
             assert tile is not None
             self.bkg_file = tile.bkg_files[self.band][self.name]
 
@@ -1537,7 +1537,7 @@ class Config(object):
                 inj_objs_only = dict(inj_objs_only)
                 self.inj_objs_only = {}
                 keys = ['value', 'noise']
-                valid_noise = ['CCD', 'BKG', 'BKG+noise', None]
+                valid_noise = ['CCD', 'BKG', 'BKG+CCD', None]
                 for key, val in inj_objs_only.items():
                     if key not in keys:
                         raise ValueError('{} is not a valid key for `inj_objs_only`! '.format(key) +
