@@ -691,7 +691,7 @@ class Tile(object):
             }
 
             # If noise is to be added, do it here
-            pudb.set_trace()
+            # pudb.set_trace()
             if self.noise_model is not None:
                 if self.noise_model == 'CCD':
                     self.bal_config[i]['image']['noise'] = {

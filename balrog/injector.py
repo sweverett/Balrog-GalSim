@@ -69,7 +69,11 @@ class BalrogImageBuilder(AddOnImageBuilder):
             if (type(ioo) is bool) and (ioo is True):
                 return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
             elif (isinstance(ioo, dict)) and (ioo['value'] is True):
-                return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+                # Still want to use existing image if using BKG as noise
+                if ioo['noise'] == 'BKG':
+                    return super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+                else:
+                    return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
             else:
                 # Default is to add on top of initial images
                 return super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
