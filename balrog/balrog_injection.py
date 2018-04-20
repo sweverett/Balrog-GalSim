@@ -35,7 +35,7 @@ from astropy.table import Table
 import injector
 
 # Use for debugging
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Urgent todo's:
@@ -137,6 +137,9 @@ class Tile(object):
 
         # Load zeropoint list from file
         self._load_zeropoints(config)
+
+        # Load background images, if needed
+        self._load_backgrounds(config)
 
         # Set noise properties
         self._set_noise(config)
@@ -294,7 +297,7 @@ class Tile(object):
 
             with open(self.zeropoint_files[band]) as f:
                 for line in f.readlines():
-                    line_data = line.replace('\n','').split(' ')
+                    line_data = line.replace('\n', '').split(' ')
                     # Determine chip name from path
                     chip_file, zp = ntpath.basename(line_data[0]), float(line_data[1])
                     # NOTE: Easier to handle chip filename rather than actual name
@@ -307,17 +310,40 @@ class Tile(object):
 
         return
 
+    def _load_backgrounds(self, config, s_begin=0, s_end=4):
+        '''
+        Load any needed background images.
+        # NOTE: For now, these are only used for grid test images.
+        '''
+
+        # pudb.set_trace()
+
+        if config.inj_objs_only['noise'] == 'BKG':
+            self.bkg_file_list = {}
+            self.bkg_files = {}
+            for band in config.bands:
+                self.bkg_files[band] = {}
+                self.bkg_file_list[band] = os.path.join(self.dir, 'lists',
+                    '{}_{}_bkg-flist-{}.dat'.format(self.tile_name, band, config.data_version))
+                with open(self.bkg_file_list[band]) as f:
+                    for line in f.readlines():
+                        line_data = line.replace('\n', '').split(' ')
+                        chip_file, file_name = line_data[0], ntpath.basename(line_data[0])
+                        chip_name = '_'.join(file_name.split('_')[s_begin:s_end])
+                        self.bkg_files[band][chip_name] = chip_file
+        else:
+            self.bkg_file_list = None
+            self.bkg_files = None
+
+        return
+
     def _set_noise(self, config):
         '''
         Set any tile-wide noise properties from the config.
         '''
 
-        if config.inj_objs_only['noise'] is True:
-            self.noise_model = 'CCD'
-        # Can add more noise models here!
-        # elif ...
-        else:
-            self.noise_model = None
+        # For now, can be 'CCD', 'BKG', or None
+        self.noise_model = config.inj_objs_only['noise']
 
         return
 
@@ -354,7 +380,7 @@ class Tile(object):
                 filename = os.path.join(b_dir, f)
                 # pudb.set_trace()
                 self.chips[band].append(Chip(filename, band, config, tile_name=self.tile_name,
-                                             zeropoint=zp))
+                                             zeropoint=zp, tile=self))
 
         # pudb.set_trace()
 
@@ -665,7 +691,7 @@ class Tile(object):
             }
 
             # If noise is to be added, do it here
-            # pudb.set_trace()
+            pudb.set_trace()
             if self.noise_model is not None:
                 if self.noise_model == 'CCD':
                     self.bal_config[i]['image']['noise'] = {
@@ -674,7 +700,9 @@ class Tile(object):
                         'gain' : float(np.mean(chip.gain)),
                         'read_noise' : float(np.mean(chip.read_noise))
                     }
-            # pudb.set_trace()
+                elif self.noise_model == 'BKG':
+                    # Use chip background file as initial image instead
+                    self.bal_config[i]['image'].update({'initial_image' : chip.bkg_file})
             # Can add more noise models here!
             # elif ...
 
@@ -1059,7 +1087,7 @@ class Chip(object):
     # of the chip image is roated ccw by 90 deg's.
     '''
 
-    def __init__(self, filename, band, config, tile_name=None, zeropoint=30.0):
+    def __init__(self, filename, band, config, tile_name=None, zeropoint=30.0, tile=None):
 
         self.filename = filename
         self.fits_filename = ntpath.basename(filename)
@@ -1079,6 +1107,7 @@ class Chip(object):
         self._set_wcs()
         self._set_noise(config)
         self._set_flux_factor(config)
+        self._set_bkg(config, tile)
 
         return
 
@@ -1210,6 +1239,17 @@ class Chip(object):
 
         # TESTING: Can remove in future
         config.flux_factors[self.tile_name][self.name] = self.flux_factor
+
+        return
+
+    def _set_bkg(self, config, tile):
+        '''
+        Set chip background file, if needed for grid test.
+        '''
+
+        if config.inj_objs_only['noise'] == 'BKG':
+            assert tile is not None
+            self.bkg_file = tile.bkg_files[self.band][self.name]
 
         return
 
@@ -1491,22 +1531,26 @@ class Config(object):
             inj_objs_only = self.gs_config[0]['image']['inj_objs_only']
             if type(inj_objs_only) is bool:
                 # Default is to include chip noise in injection
-                self.inj_objs_only = {'value':inj_objs_only, 'noise':True}
+                self.inj_objs_only = {'value':inj_objs_only, 'noise':'CCD'}
             elif isinstance(inj_objs_only, dict):
                 # Is likely an OrderedDict, so convert
                 inj_objs_only = dict(inj_objs_only)
                 self.inj_objs_only = {}
                 keys = ['value', 'noise']
+                valid_noise = ['CCD', 'BKG', None]
                 for key, val in inj_objs_only.items():
                     if key not in keys:
                         raise ValueError('{} is not a valid key for `inj_objs_only`! '.format(key) +
                                          'You may only pass the keys {}'.format(keys))
+                    if (key == 'noise') and (val not in valid_noise):
+                        raise ValueError('{} is not a valid value for the noise field!'.format(val) +
+                                         'You may only pass the values {}'.format(valid_noise))
                     self.inj_objs_only[key] = val
             else:
                 raise ValueError('The field \'inj_objs_only\' must be set with a bool or dict!')
         except KeyError:
             # Most runs will add objects to existing images
-            self.inj_objs_only = {'value':False, 'noise':False}
+            self.inj_objs_only = {'value':False, 'noise':None}
 
         # Process input 'pos_sampling'
         valid_pos_sampling = ['uniform', 'grid']
@@ -1625,7 +1669,7 @@ class Config(object):
             # `GalaxyCatalog` classes that users can set the following methods for, and
             # simply call those methods from here.
 
-            if input_type == 'ngmix_catalog':
+            if input_type in _supported_gal_types:
                 if self.data_version == 'y3v02':
                     # Check that a galaxy cat type hasn't already been set
                     if self.sim_gals is True:
@@ -1635,26 +1679,44 @@ class Config(object):
                         self.input_indx['gals'] = i
                         self.input_types['gals'] = input_type
                         # TODO: Can we grab the injection type from the registered GS catalog?
-                        self.inj_types['gals'] = 'ngmixGalaxy'
+                        if input_type == 'ngmix_catalog':
+                            import ngmix_catalog
+                            self.inj_types['gals'] = 'ngmixGalaxy'
 
-                    import ngmix_catalog
+                            # As we are outside of the GalSim executable, we need to register
+                            # the input type explicitly
+                            galsim.config.RegisterInputType('ngmix_catalog', ngmix_catalog.ngmixCatalogLoader(
+                                ngmix_catalog.ngmixCatalog, has_nobj=True))
 
-                    # As we are outside of the GalSim executable, we need to register
-                    # the input type explicitly
-                    galsim.config.RegisterInputType('ngmix_catalog', ngmix_catalog.ngmixCatalogLoader(
-                        ngmix_catalog.ngmixCatalog, has_nobj=True))
+                            # This avoids a printed warning, and sets up the input correctly
+                            # as no bands are passed in bal_config
+                            gs_config['input'][input_type]['bands'] = 'griz'
 
-                    # This avoids a printed warning, and sets up the input correctly
-                    # as no bands are passed in bal_config
-                    gs_config['input'][input_type]['bands'] = 'griz'
+                            # TODO: See if we can load this, rather than set explicitly (but true for y3v02)
+                            # Set input catalog zeropoint
+                            self.input_zp = 30.0
 
-                    # TODO: See if we can load this, rather than set explicitly (but true for y3v02)
-                    # Set input catalog zeropoint
-                    self.input_zp = 30.0
+                        elif input_type == 'cosmos_catalog':
+                            from galsim import input_cosmos
+                            self.inj_types['gals'] = 'COSMOSGalaxy'
+
+                            # As we are outside of the GalSim executable, we need to register
+                            # the input type explicitly
+                            galsim.config.RegisterInputType('cosmos_catalog', input_cosmos.COSMOSLoader(
+                                input_cosmos.COSMOSCatalog, has_nobj=True))
+
+                            # This avoids a printed warning, and sets up the input correctly
+                            # as no bands are passed in bal_config
+                            gs_config['input'][input_type]['bands'] = 'griz'
+
+                            # TODO: See if we can load this, rather than set explicitly (but true for y3v02)
+                            # TODO: Check COSMOS zeropoint!
+                            # Set input catalog zeropoint
+                            self.input_zp = 25.94
 
                 else:
                     # In future, can add updated input parsing
-                    raise ValueError('No input parsing defined for Ngmix catalogs for ' +
+                    raise ValueError('No input parsing defined for galaxy catalogs for ' +
                     'data version {}'.format(self.data_version))
 
             elif input_type == 'des_star_catalog':
