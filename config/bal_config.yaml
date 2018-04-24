@@ -73,6 +73,7 @@ gal :
     items :
         - # Galaxy component
           type : ngmixGalaxy
+          rotate : {type : Random}
         - # Star component
           type : desStar
 
