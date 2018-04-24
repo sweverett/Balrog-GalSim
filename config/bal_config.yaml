@@ -73,6 +73,9 @@ gal :
     items :
         - # Galaxy component
           type : ngmixGalaxy
+          rotate :
+              # Random means uniform within 0-2pi rads
+              type : Random
         - # Star component
           type : desStar
 
