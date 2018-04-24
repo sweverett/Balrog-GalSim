@@ -446,14 +446,6 @@ class ngmixCatalog(object):
                 # is added but whose GSObject conversion isn't implemented. Should come up with a more robust check!
                 raise ValueError('The ngmix catalog type {} is not yet supported!'.format(ct))
 
-            # Testing!!
-            # TODO: Fix this!
-            # print('(1) gal gsparams = {}'.format(gal.getGSParams()))
-            # print('(2) gal._gsparams = {}'.format(gal._gsparams))
-            # gal._gsparams = gsp
-            # print('(3) gal gsparams = {}'.format(gal.getGSParams()))
-            # print('(4) gal._gsparams = {}'.format(gal._gsparams))
-
             # Give intrinsic shape
             gal = gal.shear(g1=g1, g2=g2)
 
