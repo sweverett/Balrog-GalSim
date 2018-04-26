@@ -16,7 +16,7 @@ from past.builtins import basestring # Python 2&3 compatibility
 from astropy.io import ascii
 
 # Can use for debugging
-#import pudb
+# import pudb
 
 class desStarCatalog(object):
     """ Class that handles Sahar's star catalogs for DES. These are cvs files with names typically
@@ -417,21 +417,27 @@ class desStarCatalog(object):
     def indices_in_region(self, rlims, dlims, boundary_cross=False):
         '''
         Returns the indices of all stars contained within the ra/dec limits.
+        `boundary_cross` is passed as r1 > r2 in `Y3A2_COADDTILE_GEOM.fits`
+        if the tile passes over the 0/360 degree boundary.
         '''
+
+        # pudb.set_trace()
 
         r1, r2 = rlims[0], rlims[1]
         d1, d2 = dlims[0], dlims[1]
 
         if not boundary_cross:
+            assert r1 < r2
             indices = np.where( (self.catalog['RA_new']>r1) &
-                                                (self.catalog['RA_new']<r2) &
-                                                (self.catalog['DEC_new']>d1) &
-                                                (self.catalog['DEC_new']<d2) )[0]
+                                (self.catalog['RA_new']<r2) &
+                                (self.catalog['DEC_new']>d1) &
+                                (self.catalog['DEC_new']<d2) )[0]
         else:
             # Account for positions crossing accross RA=0/360
+            assert r1 > r2
             indices = np.where(
                 ( (self.catalog['RA_new']>=r1) & (self.catalog['RA_new']<360) ) | # r1<ra<360
-                ( (self.catalog['RA_new']>0) & (self.catalog['RA_new']<=r2) )  & # 0<ra<r2
+                ( (self.catalog['RA_new']>= 0) & (self.catalog['RA_new']<=r2) )  & # 0=<ra<r2
                 ( (self.catalog['DEC_new']>d1) & (self.catalog['DEC_new']<d2) ) )[0]
 
         return indices
