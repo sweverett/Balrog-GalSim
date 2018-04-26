@@ -58,12 +58,18 @@ stamp :
     gsparams :
       # fft size is the most likely change you'll want to make
       maximum_fft_size : *max_fft
+    
+    # draw_method : phot
 
 image :
     # For injected images:
     type : Balrog # Same as AddOn, but with some additional input attributes and checking
+    tile_list : '/home/spencer/research/balrog/Balrog-GalSim/inputs/tilelist.csv'
+    geom_file : '/home/spencer/research/balrog/Balrog-GalSim/inputs/Y3A2_COADDTILE_GEOM.fits'
+    tile_dir : '/home/spencer/research/balrog/tiles/'
 
-    bands : 'griz'
+    # bands : 'griz'
+    bands : 'g'
     
     version : 'y3v02'
     run_name : 'osu_grid_fix'
@@ -79,8 +85,8 @@ image :
 
     # For the moment, 'grid' type images overwrite the number of galaxies by the correct
     # number to fit the grid. Will update this when grid parameters can be passed
-    n_galaxies : 4096 # for 1 realization
-    # n_galaxies : 12288 # for 3 realizations
+    #n_galaxies : 4096 # for 1 realization
+    n_galaxies : 500
 
     # Set the number of realizations / layers
     n_realizations : 1
@@ -90,4 +96,7 @@ image :
     ysize: 4096 # DES nullwt chip
 
     # Number of processors to be used on GalSim injection step
-    nproc : 2
+    nproc : 1
+
+output : 
+    dir : '/home/spencer/research/balrog/Balrog-GalSim/tests/grid_test/'

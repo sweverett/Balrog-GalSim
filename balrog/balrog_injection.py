@@ -462,13 +462,20 @@ class Tile(object):
                     # Make proxy catalog
                     galsim.config.ProcessInput(gs_config)
                     cat_proxy = gs_config['input_objs'][input_type][0]
-                    # print('Counts 1 = {}'.format(cat_proxy.getNObjects()))
-                    # TODO: Part of solution to #25
-                    # indices = cat_proxy.indices_in_region([self.ramin, self.ramax],
-                    #                                       [self.decmin, self.decmax],
-                    #                                       boundary_cross=self.ra_boundary_cross)
-                    # print('Counts 2 = {}'.format(cat_proxy.getNObjects()))
-                    Ns = cat_proxy.getNObjects()
+
+                    # pudb.set_trace()
+                    # If all stars in Sahar's catalogs were guaranteed to be in the
+                    # unique tile region, then we would simply do:
+                    #
+                    # Ns = cat_proxy.getNObjects()
+                    #
+                    # However, her catalogs are structured such that they contain
+                    # stars in the unique region of other tiles. So we only grab the
+                    # ones inside the unique region.
+                    indices = cat_proxy.indices_in_region([self.ramin, self.ramax],
+                                                          [self.decmin, self.decmax],
+                                                          boundary_cross=self.ra_boundary_cross)
+                    Ns = len(indices)
 
                     # Update star catalog
                     config.input_cats[input_type] = cat_proxy.getCatalog()
@@ -476,8 +483,8 @@ class Tile(object):
 
                     # Randomize star catalog order and split into approximately equal parts
                     Nr = config.n_realizations
-                    indices = range(Ns)
                     rand.shuffle(indices)
+                    # pudb.set_trace()
                     indices = [np.array(indices[i::Nr]) for i in range(Nr)]
 
                     # Grab star positions
@@ -492,9 +499,6 @@ class Tile(object):
                         j = int(np.where(real==np.array(config.realizations))[0])
                         inds = indices[j]
                         r, d = ra[inds], dec[inds]
-
-                        # TODO: Cut out any stars not contained in *unique* tile region!
-                        # Part of solution to #25
 
                         self.stars_indx[real] = inds
                         self.stars_pos[real] = np.column_stack((r, d))
@@ -867,10 +871,12 @@ class Tile(object):
 
         # A new GalSim config file for Balrog injections has been created and all simulations
         # can now be run simultaneously using all GalSim machinery
-        #bashCommand = 'galsim {} -v 2 -l gs_logfile'.format(self.bal_config_file)
+        # bashCommand = 'galsim {} -v 2 -l gs_logfile'.format(self.bal_config_file)
         bashCommand = 'galsim {}'.format(self.bal_config_file)
 
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+
+        # pudb.set_trace()
 
         if vb:
             # while True:
