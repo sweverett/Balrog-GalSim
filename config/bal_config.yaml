@@ -148,10 +148,6 @@ image :
     # realizations : {'min' : 2, 'max' : 4}
     realizations : [1, 3, 5]
 
-    # Set the number of realizations / layers
-    n_realizations : 3
-    # n_realizations : 1
-
     # TODO: In future, we should load these fields automatically in script.
     xsize: 2048 # DES nullwt chip
     ysize: 4096 # DES nullwt chip
