@@ -1,0 +1,118 @@
+#!/bin/bash
+
+# Run: $chmod +x fof_matcher
+
+### Input filenames ###
+fof=$1
+inj_fof=$2
+mof=$3
+inj_mof=$4
+coadd=$5
+inj_coadd=$6
+
+
+### Output filenames ###
+parpy_outdir=$7
+fofcoadd=$8
+fofgroups=$9
+inj_fofcoadd=${10}
+inj_fofgroups=${11}
+origfof_injfof=${12}
+ok=${13}
+rerun=${14}
+ok_inj_mof=${15}
+rerun_inj_mof=${16}
+ok_mof=${17}
+rerun_mof=${18}
+ok_match=${19}
+rerun_match=${20}
+ok_1not2=${21}
+rerun_1not2=${22}
+ok_2not1=${23}
+rerun_2not1=${24}
+
+### FOF analysis ###
+
+### 1. Match fof & coadd by number ###
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${fof} ifmt1=fits in2=${coadd} ifmt2=fits ofmt=csv matcher=1d values1="number" values2="number" params=0.5 ocmd='keepcols "number_1 fofid ALPHAWIN_J2000 DELTAWIN_J2000"' out=${fofcoadd}
+echo "Completed step 1 ..."
+echo " "
+
+### 2. Match {1.}out with self ###
+/data/des30.a/data/kgrabow/stilts tmatch1 in=${fofcoadd} ifmt=csv ofmt=csv action=identify matcher=1d values="fofid"  params=0.5 out=${fofgroups}
+echo "Completed step 2 ..."
+echo " "
+
+### 3. Match injected fof & injected coadd by number ###
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${inj_fof} ifmt1=fits in2=${inj_coadd} ifmt2=fits ofmt=csv matcher=1d values1="number" values2="number" params=0.5 ocmd='keepcols "number_1 fofid ALPHAWIN_J2000 DELTAWIN_J2000"' out=${inj_fofcoadd}
+echo "Completed step 3 ..."
+echo " "
+
+### 4. Match {3.}out with self ###
+/data/des30.a/data/kgrabow/stilts tmatch1 in=${inj_fofcoadd} ifmt=csv ofmt=csv action=identify matcher=1d values="fofid"  params=0.5 out=${inj_fofgroups}
+echo "Completed step 4 ..."
+echo " "
+
+### 5. Match {4.}out & {2.}out by RA & DEC; Match non-injected fof groups & injected fof groups ###
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${inj_fofgroups} ifmt1=csv in2=${fofgroups} ifmt2=csv ofmt=csv values1='ALPHAWIN_J2000 DELTAWIN_J2000' values2='ALPHAWIN_J2000 DELTAWIN_J2000' matcher=sky params=1.0 fixcols=all join=1and2 ocmd='keepcols "number_1_1 fofid_1 GroupID_1 GroupSize_1 GroupID_2 GroupSize_2 ALPHAWIN_J2000_1 DELTAWIN_J2000_1"' out=${origfof_injfof}
+echo "Completed step 5 ..."
+echo " "
+
+### 6. Run par.py on {5.}out to separate objects that need to be rerun (.rerun) and those that don't (.ok) ###
+python par.py ${origfof_injfof} ${parpy_outdir}
+echo "Completed step 6 ..."
+echo " "
+
+### 7. Match {6.}ok & injected mof by number ###
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${ok} ifmt1=ascii in2=${inj_mof} ifmt2=fits ofmt=csv matcher=1d values1="col1" values2="number" params=0.5 ocmd='keepcols "col1 col2 ra dec flags obj_flags psf_flags cm_T cm_flux cm_flux_cov cm_mag cm_max_flags cm_flags_r cm_flags"' out=${ok_inj_mof} 
+echo "Completed step 7 ..."
+echo " "
+
+### 8. Match {6.}rerun & injected mof catalog by number ###
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${rerun} ifmt1=ascii in2=${inj_mof} ifmt2=fits ofmt=csv matcher=1d values1="col1" values2="number" params=0.5 ocmd='keepcols "col1 col2 ra dec flags obj_flags psf_flags cm_T cm_flux cm_flux_cov cm_mag cm_max_flags cm_flags_r cm_flags"' out=${rerun_inj_mof}
+echo "Completed step 8 ..."
+echo " "
+
+### 9. Match {7.}out & original mof by RA & DEC ### 
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${ok_inj_mof} ifmt1=csv in2=${mof} ifmt2=fits ofmt=csv matcher=sky values1="ra dec" values2="ra dec" params=1.0 ocmd='keepcols "ra_2 dec_2 flags_2 obj_flags_2 psf_flags_2 cm_T_2 cm_flux_2 cm_flux_cov_2 cm_mag_2 cm_max_flags_2 cm_flags_r_2 cm_flags_2"' out=${ok_mof}
+echo "Completed step 9 ..."
+echo " "
+
+### 10. Match {8.}out & mof by RA & DEC ###
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${rerun_inj_mof} ifmt1=csv in2=${mof} ifmt2=fits ofmt=csv matcher=sky values1="ra dec" values2="ra dec" params=1.0 ocmd='keepcols "ra_2 dec_2 flags_2 obj_flags_2 psf_flags_2 cm_T_2 cm_flux_2 cm_flux_cov_2 cm_mag_2 cm_max_flags_2 cm_flags_r_2 cm_flags_2"' out=${rerun_mof}
+echo "Completed step 10 ..."
+echo " "
+
+### 11. Match the oks {7.}out & {9.}out by RA & DEC ### 
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${ok_inj_mof} ifmt1=csv in2=${ok_mof} ifmt2=csv ofmt=csv matcher=sky join=1and2 values1="ra dec" values2="ra_2 dec_2" params=1.0 ocmd='keepcols "ra_2 dec_2 flags_2 obj_flags_2 psf_flags_2 cm_T_2 cm_flux_2 cm_flux_cov_2 cm_mag_2 cm_max_flags_2 cm_flags_r_2 cm_flags_2 flags obj_flags psf_flags cm_T cm_flux cm_flux_cov cm_mag cm_max_flags cm_flags_r cm_flags ra dec"' out=${ok_match}
+echo "Completed step 11 ..."
+echo " "
+
+### 12. Match reruns {8.}out & {10.}out by RA & DEC ###
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${rerun_inj_mof} ifmt1=csv in2=${rerun_mof} ifmt2=csv ofmt=csv matcher=sky join=1and2 values1="ra dec" values2="ra_2 dec_2" params=1.0 ocmd='keepcols "ra_2 dec_2 flags_2 obj_flags_2 psf_flags_2 cm_T_2 cm_flux_2 cm_flux_cov_2 cm_mag_2 cm_max_flags_2 cm_flags_r_2 cm_flags_2 flags obj_flags psf_flags cm_T cm_flux cm_flux_cov cm_mag cm_max_flags cm_flags_r cm_flags ra dec"' out=${rerun_match}
+echo "Completed step 12 ..."
+echo " "
+
+
+### 13. Match {7.}out not {9.}out by RA & DEC ###
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${ok_inj_mof} ifmt1=csv in2=${ok_mof} ifmt2=csv ofmt=csv matcher=sky join=1not2 values1="ra dec" values2="ra_2 dec_2" params=1.0 ocmd='keepcols "flags obj_flags psf_flags cm_T cm_flux cm_flux_cov cm_mag cm_max_flags cm_flags_r cm_flags ra dec"' out=${ok_1not2}
+echo "Completed step 13 ..."
+echo " "
+
+
+### 14. Match {8.}out not {10.}out by RA & DEC ###
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${rerun_inj_mof} ifmt1=csv in2=${rerun_mof} ifmt2=csv ofmt=csv matcher=sky join=1not2 values1="ra dec" values2="ra_2 dec_2" params=1.0 ocmd='keepcols "flags obj_flags psf_flags cm_T cm_flux cm_flux_cov cm_mag cm_max_flags cm_flags_r cm_flags ra dec"' out=${rerun_1not2}
+echo "Completed step 14 ..."
+echo " "
+
+
+### 15. Match {9.}out not {7.}out by RA & DEC ###
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${ok_inj_mof} ifmt1=csv in2=${ok_mof} ifmt2=csv ofmt=csv matcher=sky join=2not1 values1="ra dec" values2="ra_2 dec_2" params=1.0 ocmd='keepcols "ra_2 dec_2 flags_2 obj_flags_2 psf_flags_2 cm_T_2 cm_flux_2 cm_flux_cov_2 cm_mag_2 cm_max_flags_2 cm_flags_r_2 cm_flags_2"' out=${ok_2not1}
+echo "Completed step 15 ..."
+echo " "
+
+
+### 16. Match {10.}out not {8.}out by RA & DEC ###
+/data/des30.a/data/kgrabow/stilts tmatch2 in1=${rerun_inj_mof} ifmt1=csv in2=${rerun_mof} ifmt2=csv ofmt=csv matcher=sky join=2not1 values1="ra dec" values2="ra_2 dec_2" params=1.0 ocmd='keepcols "ra_2 dec_2 flags_2 obj_flags_2 psf_flags_2 cm_T_2 cm_flux_2 cm_flux_cov_2 cm_mag_2 cm_max_flags_2 cm_flags_r_2 cm_flags_2"' out=${rerun_2not1}
+echo "Completed step 16. Done matching."
+echo " " 

@@ -134,8 +134,7 @@ image :
       type : Fits
 
     # Must set galaxy density or total number of injected galaxies per tile
-    # NOTE: Set the desired FINAL density or galaxy count; the injection script
-    # automatically calculates the injection # / realization given the inputs below.
+    # NOTE: Set the desired density or number PER realization!
     # gal_density : 10 # per arcmin^2
     n_galaxies : 5000 # per tile
 
@@ -147,10 +146,6 @@ image :
     # realizations : [4]
     # realizations : {'min' : 2, 'max' : 4}
     realizations : [1, 3, 5]
-
-    # Set the number of realizations / layers
-    n_realizations : 3
-    # n_realizations : 1
 
     # TODO: In future, we should load these fields automatically in script.
     xsize: 2048 # DES nullwt chip
