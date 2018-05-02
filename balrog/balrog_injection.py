@@ -856,7 +856,7 @@ class Tile(object):
 
         return
 
-    def run_galsim(self, vb=False):
+    def run_galsim(self, vb=0):
         '''
         Run full GalSim executable of the modified gs_config. Will inject all Balrog
         galaxies contained in a given tile for a given realization in all chips in
@@ -872,13 +872,13 @@ class Tile(object):
         # A new GalSim config file for Balrog injections has been created and all simulations
         # can now be run simultaneously using all GalSim machinery
         # bashCommand = 'galsim {} -v 2 -l gs_logfile'.format(self.bal_config_file)
-        bashCommand = 'galsim {}'.format(self.bal_config_file)
+        bashCommand = 'galsim {} -v {}'.format(self.bal_config_file, vb)
 
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
 
         # pudb.set_trace()
 
-        if vb:
+        if vb>0:
             # while True:
             #     line = p.stdout.readline()
             #     sys.stdout.write(line)
@@ -1036,7 +1036,7 @@ def load_tile_list(tile_list_file, config):
     else:
         raise Exception('`tile_list` must be in a `.csv` or `.txt` file!')
 
-    if config.vb:
+    if config.vb > 0:
         print('Loaded {} tiles...'.format(len(tile_list)))
 
     return tile_list
@@ -2018,7 +2018,8 @@ def parse_args():
     # Optional argument for output directory (if not .)
     parser.add_argument('-o', '--output_dir', help='Directory that houses output Balrog images.')
     # Optional argument for verbose messages
-    parser.add_argument('-v', '--verbose', action='store_true', help='Turn on verbose mode for additional messages.')
+    parser.add_argument('-v', '--verbose', action='store', nargs='?', default='0', const='1',
+                        help='Turn on verbose mode for additional messages.')
 
     return parser.parse_args()
 
@@ -2107,13 +2108,13 @@ def RunBalrog():
 
             # Once all chips in tile have had Balrog injections, run modified config file
             # with GalSim
-            if vb is True: print('Writing Balrog config...')
+            if vb: print('Writing Balrog config...')
             tile.write_bal_config()
-            if vb is True: print('Running GalSim for tile...')
+            if vb: print('Running GalSim for tile...')
             tile.run_galsim(vb=vb)
-            if vb is True: print('Copying extra image planes...')
+            if vb: print('Copying extra image planes...')
             tile.copy_extensions(config)
-            if vb is True: print('Truth Catalog...')
+            if vb: print('Truth Catalog...')
             tile.write_truth_catalog(config)
 
             # pudb.set_trace()
