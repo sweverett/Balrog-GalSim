@@ -234,7 +234,7 @@ class desStarCatalog(object):
         self.catalog = self.catalog[self.mask]
         self.orig_index = self.orig_index[self.mask]
         self.nobjects = len(self.orig_index)
-        print('Ntotal (stars): {}\nNobjects (stars): {}'.format(self.ntotal,self.nobjects))
+        # print('Ntotal (stars): {}\nNobjects (stars): {}'.format(self.ntotal,self.nobjects))
 
         return
 
