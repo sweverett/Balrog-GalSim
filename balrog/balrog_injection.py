@@ -34,7 +34,7 @@ import injector
 import grid
 
 # Use for debugging
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Important todo's:
@@ -645,6 +645,14 @@ class Tile(object):
 
         assert len(inj_indx) == len(inj_pos_im)
 
+        # Skip chips with no injections, except for a few special cases
+        # pudb.set_trace()
+        if (len(inj_indx) == 0) and (config.inj_objs_only['value'] is False):
+            if config.vb > 1:
+                print('No objects of type {} were passed on injection '.format(inj_type) +
+                'to chip {}. Skipping injection.'.format(chip.name))
+                return
+
         if (inj_type != 'gals') and (inj_type != 'stars'):
             raise ValueError('Currently, the only injection types allowed are \'gals\' and \'stars\'.')
 
@@ -660,19 +668,6 @@ class Tile(object):
 
         Ninput = len(self.input_types)
         Ninject = len(inj_indx)
-
-        # TODO: Need to relook at this!
-        # if len(inj_indx) == 0:
-        #     if config.inj_objs_only['value'] is True:
-        #         # This is needed to correctly do grid runs for chip overlaps with no injections!
-        #         self.bal_config[i] = {
-        #             'stamp': {'skip' : True}}
-        #         # self.bal_config[i]['image'].update({'Ngals' : 0})
-        #         # self.bal_config[i]['stamp'].update({'skip' : True})
-        #     else:
-        #         print('No objects of type {} were passed on injection '.format(inj_type) +
-        #             'to chip {}. Skipping injection.'.format(chip.name))
-        #         return
 
         #-----------------------------------------------------------------------------------------------
         # Now set up common config entries if chip's first injection
@@ -839,13 +834,54 @@ class Tile(object):
             # NOTE: Any extra fields to be set for a given input can be added here.
             # Below has been moved to generate_stars() as it's tile-wide, but the same
             # principle for something that is chip-specific can be placed here.
-            #
+
             # if (inj_type=='stars') and (self.input_types[inj_type]=='des_star_catalog'):
             #     self.bal_config[i]['input'][self.input_types[inj_type]].update({
             #         'tile' : self.tile_name,
             #     })
 
         chip.types_injected += 1
+
+        # If all injections have been completed but 'nobjects' is still 0, then add
+        # a dummy injection if 'inj_objs_only' is true. This is to ensure that the
+        # background is correctly set in `injector.py` during the GalSim call, even
+        # for chips with no injections.
+        # pudb.set_trace()
+        if Ninput == chip.types_injected:
+            if chip.Ngals + chip.Nstars == 0:
+                # This edge case should have only happened for 'inj_objs_only'
+                assert config.inj_objs_only['value'] is True
+
+                # pudb.set_trace()
+
+                chip.set_Ngals(1)
+                self.bal_config[i]['image'].update({'Ngals' : 1})
+
+                if Ninput == 1:
+                    self.bal_config[i]['image']['image_pos'].update({
+                        'type' : 'XY',
+                        'x' : { 'type' : 'List', 'items' : [0] },
+                        'y' : { 'type' : 'List', 'items' : [0] }
+                    })
+                    self.bal_config[i]['gal'] = {
+                        'type' : 'Gaussian',
+                        'sigma' : 2,
+                        'flux' : 0.0 # GalSim will run, but no effective image added
+                    }
+
+                else:
+                    # Use list format
+                    k = self.input_indx['gals']
+                    self.bal_config[i]['image']['image_pos']['items'][k].update({
+                        'type' : 'XY',
+                        'x' : { 'type' : 'List', 'items' : [0] },
+                        'y' : { 'type' : 'List', 'items' : [0] }
+                    })
+                    self.bal_config[i]['gal']['items'][k] = {
+                        'type' : 'Gaussian',
+                        'sigma' : 2,
+                        'flux' : 0.0 # GalSim will run, but no effective image added
+                    }
 
         if self.has_injections is False:
             self.has_injections = True
@@ -2107,8 +2143,8 @@ def RunBalrog():
 
                         # pudb.set_trace()
                         # If any galaxies are contained in chip, add gs injection to config list
-                        # if (chip.Ngals > 0) or (config.inj_objs_only['value'] is True):
-                        if chip.Ngals > 0:
+                        # (or add dummy injection for a few cases)
+                        if (chip.Ngals > 0) or (config.inj_objs_only['value'] is True):
                             tile.add_gs_injection(config, chip, gals_indx, gals_pos_im, inj_type='gals')
 
                     if config.sim_stars is True:
@@ -2120,13 +2156,16 @@ def RunBalrog():
                         chip.set_Nstars(len(stars_pos_im))
 
                         # If any stars are contained in chip, add gs injection to config list
-                        # if (chip.Nstars > 0) or (config.inj_objs_only['value'] is True):
-                        if chip.Nstars > 0:
+                        # (or add dummy injection for a few cases)
+                        if (chip.Nstars > 0) or (config.inj_objs_only['value'] is True):
+                        # if chip.Nstars > 0:
                             tile.add_gs_injection(config, chip, stars_indx, stars_pos_im, inj_type='stars')
 
-                    if (chip.Ngals + chip.Nstars) == 0:
+                    if (config.inj_objs_only['value'] is False) and (chip.Ngals + chip.Nstars) == 0:
                         # Don't want to skip image for a blank run; need to blank out the image!
-                        # if config.inj_objs_only['value'] is False:
+                        # NOTE: The first check isn't actually required, as a dummy injection is
+                        # added for 'inj_objs_only'=True cases that have no injections. This is
+                        # needed to correct the background image in `injector.py`
                         # TODO: Eventually use a return_output_name() function
                         outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
                                 tile.tile_name, chip.band, '{}_balrog_inj.fits'.format(chip.name))
