@@ -3,8 +3,6 @@
 # I should probably add a description for balrog!
 #
 #
-# Last updated: 1/11/2018
-#
 # Spencer Everett
 # UCSC
 # 12/10/2017
@@ -31,31 +29,30 @@ from astropy.io import fits
 from astropy import wcs
 from astropy.table import Table
 
-# Balrog Galsim image type
+# Balrog files
 import injector
+import grid
 
 # Use for debugging
 # import pudb
 
 #-------------------------------------------------------------------------------
-# Urgent todo's:
+# Important todo's:
 # TODO: Implement error handling for galaxy injections / gsparams! (Working solution, but need
 #       to look into more detail per Erin)
 # TODO: Clean up evals in add_gs_injection()!
 # TODO: Figure out injector.py parameter parsing issue!
 # TODO: Check pixel origin for transformations!
-# TODO: Remove all stars not contained in unique region!
 
 # Some extra todo's:
-# TODO: Allow grid parameters to be passed!
 # TODO: Have grid correctly handle chips w/ no injections on them
 # TODO: Have code automatically check fitsio vs astropy
-# TODO: Implement some print statements as warnings
 # TODO: More general geometry file inputs
 # TODO: Add check for python path!
 # TODO: Figure out permission issue!
 # TODO: Make a log system!
 # TODO: Add a single seed for each tile w/r/t noise realizations
+# TODO: Multi-line print statements are a bit bugged
 
 # Questions:
 # None curently
@@ -126,7 +123,7 @@ class Tile(object):
             self.gals_per_real = round(self.u_area * config.gal_density)
 
         # Set tile directory structure
-        self.dir = os.path.join(config.tile_dir, self.tile_name)
+        self.dir = os.path.abspath(os.path.join(config.tile_dir, self.tile_name))
         self._set_bands(config)
 
         # Set initial injection realization number
@@ -192,7 +189,8 @@ class Tile(object):
         return
 
     def _set_wcs(self, config):
-        '''Load WCS info for each tile from geometry file.
+        '''
+        Load WCS info for each tile from geometry file.
         '''
 
         crpix1, crpix2 = config.geom['CRPIX1'][self.indx], config.geom['CRPIX2'][self.indx]
@@ -207,6 +205,12 @@ class Tile(object):
         self.wcs.wcs.crval = [crval1, crval2]
         self.wcs.wcs.ctype = [ctype1, ctype2]
         self.wcs.wcs.cd = [[cd1_1, cd1_2], [cd2_1, cd2_2]]
+
+        # Set pixel information
+        self.pixel_scale = config.geom['PIXELSCALE'][self.indx]
+        # These are (ra, dec) and both 10,000 for DES tiles
+        self.Npix_x = config.geom['NAXIS1'][self.indx]
+        self.Npix_y = config.geom['NAXIS2'][self.indx]
 
         return
 
@@ -533,7 +537,8 @@ class Tile(object):
                         self.Ngals[real] = ngals
 
                         # Generate galaxy coordinates
-                        if config.pos_sampling == 'uniform':
+                        ps = config.pos_sampling
+                        if ps['type'] == 'uniform':
                             ra = sample_uniform_ra(self.ramin, self.ramax, self.gals_per_real,
                                                 boundary_cross=self.ra_boundary_cross)
                             dec = sample_uniform_dec(self.decmin, self.decmax, self.gals_per_real,
@@ -545,45 +550,38 @@ class Tile(object):
                             # indices = sample_uniform_indx(0, config.input_nobjects[gal_type], Ng)
                             self.gals_indx[real] = indices
 
-                        elif config.pos_sampling == 'grid':
-                            # TODO: eventually make 'pos_sampling' be a galsim value so we can add
-                            # more user-defined structure
-
-                            # First pass at grid making...
-                            # dr = abs(self.ramax - self.ramin) * np.cos(np.mean([self.decmax, self.decmin]))
-                            # dd = abs(self.decmax - self.decmin)
-
-                            # N = 70
-                            # r1, r2 = self.ramin, self.ramax
-                            # d1, d2 = self.decmin, self.decmax
-                            # im_r1, imr2 = 
-                            # bounds = np.array([[r1, d1], [r2, d1]])
-
-                            # n = np.arange()
-                            # ra = tile.r0 + n * (config.grid_spacing / 3600.0) * (1.0 / np.cos(tile.d0))
-                            # dec = tile.d0 + + n * (config.grid_spacing / 3600.0)
+                        elif (ps['type']=='RectGrid') or (ps['type']=='HexGrid'):
 
                             # pudb.set_trace()
 
-                            # TODO: Pass in future!
-                            Npix_x, Npix_y = 10000, 10000
-                            # Nx, Ny = 70, 70
-                            gs = 40.0 / 3600.0 # grid spacing in deg
-                            pixscale = 7.306e-5 # taken from tile header
-                            im_gs = gs * (1.0 / pixscale) # pixels
+                            gs = ps['grid_spacing']
 
-                            im_ra = np.arange(im_gs, Npix_x-im_gs, im_gs)
-                            im_dec = np.arange(im_gs, Npix_y-im_gs, im_gs)
-                            # Get all image coordinate pairs
-                            im_pos = np.array(np.meshgrid(im_ra, im_dec)).T.reshape(-1, 2)
-                            self.gals_pos[real] = self.wcs.wcs_pix2world(im_pos, 1)
+                            # Creates the rectangular grid given tile parameters and calculates the
+                            # image / world positions for each object
+                            if ps['type'] == 'RectGrid':
+                                tile_grid = grid.RectGrid(gs, self.wcs, Npix_x=self.Npix_x,
+                                                    Npix_y=self.Npix_y, pixscale=self.pixel_scale)
+                            elif ps['type'] == 'HexGrid':
+                                # Should be handled by now, but just in case...
+                                raise ValueError('HexGrid is not yet implemented for position sampling!')
+                                # But for the future...
+                                # tile_grid = grid.HexGrid(gs, self.wcs, Npix_x=self.Npix_x,
+                                #                     Npix_y=self.Npix_y, pixscale=self.pixel_scale)
+
+                            self.gals_pos[real] = tile_grid.pos
+
+                            # NOTE: We ignore the inputted ngals and use the correct grid value
+                            # instead (user was already warned)
+                            ngals = np.shape(tile_grid.pos)[0]
+                            if ngals != self.gals_per_real:
+                                warnings.warn('The passed n_galaxies : {}'.format(self.gals_per_real) +
+                                              ' does not match the {} needed'.format(ngals) +
+                                              ' for {} with spacing {}.'.format(ps['type'], gs) +
+                                              ' Ignoring input n_galaxies.')
+                            self.Ngals[real] = ngals
 
                             # Generate galaxy indices (in input catalog)
-                            # TODO: For now, we ignore any passed n_gals or density and pick
-                            # the 'best' grid spacing. Will update in future!
-                            ngals = len(im_pos)
                             indices = np.array(rand.sample(xrange(Ng), ngals))
-                            # indices = sample_uniform_indx(0, config.input_nobjects[gal_type], Ng)
                             self.gals_indx[real] = indices
 
                         # pudb.set_trace()
@@ -1543,7 +1541,11 @@ class Config(object):
                 inj_objs_only = dict(inj_objs_only)
                 self.inj_objs_only = {}
                 keys = ['value', 'noise']
-                valid_noise = ['CCD', 'BKG', 'BKG+CCD', None]
+                valid_noise = ['CCD', 'BKG', 'BKG+CCD', 'None']
+
+                if 'noise' not in inj_objs_only:
+                    # Default is no noise
+                    inj_objs_only['noise'] = None
                 for key, val in inj_objs_only.items():
                     if key not in keys:
                         raise ValueError('{} is not a valid key for `inj_objs_only`! '.format(key) +
@@ -1559,16 +1561,40 @@ class Config(object):
             self.inj_objs_only = {'value':False, 'noise':None}
 
         # Process input 'pos_sampling'
-        valid_pos_sampling = ['uniform', 'grid']
+        self.pos_sampling = {}
+        # TODO: Implement HexGrid!
+        valid_pos_sampling = ['uniform', 'RectGrid']#, 'HexGrid']
+        default_gs = 40. # arcsec
         try:
             ps = self.gs_config[0]['image']['pos_sampling']
-            if ps not in valid_pos_sampling:
-                raise ValueError('{} is not a valid position sampling method. '.format(ps) +
-                                 'Currently allowed methods are {}'.format(valid_pos_sampling))
-            self.pos_sampling = ps
+            if isinstance(ps, basestring):
+                # Then the string is the input type
+                if ps not in valid_pos_sampling:
+                    raise ValueError('{} is not a valid position sampling method. '.format(ps) +
+                                    'Currently allowed methods are {}'.format(valid_pos_sampling))
+
+                print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
+                self.pos_sampling = {'type' : ps, 'grid_spacing' : default_gs}
+            elif isinstance(ps, dict):
+                if 'type' not in ps.keys():
+                    raise ValueError('If `pos_sampling` is passed as a dict, then must set a type!')
+                if 'grid_spacing' not in ps.keys():
+                    print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
+                    ps['grid_spacing'] = default_gs
+                keys = ['type', 'grid_spacing']
+                for key, val in ps.items():
+                    if key not in keys:
+                        raise ValueError('{} is not a valid key for `pos_sampling`! '.format(key) +
+                                         'You may only pass the keys {}'.format(keys))
+                    if key == 'grid_spacing':
+                        assert val > 0.
+
+                    self.pos_sampling[key] = val
+
         except KeyError:
             # Most runs use uniform sampling
-            self.pos_sampling = 'uniform'
+            self.pos_sampling['type'] = 'uniform'
+            self.pos_sampling['grid_spacing'] = None
 
         return
 
