@@ -4,3 +4,6 @@ from . import files
 from . import ngmix_catalog
 from . import des_star_catalog
 from . import injector
+from . import scene_chromatic
+from . import input_cosmos_chromatic
+from . import cosmos_chromatic_stamp
