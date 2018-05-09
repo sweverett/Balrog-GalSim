@@ -58,7 +58,7 @@ def _BuildCOSMOSChromaticGalaxy(config, base, ignore, gsparams, logger):
     if gsparams: kwargs['gsparams'] = galsim.GSParams(**gsparams)
 
     if 'gal_type' not in kwargs:
-        if cosmos_cat.use_real: kwargs['gal_type'] = 'real'
+        if cosmos_cat.getUseReal(): kwargs['gal_type'] = 'real'
         else: kwargs['gal_type'] = 'parametric'
 
     rng = None

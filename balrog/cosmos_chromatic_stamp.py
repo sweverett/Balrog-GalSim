@@ -194,16 +194,6 @@ class COSMOSChromaticStampBuilder(galsim.config.StampBuilder):
                 if isinstance(prof, galsim.GSObject):
                     image = prof.drawImage(**kwargs)
                 elif isinstance(prof, galsim.ChromaticObject):
-                    # NOTE: TEST
-                    # lambda_cen = 1.25*1000. # microns --> nm
-                    # # lambda_width = (1.33 - 1.17)/2. * 1000. # microns -- nm
-                    # lambda_width = 2
-                    # blue_limit = lambda_cen - lambda_width
-                    # red_limit = lambda_cen + lambda_width
-                    # throughput = '0.8'
-                    # bandpass = galsim.Bandpass(blue_limit = blue_limit, red_limit = red_limit,
-                    #                         wave_type = 'nm', throughput = throughput,zeropoint = 24.6)
-                    # bp = config['bandpass']
                     bp = {}
                     for key in (self._req_bp_fields+self._opt_bp_fields):
                         try:

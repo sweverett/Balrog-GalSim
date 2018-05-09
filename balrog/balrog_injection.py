@@ -25,6 +25,7 @@ import argparse
 import datetime
 import itertools
 import fitsio
+from collections import OrderedDict
 from astropy.io import fits
 from astropy import wcs
 from astropy.table import Table
@@ -32,6 +33,7 @@ from astropy.table import Table
 # Balrog files
 import injector
 import grid
+import filters
 
 # Use for debugging
 import pudb
@@ -45,6 +47,7 @@ import pudb
 # TODO: Check pixel origin for transformations!
 # TODO: MAKE SURE STAR INJECTION DENSITY PER REALIZATION IS CORRECT!
 #       ITS NOT - NEED TO DIFFERENTIATE BETWEEN REALIZATION # AND TOTAL DENSITY!
+# TODO: CHECK COSMOS ZEROPOINTS!
 
 # Some extra todo's:
 # TODO: Have code automatically check fitsio vs astropy
@@ -519,7 +522,8 @@ class Tile(object):
         one.
         '''
 
-        if config.input_types['gals'] == 'ngmix_catalog':
+        input_type = config.input_types['gals']
+        if input_type == 'ngmix_catalog' or input_type == 'cosmos_chromatic_catalog':
             input_type = 'ngmix_catalog'
             gal_type = config.input_types['gals']
             if config.data_version == 'y3v02':
@@ -586,6 +590,9 @@ class Tile(object):
                             self.gals_indx[real] = indices
 
                         # pudb.set_trace()
+        else:
+            raise Exception('No `generate_galaxies()` implementation for input of type ' +
+                            '{}!'.format(input_type))
 
         return
 
@@ -669,6 +676,7 @@ class Tile(object):
 
         Ninput = len(self.input_types)
         Ninject = len(inj_indx)
+        input_type = self.input_types[inj_type]
 
         #-----------------------------------------------------------------------------------------------
         # Now set up common config entries if chip's first injection
@@ -764,6 +772,14 @@ class Tile(object):
 
         else: raise ValueError('For now, only `gals` or `stars` are valid injection types!')
 
+        # NOTE: Any extra fields to be set for a given input can be added here.
+        if (inj_type=='gals') and (input_type=='cosmos_chromatic_catalog'):
+            # Set the bandpass
+            self.bal_config[i]['stamp'].update({
+                'type' : 'COSMOSChromatic',
+                'bandpass' : config.filters[chip.band].band_config
+            })
+
         #-----------------------------------------------------------------------------------------------
         # If only one input type, don't use list structure
         if Ninput == 1:
@@ -790,10 +806,12 @@ class Tile(object):
                 }
             })
 
-            # Set the band for injection
-            self.bal_config[i]['input'].update({
-                self.input_types.values()[0] : {'bands' : chip.band}
-            })
+            # NOTE: Any extra fields to be set for a given input can be added here.
+            if (inj_type=='gals') and (input_type=='ngmix_catalog'):
+                # Set the band for injection
+                self.bal_config[i]['input'].update({
+                    self.input_types.values()[0] : {'bands' : chip.band}
+                })
 
         #-----------------------------------------------------------------------------------------------
         # If multiple input types, use list structure
@@ -803,7 +821,6 @@ class Tile(object):
             indx = self.input_indx[inj_type]
 
             # Make sure injection type indices are consistent
-            # pudb.set_trace()
             assert self.bal_config[0]['gal']['items'][indx]['type'] == self.inj_types[inj_type]
 
             # Set object indices and flux factor
@@ -825,21 +842,14 @@ class Tile(object):
                 'y' : { 'type' : 'List', 'items' : y }
             })
 
-            # Set the band for injection
-            self.bal_config[i]['input'].update({
-                self.input_types[inj_type] : {'bands' : chip.band}
-            })
-
             # pudb.set_trace()
 
             # NOTE: Any extra fields to be set for a given input can be added here.
-            # Below has been moved to generate_stars() as it's tile-wide, but the same
-            # principle for something that is chip-specific can be placed here.
-
-            # if (inj_type=='stars') and (self.input_types[inj_type]=='des_star_catalog'):
-            #     self.bal_config[i]['input'][self.input_types[inj_type]].update({
-            #         'tile' : self.tile_name,
-            #     })
+            if (inj_type=='gals') and (input_type=='ngmix_catalog'):
+                # Set the band for injection
+                self.bal_config[i]['input'].update({
+                    input_type : {'bands' : chip.band}
+                })
 
         chip.types_injected += 1
 
@@ -1739,54 +1749,82 @@ class Config(object):
             # simply call those methods from here.
 
             if input_type in _supported_gal_types:
-                if self.data_version == 'y3v02':
-                    # Check that a galaxy cat type hasn't already been set
-                    if self.sim_gals is True:
-                        raise ValueError('Can\'t set multiple input galaxy catalogs!')
-                    else:
-                        self.sim_gals = True
-                        self.input_indx['gals'] = i
-                        self.input_types['gals'] = input_type
-                        # TODO: Can we grab the injection type from the registered GS catalog?
-                        if input_type == 'ngmix_catalog':
-                            import ngmix_catalog
-                            self.inj_types['gals'] = 'ngmixGalaxy'
+                # Check that a galaxy cat type hasn't already been set
+                if self.sim_gals is True:
+                    raise ValueError('Can\'t set multiple input galaxy catalogs!')
+                else:
+                    self.sim_gals = True
+                    self.input_indx['gals'] = i
+                    self.input_types['gals'] = input_type
+                    # TODO: Can we grab the injection type from the registered GS catalog?
+                    if input_type == 'ngmix_catalog':
+                        import ngmix_catalog
+                        self.inj_types['gals'] = 'ngmixGalaxy'
 
-                            # As we are outside of the GalSim executable, we need to register
-                            # the input type explicitly
-                            galsim.config.RegisterInputType('ngmix_catalog', ngmix_catalog.ngmixCatalogLoader(
-                                ngmix_catalog.ngmixCatalog, has_nobj=True))
+                        # As we are outside of the GalSim executable, we need to register
+                        # the input type explicitly
+                        galsim.config.RegisterInputType('ngmix_catalog', ngmix_catalog.ngmixCatalogLoader(
+                            ngmix_catalog.ngmixCatalog, has_nobj=True))
 
-                            # This avoids a printed warning, and sets up the input correctly
-                            # as no bands are passed in bal_config
-                            gs_config['input'][input_type]['bands'] = 'griz'
+                        # This avoids a printed warning, and sets up the input correctly
+                        # as no bands are passed in bal_config
+                        gs_config['input'][input_type]['bands'] = 'griz'
 
+                        # Version-specific settings
+                        if self.data_version == 'y3v02':
                             # TODO: See if we can load this, rather than set explicitly (but true for y3v02)
                             # Set input catalog zeropoint
                             self.input_zp = 30.0
+                        else:
+                            # In future, can add updated input parsing
+                            raise ValueError('No input parsing defined for ngmix catalogs for ' +
+                            'data version {}'.format(self.data_version))
 
-                        elif input_type == 'cosmos_catalog':
-                            from galsim import input_cosmos
-                            self.inj_types['gals'] = 'COSMOSGalaxy'
 
-                            # As we are outside of the GalSim executable, we need to register
-                            # the input type explicitly
-                            galsim.config.RegisterInputType('cosmos_catalog', input_cosmos.COSMOSLoader(
-                                input_cosmos.COSMOSCatalog, has_nobj=True))
+                    elif input_type == 'cosmos_chromatic_catalog':
+                        self.inj_types['gals'] = 'COSMOSChromaticGalaxy'
 
-                            # This avoids a printed warning, and sets up the input correctly
-                            # as no bands are passed in bal_config
-                            gs_config['input'][input_type]['bands'] = 'griz'
+                        # As we are outside of the GalSim executable, we need to register
+                        # the input type explicitly
+                        import input_cosmos_chromatic as icc
+                        import scene_chromatic as sc
+                        galsim.config.RegisterInputType('cosmos_chromatic_catalog',
+                                                        icc.COSMOSChromaticLoader(
+                                                        sc.COSMOSChromaticCatalog, has_nobj=True))
 
-                            # TODO: See if we can load this, rather than set explicitly (but true for y3v02)
-                            # TODO: Check COSMOS zeropoint!
-                            # Set input catalog zeropoint
-                            self.input_zp = 25.94
+                        # Process a few fields only present for chromatic COSMOS galaxies
+                        # pudb.set_trace()
+                        try:
+                            filter_dir = self.gs_config[0]['input']['cosmos_chromatic_catalog']['filter_dir']
+                            self.filter_dir = os.path.abspath(filter_dir)
+                        except KeyError:
+                            # Default is set to cwd in Filter()
+                            self.filter_dir = None
+                        try:
+                            use_filter_tables = self.gs_config[0]['input']['cosmos_chromatic_catalog']['use_filter_tables']
+                            if type(use_filter_tables) != bool:
+                                raise TypeError('The type of `use_filter_tables` must be a bool! ' +
+                                                'Was passed a {}'.format(type(use_filter_tables)))
+                            self.use_filter_tables = use_filter_tables
 
-                else:
-                    # In future, can add updated input parsing
-                    raise ValueError('No input parsing defined for galaxy catalogs for ' +
-                    'data version {}'.format(self.data_version))
+                        except KeyError:
+                            # Default depends on other parameters
+                            if self.filter_dir is None:
+                                warnings.warn('Neither `filter_dir` nor `use_filter_tables` ' +
+                                                'passed for input cosmos_chromatic_catalog. ' +
+                                                'Using a constant throughput for COSMOS galaxies.')
+                                self.use_filter_tables = False
+                            else:
+                                self.use_filter_tables = True
+
+                        self.filters = filters.Filters(self.bands,
+                                                use_transmission_tables=self.use_filter_tables,
+                                                filter_dir=self.filter_dir)
+
+                        # TODO: Check COSMOS zeropoint!
+                        # Set input catalog zeropoint
+                        self.input_zp = 25.94
+                        # self.input_zp = 30.0
 
             elif input_type == 'des_star_catalog':
                 if self.data_version == 'y3v02':
@@ -1884,7 +1922,7 @@ class Config(object):
         # input catalog actually *is* an ngmix catalog!
         '''
 
-        inputs = dict(self.gs_config[0]['input'])
+        inputs = OrderedDict(self.gs_config[0]['input'])
         self.input_types = []
 
         for it in inputs:
