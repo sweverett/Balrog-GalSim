@@ -71,8 +71,8 @@ class COSMOSChromaticStampBuilder(galsim.config.StampBuilder):
 
         # NOTE: There are currently unresolved issues with the image size checking of chromatic
         # objects. For now, we ignore any possible speed increases and skip the check.
-        if isinstance(prof, galsim.ChromaticObject):
-            return False
+        # if isinstance(prof, galsim.ChromaticObject):
+        #     return False
 
         if prof is not None and base.get('current_image',None) is not None:
             if image is None:
@@ -83,20 +83,20 @@ class COSMOSChromaticStampBuilder(galsim.config.StampBuilder):
                     N = prof.getGoodImageSize(1.)
                 elif isinstance(prof, galsim.ChromaticObject):
                     # TODO: Finish implementation
-                    pass
-                    # pudb.set_trace()
-                    # # Find the suggested image size for each object given the choice of scale, and use the
-                    # # maximum just to be safe.
-                    # # print '\nprof.original = {}'.format(prof.original)
-                    # print '\nprof.original.obj_list = {}'.format(prof.original.obj_list)
-                    # # print '\nprof.objlist = {}'.format(prof.original.obj_list)
-                    # obj_list = prof.original.obj_list
-                    # possible_im_sizes = []
-                    # for obj in obj_list:
-                    #     print '\n obj : {}'.format(obj)
-                    #     possible_im_sizes.append([ ob.getGoodImageSize(1.) for ob in obj])
-                    # print 'possible_im_sizes : {}'.format(possible_im_sizes)
-                    # N = np.max(possible_im_sizes)
+                    # return False
+                    pudb.set_trace()
+                    # Find the suggested image size for each object given the choice of scale, and use the
+                    # maximum just to be safe.
+                    print '\nprof.original = {}'.format(prof.original)
+                    print '\nprof.original.obj_list = {}'.format(prof.original.obj_list)
+                    # print '\nprof.objlist = {}'.format(prof.original.obj_list)
+                    obj_list = prof.original.obj_list
+                    possible_im_sizes = []
+                    for obj in obj_list:
+                        print '\n obj : {}'.format(obj)
+                        possible_im_sizes.append([ ob.getGoodImageSize(1.) for ob in obj])
+                    print 'possible_im_sizes : {}'.format(possible_im_sizes)
+                    N = np.max(possible_im_sizes)
                 N += 2 + int(np.abs(offset.x) + np.abs(offset.y))
                 bounds = galsim._BoundsI(1,N,1,N)
             else:

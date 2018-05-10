@@ -21,7 +21,7 @@ class COSMOSChromaticCatalog(galsim.scene.COSMOSCatalog):
                  exclude_fail=None, use_filter_tables=False, filter_dir=None):
 
         # Most type checking of use_filter_tables and filter_dir currently done in balrog_injection.py
-        if not os.path.isdir(filter_dir):
+        if filter_dir and (not os.path.isdir(filter_dir)):
             raise ValueError('Input {} for filter_dir is not a directory!'.format(filter_dir))
 
         return super(COSMOSChromaticCatalog, self).__init__(file_name=file_name,
@@ -73,24 +73,25 @@ class COSMOSChromaticCatalog(galsim.scene.COSMOSCatalog):
         if gal_type not in ['real', 'parametric']:
             raise ValueError("Invalid galaxy type %r"%gal_type)
         # We'll set these up if and when we need them.
-        self._bandpass = None
-        self._sed = None
+        # self._bandpass = None
+        # self._sed = None
 
         # Make rng if we will need it.
-        if index is None or gal_type == 'real':
+        # if index is None or gal_type == 'real':
+        if gal_type == 'real':
             if rng is None:
                 rng = galsim.BaseDeviate()
             elif not isinstance(rng, galsim.BaseDeviate):
                 raise TypeError("The rng provided to makeGalaxy is not a BaseDeviate")
 
         # Select random indices if necessary (no index given).
-        if index is None:
-            if n_random is None: n_random = 1
-            index = self.selectRandomIndex(n_random, rng=rng)
-        else:
-            if n_random is not None:
-                import warnings
-                warnings.warn("Ignoring input n_random, since indices were specified!")
+        # if index is None:
+        #     if n_random is None: n_random = 1
+        #     index = self.selectRandomIndex(n_random, rng=rng)
+        # else:
+        #     if n_random is not None:
+        #         import warnings
+        #         warnings.warn("Ignoring input n_random, since indices were specified!")
 
         if hasattr(index, '__iter__'):
             indices = index
@@ -102,21 +103,15 @@ class COSMOSChromaticCatalog(galsim.scene.COSMOSCatalog):
         if gal_type == 'real':
             if chromatic:
                 raise RuntimeError("Cannot yet make real chromatic galaxies!")
-            gal_list = self._makeReal(indices, noise_pad_size, rng, gsparams)
-        else:
-            # If no pre-selection was done based on radius or flux, then we won't have checked
-            # whether we're using the old or new catalog (the latter of which has a lot of
-            # precomputations done).  Just in case, let's check here, though it does seem like a bit
-            # of overkill to emit this warning each time.
-            if 'hlr' not in self.param_cat.dtype.names:  # pragma: no cover
-                import warnings
-                warnings.warn(
-                    'You seem to have an old version of the COSMOS parameter file. '+
-                    'Please run `galsim_download_cosmos -s %s` '%self.use_sample+
-                    'to re-download the COSMOS catalog '+
-                    'and take advantage of pre-computation of many quantities..')
+            # gal_list = self._makeReal(indices, noise_pad_size, rng, gsparams)
+            real_params = cosmos_catalog.getRealParams(index)
+            gal = galsim.RealGalaxy(real_params, noise_pad_size=noise_pad_size, rng=rng,
+                                    gsparams=gsparams)
 
-            gal_list = self._makeParametric(indices, chromatic, sersic_prec, gsparams)
+        else:
+            # gal_list = self._makeParametric(indices, chromatic, sersic_prec, gsparams)
+            record = cosmos_catalog.getParametricRecord(index)
+            gal = COSMOSChromaticCatalog._buildParametric(record, sersic_prec, gsparams, chromatic=chromatic)
 
         # If trying to use the 23.5 sample and "fake" a deep sample, rescale the size and flux as
         # suggested in the GREAT3 handbook.
@@ -128,7 +123,7 @@ class COSMOSChromaticCatalog(galsim.scene.COSMOSCatalog):
                 flux_factor = 10.**(-0.4*1.5)
                 size_factor = 0.6
                 gal_list = [ gal.dilate(size_factor) * flux_factor for gal in gal_list ]
-            elif self.use_sample == '25.2':
+            elif use_sample == '25.2':
                 import warnings
                 warnings.warn(
                     'Ignoring `deep` argument, because the sample being used already '+
@@ -143,14 +138,15 @@ class COSMOSChromaticCatalog(galsim.scene.COSMOSCatalog):
         # It gets set by _makeReal, but not by _makeParametric.
         # And if we are doing the deep scaling, then it gets messed up by that.
         # So just put it in here at the end to be sure.
-        for gal, idx in zip(gal_list, indices):
-            gal.index = self.orig_index[idx]
-            if hasattr(gal, 'original'): gal.original.index = self.orig_index[idx]
+        # for gal, idx in zip(gal_list, indices):
+        #     gal.index = self.orig_index[idx]
+        #     if hasattr(gal, 'original'): gal.original.index = self.orig_index[idx]
+        gal.index = cosmos_catalog.getOrigIndex(index)
+        if hasattr(gal, 'original'):
+            gal.original.index = cosmos_catalog.getOrigIndex(index)
 
-        if hasattr(index, '__iter__'):
-            return gal_list
-        else:
-            return gal_list[0]
+        return gal
+
     # def _makeSingleGalaxy(cosmos_catalog, index, gal_type, noise_pad_size=5, deep=False,
     #                       rng=None, sersic_prec=0.05, gsparams=None, chromatic=False):
     #     # A static function that mimics the functionality of COSMOSCatalog.makeGalaxy()
