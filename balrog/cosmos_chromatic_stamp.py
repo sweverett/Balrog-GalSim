@@ -2,7 +2,7 @@ import galsim
 import logging
 import numpy as np
 
-import pudb
+# import pudb
 
 class COSMOSChromaticStampBuilder(galsim.config.StampBuilder):
     def setup(self, config, base, xsize, ysize, ignore, logger):
