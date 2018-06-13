@@ -38,58 +38,59 @@ class Filter(object):
 
         self.band_config = {}
 
-        # DES Bandpass information
-        if self.band is 'u':
-            # lambda_cen = 350. # nm
-            # lambda_width = 75. # nm
-            # self.band_config['blue_limit'] = lambda_cen - lambda_width
-            # self.band_config['red_limit']  = lambda_cen + lambda_width
-            self.band_config['blue_limit'] = 303.4 # nm
-            self.band_config['red_limit']  = 403.9 # nm
-        elif self.band is 'g':
-            # lambda_cen = 475. # nm
-            # lambda_width = 75. # nm
-            # self.band_config['blue_limit'] = lambda_cen - lambda_width
-            # self.band_config['red_limit']  = lambda_cen + lambda_width
-            self.band_config['blue_limit'] = 392.9 # nm
-            self.band_config['red_limit']  = 555.4 # nm
-        elif self.band is 'r':
-            # lambda_cen = 635. # nm
-            # lambda_width = 150. # nm
-            # self.band_config['blue_limit'] = lambda_cen - lambda_width
-            # self.band_config['red_limit']  = lambda_cen + lambda_width
-            self.band_config['blue_limit'] = 561.8 # nm
-            self.band_config['red_limit']  = 726.0 # nm
-        elif self.band is 'i':
-            # lambda_cen = 775. # nm
-            # lambda_width = 150. # nm
-            # self.band_config['blue_limit'] = lambda_cen - lambda_width
-            # self.band_config['red_limit']  = lambda_cen + lambda_width
-            self.band_config['blue_limit'] = 698.3 # nm
-            self.band_config['red_limit']  = 870.6 # nm
-        elif self.band is 'z':
-            # lambda_cen = 925. # nm
-            # lambda_width = 150. # nm
-            # self.band_config['blue_limit'] = lambda_cen - lambda_width
-            # self.band_config['red_limit']  = lambda_cen + lambda_width
-            self.band_config['blue_limit'] = 836.0 # nm
-            self.band_config['red_limit']  = 1016.6 # nm
-        elif self.band is 'y':
-            # lambda_cen = 1000. # nm
-            # lambda_width = 110. # nm
-            # self.band_config['blue_limit'] = lambda_cen - lambda_width
-            # self.band_config['red_limit']  = lambda_cen + lambda_width
-            self.band_config['blue_limit'] = 940.0 # nm
-            self.band_config['red_limit']  = 1080.5 # nm
-        else:
-            raise ValueError('Band {} does not have bandpass information stored '.format(band) +
-                            'yet in `get_bandpass_config`!')
-
         if self.has_transmission_table is True:
+            # Red / blue limits are determined by the lookup table
             self.band_config['throughput'] = self.transmission_table
         else:
             # Taken from  http://www.ctio.noao.edu/noao/node/2232
             self.band_config['throughput'] = '0.85'
+
+            # DES Bandpass information
+            if self.band is 'u':
+                # lambda_cen = 350. # nm
+                # lambda_width = 75. # nm
+                # self.band_config['blue_limit'] = lambda_cen - lambda_width
+                # self.band_config['red_limit']  = lambda_cen + lambda_width
+                self.band_config['blue_limit'] = 303.4 # nm
+                self.band_config['red_limit']  = 403.9 # nm
+            elif self.band is 'g':
+                # lambda_cen = 475. # nm
+                # lambda_width = 75. # nm
+                # self.band_config['blue_limit'] = lambda_cen - lambda_width
+                # self.band_config['red_limit']  = lambda_cen + lambda_width
+                self.band_config['blue_limit'] = 392.9 # nm
+                self.band_config['red_limit']  = 555.4 # nm
+            elif self.band is 'r':
+                # lambda_cen = 635. # nm
+                # lambda_width = 150. # nm
+                # self.band_config['blue_limit'] = lambda_cen - lambda_width
+                # self.band_config['red_limit']  = lambda_cen + lambda_width
+                self.band_config['blue_limit'] = 561.8 # nm
+                self.band_config['red_limit']  = 726.0 # nm
+            elif self.band is 'i':
+                # lambda_cen = 775. # nm
+                # lambda_width = 150. # nm
+                # self.band_config['blue_limit'] = lambda_cen - lambda_width
+                # self.band_config['red_limit']  = lambda_cen + lambda_width
+                self.band_config['blue_limit'] = 698.3 # nm
+                self.band_config['red_limit']  = 870.6 # nm
+            elif self.band is 'z':
+                # lambda_cen = 925. # nm
+                # lambda_width = 150. # nm
+                # self.band_config['blue_limit'] = lambda_cen - lambda_width
+                # self.band_config['red_limit']  = lambda_cen + lambda_width
+                self.band_config['blue_limit'] = 836.0 # nm
+                self.band_config['red_limit']  = 1016.6 # nm
+            elif self.band is 'y':
+                # lambda_cen = 1000. # nm
+                # lambda_width = 110. # nm
+                # self.band_config['blue_limit'] = lambda_cen - lambda_width
+                # self.band_config['red_limit']  = lambda_cen + lambda_width
+                self.band_config['blue_limit'] = 940.0 # nm
+                self.band_config['red_limit']  = 1080.5 # nm
+            else:
+                raise ValueError('Band {} does not have bandpass information stored '.format(band) +
+                                'yet in `get_bandpass_config`!')
 
         self.band_config['wave_type'] = 'nm'
 
