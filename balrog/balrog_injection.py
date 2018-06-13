@@ -40,6 +40,7 @@ import filters
 
 #-------------------------------------------------------------------------------
 # Important todo's:
+# TODO: Add a cut on TdByTe!
 # TODO: Implement error handling for galaxy injections / gsparams! (Working solution, but need
 #       to look into more detail per Erin)
 # TODO: Clean up evals in add_gs_injection()!
@@ -490,8 +491,11 @@ class Tile(object):
                     config.input_nobjects[input_type] = Ns
 
                     # Randomize star catalog order and split into approximately equal parts
+                    # NOTE: If n_realizations > len(realizations), then DO NOT randomly
+                    # shuffle stars, as they are being injected across multiple jobs.
                     Nr = config.n_realizations
-                    rand.shuffle(indices)
+                    if Nr == len(config.realizations):
+                        rand.shuffle(indices)
                     # pudb.set_trace()
                     indices = [np.array(indices[i::Nr]) for i in range(Nr)]
 
@@ -1103,6 +1107,7 @@ def combine_fits_extensions(combined_file, bal_file, orig_file, config=None):
     # pudb.set_trace()
     if config:
         if config.inj_objs_only['value'] is True:
+            # TODO: This needs to be generalized for different noise models!
             inv_sky_var = 1.0 / (sciHdr['SKYSIGMA']**2)
             wgtIm.fill(inv_sky_var)
             wgt_me_Im.fill(inv_sky_var)
@@ -1473,16 +1478,14 @@ class Config(object):
 
         self.parse_command_args()
 
-        # Process input 'realizations':
+        # Process input 'realizations' & 'n_realizations':
         try:
             reals = self.gs_config[0]['image']['realizations']
             if type(reals) is int:
-                self.n_realizations = 1
                 self.realizations = np.array([reals])
             elif isinstance(reals, list):
                 if all(isinstance(x, int) for x in reals):
-                    self.n_realizations = len(reals)
-                    self.realizations = list(reals)
+                    self.realizations = reals
                 else:
                     raise TypeError('Passed realizations must be integers!')
             elif isinstance(reals, dict):
@@ -1493,18 +1496,34 @@ class Config(object):
                         raise ValueError('Key `min_real` must be less than `max_real`!')
                     if all(isinstance(x, int) for x in [min_real, max_real]):
                         self.realizations = [x for x in range(min_real, max_real+1)]
-                        self.n_realizations = len(self.realizations)
                     else:
                         raise TypeError('The realization values `min` and `max` must be ints!')
                 except KeyError as e:
                     print(e + '\nThe only valid keys for `realizations` are `min` and `max`!')
-        except KeyError:
-            # DEPRECATED: Parse `n_realizations` for older configs
+            # Now check if `n_realizations` was also passed
+            # NOTE: If n_realizations>len(realizations), this indicates that a larger simulation
+            # is being split up between multiple runs. The main impact is star generation for
+            # Y3 DES star catalogs, as they cannot be shuffled in this case to ensure all stars
+            # are injected w/o repeats.
             try:
                 n_reals = self.gs_config[0]['image']['n_realizations']
-                # If it has been passed, warn user but try to use
-                warnings.warn('DEPRECATED: `n_realizations` has been deprecated. Please use ' +
-                            'new argument `realizations` instead.')
+                if isinstance(n_reals, int):
+                    if n_reals < len(self.realizations):
+                        raise ValueError('`n_realizations` cannot be smaller than len(realizations).')
+                    self.n_realizations = n_reals
+                else:
+                    raise TypeError('The value `n_realizations` must be an int!')
+            except KeyError:
+                # In this case, assume that n_realizations=len(realizations)
+                self.n_realizations = len(self.realizations)
+
+        except KeyError:
+            # DEPRECATED: Parse `n_realizations` as only input for older configs
+            try:
+                n_reals = self.gs_config[0]['image']['n_realizations']
+                # If it has been passed, warn user but still use
+                warnings.warn('DEPRECATED: `n_realizations` without `realizations` has been ' +
+                              'deprecated. Please use argument `realizations` (or both) instead.')
                 if isinstance(n_reals, int):
                     self.n_realizations = n_reals
                     self.realizations = [x for x in range(n_reals)]
@@ -1997,7 +2016,7 @@ def sample_uniform_ra(r1, r2, N=None, boundary_cross=False):
     if boundary_cross is True:
         # NOTE: ramin/ramax are saved the same way as the geometry file catalog,
         # which is to say ramin/ramax are always 'left'/'right' boundary, even if
-        # ramax < ramin accross boundary.
+        # ramax < ramin across boundary.
         # This means that r1, while 'min', is larger and needs to be adjusted down.
         r1_shift = r1 - 360.0
         shifted_dist = sample_uniform(r1_shift, r2, N)
