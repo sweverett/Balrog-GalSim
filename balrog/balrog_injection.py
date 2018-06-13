@@ -326,7 +326,8 @@ class Tile(object):
 
         # pudb.set_trace()
 
-        if config.inj_objs_only['noise'] in ['BKG', 'BKG+CCD']:
+	# TODO: Change this to always look for 'BKG' or 'BKG+' inside of noise model!
+        if config.inj_objs_only['noise'] in ['BKG', 'BKG+CCD', 'BKG+RN']:
             self.bkg_file_list = {}
             self.bkg_files = {}
             for band in config.bands:
@@ -350,7 +351,7 @@ class Tile(object):
         Set any tile-wide noise properties from the config.
         '''
 
-        # For now, can be 'CCD', 'BKG', or None
+        # For now, can be 'CCD', 'BKG', 'BKG+CCD', 'BKG+RN', or None
         self.noise_model = config.inj_objs_only['noise']
 
         return
@@ -706,7 +707,13 @@ class Tile(object):
                         'gain' : float(np.mean(chip.gain)),
                         'read_noise' : float(np.mean(chip.read_noise))
                     }
-                if self.noise_model in ['BKG', 'BKG+CCD']:
+		elif self.noise_model in ['BKG+RN']:
+                    self.bal_config[i]['image']['noise'] = {
+                        'type' : 'Gaussian',
+                        #'sigma' : chip.sky_sigma
+                        'sigma' : float(np.mean(chip.read_noise))
+                    }
+                if self.noise_model in ['BKG', 'BKG+CCD', 'BKG+RN']:
                     # Use chip background file as initial image instead
                     self.bal_config[i]['image'].update({'initial_image' : chip.bkg_file})
             # Can add more noise models here!
@@ -1103,7 +1110,8 @@ def combine_fits_extensions(combined_file, bal_file, orig_file, config=None):
     # pudb.set_trace()
     if config:
         if config.inj_objs_only['value'] is True:
-            inv_sky_var = 1.0 / (sciHdr['SKYSIGMA']**2)
+	    rdnoise = np.mean([sciHdr['RDNOISEA'], sciHdr['RDNOISEB']])
+            inv_sky_var = 1.0 / (rdnoise**2)
             wgtIm.fill(inv_sky_var)
             wgt_me_Im.fill(inv_sky_var)
             mskIm.fill(0)
@@ -1298,7 +1306,7 @@ class Chip(object):
         Set chip background file, if needed for grid test.
         '''
 
-        if config.inj_objs_only['noise'] in ['BKG', 'BKG+CCD']:
+        if config.inj_objs_only['noise'] in ['BKG', 'BKG+CCD', 'BKG+RN']:
             assert tile is not None
             self.bkg_file = tile.bkg_files[self.band][self.name]
 
@@ -1588,7 +1596,7 @@ class Config(object):
                 inj_objs_only = dict(inj_objs_only)
                 self.inj_objs_only = {}
                 keys = ['value', 'noise']
-                valid_noise = ['CCD', 'BKG', 'BKG+CCD', 'None']
+                valid_noise = ['CCD', 'BKG', 'BKG+CCD', 'BKG+RN', 'None']
 
                 if 'noise' not in inj_objs_only:
                     # Default is no noise
