@@ -1,6 +1,6 @@
 import numpy as np
 import os
-import pudb
+# import pudb
 
 # NOTE: Only DES bands supported at the moment, but easy to add more
 _valid_bands = 'ugrizy'
