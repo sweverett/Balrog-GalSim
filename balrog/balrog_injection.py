@@ -46,8 +46,6 @@ import filters
 # TODO: Clean up evals in add_gs_injection()!
 # TODO: Figure out injector.py parameter parsing issue!
 # TODO: Check pixel origin for transformations!
-# TODO: MAKE SURE STAR INJECTION DENSITY PER REALIZATION IS CORRECT!
-#       ITS NOT - NEED TO DIFFERENTIATE BETWEEN REALIZATION # AND TOTAL DENSITY!
 # TODO: CHECK COSMOS ZEROPOINTS!
 
 # Some extra todo's:
@@ -573,11 +571,9 @@ class Tile(object):
                                 tile_grid = grid.RectGrid(gs, self.wcs, Npix_x=self.Npix_x,
                                                     Npix_y=self.Npix_y, pixscale=self.pixel_scale)
                             elif ps['type'] == 'HexGrid':
-                                # Should be handled by now, but just in case...
-                                raise ValueError('HexGrid is not yet implemented for position sampling!')
                                 # But for the future...
-                                # tile_grid = grid.HexGrid(gs, self.wcs, Npix_x=self.Npix_x,
-                                #                     Npix_y=self.Npix_y, pixscale=self.pixel_scale)
+                                tile_grid = grid.HexGrid(gs, self.wcs, Npix_x=self.Npix_x,
+                                                    Npix_y=self.Npix_y, pixscale=self.pixel_scale)
 
                             self.gals_pos[real] = tile_grid.pos
 
