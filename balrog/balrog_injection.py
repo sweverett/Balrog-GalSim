@@ -1639,8 +1639,7 @@ class Config(object):
 
         # Process input 'pos_sampling'
         self.pos_sampling = {}
-        # TODO: Implement HexGrid!
-        valid_pos_sampling = ['uniform', 'RectGrid']#, 'HexGrid']
+        valid_pos_sampling = ['uniform', 'RectGrid', 'HexGrid']
         default_gs = 40. # arcsec
         try:
             ps = self.gs_config[0]['image']['pos_sampling']

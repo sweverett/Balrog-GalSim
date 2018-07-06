@@ -55,7 +55,7 @@ class RectGrid(Grid):
 # TODO: Complete HexGrid class
 class HexGrid(Grid):
     def __init__(self, grid_spacing, wcs, Npix_x=10000, Npix_y=10000, pixscale=0.2631):
-        super(RectGrid, self).__init__(grid_spacing, wcs, Npix_x=Npix_x, Npix_y=Npix_y,
+        super(HexGrid, self).__init__(grid_spacing, wcs, Npix_x=Npix_x, Npix_y=Npix_y,
                                        pixscale=pixscale)
         self._create_grid()
 
@@ -65,8 +65,11 @@ class HexGrid(Grid):
         im_gs = self.grid_spacing * (1.0 / self.pixscale) # pixels
         self.im_grid_spacing = im_gs
 
-        p = calc_polygons(im_gs, im_gs, self.Npix_x-im_gs, self.Npix_y-im_gs, im_gs)
-        c = polygons2coords(p)
+	print 'im_gs:',im_gs
+	print 'self.Npix_x-im_gs'
+
+        p = HexGrid.calc_polygons(im_gs, im_gs, self.Npix_x-im_gs, self.Npix_y-im_gs, im_gs)
+        c = HexGrid.polygons2coords(p)
 
         self.im_ra  = c[:,0]
         self.im_dec = c[:,1]
@@ -77,8 +80,9 @@ class HexGrid(Grid):
 
         return
 
-    def calc_polygons(startx, starty, endx, endy, radius):
-        sl = (2 * radius) * math.tan(math.pi / 6)
+    @classmethod
+    def calc_polygons(HexGrid, startx, starty, endx, endy, radius):
+        sl = (2 * radius) * np.tan(np.pi / 6)
 
         # calculate coordinates of the hexagon points
         p = sl * 0.5
@@ -113,11 +117,14 @@ class HexGrid(Grid):
 
         return polygons
 
-    def polygons2coords(p):
+    @classmethod
+    def polygons2coords(HexGrid, p):
         s = np.shape(p)
         L = s[0]*s[1]
         pp = np.array(p).reshape(L,2)
-        return np.unique(pp, axis=0)
+	return np.vstack({tuple(row) for row in pp})
+        # NOTE: Requires numpy 1.3.3
+        #return np.unique(pp, axis=0)
 
     def rotate_polygons():
         return
