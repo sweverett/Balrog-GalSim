@@ -466,7 +466,8 @@ class Tile(object):
                     gs_config['input'][input_type]['tile'] = self.tile_name
 
                     # Don't need galaxy info, so remove for speed
-                    del gs_config['input'][config.input_types['gals']]
+                    try: del gs_config['input'][config.input_types['gals']]
+                    except KeyError: pass
 
                     # Make proxy catalog
                     galsim.config.ProcessInput(gs_config)
