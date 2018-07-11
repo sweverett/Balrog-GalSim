@@ -1908,6 +1908,10 @@ class Config(object):
                     first_tile = tile_list[0]
                     gs_config['input'][input_type]['tile'] = first_tile
 
+                    # TODO: See if we can load this, rather than set explicitly (but true for y3v02)
+                    # Set input catalog zeropoint
+                    self.input_zp = 30.0
+
                 else:
                     # In future, can add updated input parsing
                     raise ValueError('No input parsing defined for DES star catalogs for ' +
