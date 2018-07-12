@@ -36,7 +36,7 @@ import grid
 import filters
 
 # Use for debugging
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Important todo's:
@@ -338,7 +338,7 @@ class Tile(object):
                         line_data = line.replace('\n', '').split(' ')
                         chip_file, file_name = line_data[0], ntpath.basename(line_data[0])
 			# TODO: Only here for blank testing!
-                        chip_name = '_'.join(file_name.split('_')[s_begin+1:s_end+1])
+                        chip_name = '_'.join(file_name.split('_')[s_begin:s_end])
                         self.bkg_files[band][chip_name] = chip_file
         else:
             self.bkg_file_list = None
@@ -602,6 +602,9 @@ class Tile(object):
                                 indices = indx * np.ones(ngals, dtype='int16')
                                 del cat_proxy
                                 del cat
+				# Now remove `index` from global config (can cause issues w/ 
+				# other input types
+				self.bal_config[0]['gal'].pop('index', None)
                             else:
                                 raise TypeError('Can only set a global galaxy index in the ' +
                                                 'config if it is an integer!')
