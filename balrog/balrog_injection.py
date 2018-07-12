@@ -533,6 +533,7 @@ class Tile(object):
             gal_type = config.input_types['gals']
             if config.data_version == 'y3v02':
                 # Generate galaxy positions and indices if this is the first realization
+
                 if realization == config.realizations[0]:
                     # Can't guarantee galaxy count consistency, so use dicts
                     self.gals_pos = {}
@@ -554,11 +555,6 @@ class Tile(object):
                             dec = sample_uniform_dec(self.decmin, self.decmax, self.gals_per_real,
                                                  unit='deg')
                             self.gals_pos[real] = np.column_stack((ra, dec))
-
-                            # Generate galaxy indices (in input catalog)
-                            indices = np.array(rand.sample(xrange(Ng), ngals))
-                            # indices = sample_uniform_indx(0, config.input_nobjects[gal_type], Ng)
-                            self.gals_indx[real] = indices
 
                         elif (ps['type']=='RectGrid') or (ps['type']=='HexGrid'):
 
@@ -588,11 +584,32 @@ class Tile(object):
                                               ' Ignoring input n_galaxies.')
                             self.Ngals[real] = ngals
 
-                            # Generate galaxy indices (in input catalog)
-                            indices = np.array(rand.sample(xrange(Ng), ngals))
-                            self.gals_indx[real] = indices
-
+                        # Generate galaxy indices (in input catalog)
+                        # NOTE: Nearly all runs will generate a random sample of indices. However,
+                        # for some testing it would be nice to use an identical galaxy for all
+                        # injections. In this case, the user can set a single index in the 'gal'
+                        # section of the global config
                         # pudb.set_trace()
+                        try:
+                            orig_indx = config.gs_config[0]['gal']['index']
+                            if type(orig_indx) is int:
+                                # Need to find original index of catalog
+                                gs_config = copy.deepcopy(config.gs_config[0])
+                                galsim.config.ProcessInput(gs_config)
+                                cat_proxy = gs_config['input_objs'][input_type][0] # Actually a proxy
+                                cat = cat_proxy.getCatalog()
+                                indx = int(np.where(cat['id']==orig_indx)[0])
+                                indices = indx * np.ones(ngals, dtype='int16')
+                                del cat_proxy
+                                del cat
+                            else:
+                                raise TypeError('Can only set a global galaxy index in the ' +
+                                                'config if it is an integer!')
+                        except KeyError:
+                            indices = np.array(rand.sample(xrange(Ng), ngals))
+                            # indices = sample_uniform_indx(0, config.input_nobjects[gal_type], Ng)
+                        self.gals_indx[real] = indices
+
         else:
             raise Exception('No `generate_galaxies()` implementation for input of type ' +
                             '{}!'.format(input_type))
@@ -970,8 +987,6 @@ class Tile(object):
         Writes a fits file that contains the subset of the input catalog that has been
         injected into the current tile, as well as a few extra columns.
         '''
-
-        # pudb.set_trace()
 
         outfiles = {}
         truth = {}
