@@ -36,7 +36,7 @@ import grid
 import filters
 
 # Use for debugging
-import pudb
+# import pudb
 
 #-------------------------------------------------------------------------------
 # Important todo's:
@@ -323,9 +323,7 @@ class Tile(object):
         # NOTE: For now, these are only used for grid test images.
         '''
 
-        # pudb.set_trace()
-
-	# TODO: Change this to always look for 'BKG' or 'BKG+' inside of noise model!
+        # TODO: Change this to always look for 'BKG' or 'BKG+' inside of noise model!
         if config.inj_objs_only['noise'] in ['BKG', 'BKG+CCD', 'BKG+RN', 'BKG+SKY']:
             self.bkg_file_list = {}
             self.bkg_files = {}
@@ -602,7 +600,7 @@ class Tile(object):
                                 indices = indx * np.ones(ngals, dtype='int16')
                                 del cat_proxy
                                 del cat
-				# Now remove `index` from global config (can cause issues w/ 
+				# Now remove `index` from global config (can cause issues w/
 				# other input types
 				self.bal_config[0]['gal'].pop('index', None)
                             else:
