@@ -36,7 +36,7 @@ import grid
 import filters
 
 # Use for debugging
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Important todo's:
@@ -951,7 +951,11 @@ class Tile(object):
 
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
 
-        # pudb.set_trace()
+        # Needed to get the return code from GalSim
+        streamdata = process.communicate()[0]
+        rc = process.returncode
+
+        pudb.set_trace()
 
         if vb>0:
             # while True:
@@ -959,29 +963,12 @@ class Tile(object):
             #     sys.stdout.write(line)
             # #     if not line: break
             # p = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-            for line in iter(process.stdout.readline, ''):
-                # from signal import signal, SIGPIPE, SIG_DFL
-                # signal(SIGPIPE, SIG_DFL)
-                try:
-                    # sys.stdout.write(line)
-                    # print('CASE 1 !\n')
-                    print(line.replace('\n', ''))
-                # NOTE: Testing!
-                except IOError as e:
-                    if e.errno == errno.EPIPE:
-                        print('WARNING! PIPE ERROR! (1)')
-                        raise
-                    else:
-                        print('WARNING! PIPE ERROR! (2)')
-                        raise
-        else:
-            # process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-            output, error = process.communicate()
+            for line in iter(process.stdout.readline, ''): print(line.replace('\n', ''))
+        #else:
+        #    # process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+        #    output, error = process.communicate()
 
-        # TODO: Would be nice to do something with the output / errors in future.
-        # maybe implement an additional log? ISSUE: 8
-
-        return
+        return rc
 
     def write_truth_catalog(self, config):
         '''
@@ -2169,7 +2156,7 @@ def parse_args():
     # Optional argument for output directory (if not .)
     parser.add_argument('-o', '--output_dir', help='Directory that houses output Balrog images.')
     # Optional argument for verbose messages
-    parser.add_argument('-v', '--verbose', action='store', nargs='?', default='0', const='1',
+    parser.add_argument('-v', '--verbose', action='store', nargs='?', default='0', const='1', type=int,
                         help='Turn on verbose mode for additional messages.')
 
     return parser.parse_args()
@@ -2265,7 +2252,8 @@ def RunBalrog():
             if vb: print('Writing Balrog config...')
             tile.write_bal_config()
             if vb: print('Running GalSim for tile...')
-            tile.run_galsim(vb=vb)
+            rc = tile.run_galsim(vb=vb)
+            if rc != 0: raise Exception('GalSim failed to complete successfully!')
             if vb: print('Copying extra image planes...')
             tile.copy_extensions(config)
             if vb: print('Truth Catalog...')
@@ -2274,10 +2262,10 @@ def RunBalrog():
             # pudb.set_trace()
 
     # TESTING: Can remove in future
-    outfile = os.path.join(config.output_dir, 'configs', 'tile_flux_factors.p')
-    with open(outfile, 'wb') as f: pickle.dump(config.flux_factors, f)
+    #outfile = os.path.join(config.output_dir, 'configs', 'tile_flux_factors.p')
+    #with open(outfile, 'wb') as f: pickle.dump(config.flux_factors, f)
     # pudb.set_trace()
-    return
+    return 0
 
 if __name__ == '__main__':
     ret = RunBalrog()
