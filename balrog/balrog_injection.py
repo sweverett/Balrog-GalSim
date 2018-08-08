@@ -2261,10 +2261,6 @@ def RunBalrog():
 
             # pudb.set_trace()
 
-    # TESTING: Can remove in future
-    #outfile = os.path.join(config.output_dir, 'configs', 'tile_flux_factors.p')
-    #with open(outfile, 'wb') as f: pickle.dump(config.flux_factors, f)
-    # pudb.set_trace()
     return 0
 
 if __name__ == '__main__':
