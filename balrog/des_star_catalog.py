@@ -45,9 +45,9 @@ class desStarCatalog(object):
                            be used without processing the whole input catalog.
     """
 
-    _req_params = { 'base_dir' : str, 'model_type' : str, 'tile' : str}
+    _req_params = { 'base_dir' : str, 'model_type' : str, 'tile' : str, 'bands': str}
     # TODO: any others?
-    _opt_params = { 'file_type' : str, 'data_version' : str, 'bands': str, 'zeropoint' : float,
+    _opt_params = { 'file_type' : str, 'data_version' : str, 'zeropoint' : float,
                     'base_model' : str}
     _single_params = []
     _takes_rng = False
@@ -68,7 +68,7 @@ class desStarCatalog(object):
     # Dictionary of color band flux to array index in star catalog
     _band_index = {'g' : 0, 'r' : 1, 'i' : 2, 'z' : 3}
 
-    def __init__(self, base_dir, model_type, tile, file_type=None, data_version=None, bands=None, zeropoint=None, base_model=None):
+    def __init__(self, base_dir, model_type, tile, bands, file_type=None, data_version=None, zeropoint=None, base_model=None):
 
         if not os.path.isdir(base_dir):
             raise ValueError('{} is not a valid directory or does not exist!'.format(base_dir))
@@ -112,24 +112,22 @@ class desStarCatalog(object):
         else:
             self.base_model, self.base_percent = None, None
 
-        if bands:
-            if isinstance(bands, basestring):
-                # Strip all whitespace
-                bands = bands.replace(' ', '')
-                # More useful as a list of individual bands
-                bands_list = list(bands)
-                if set(bands_list).issubset(self._valid_band_types):
-                    self.bands = bands_list
-                else:
-                    raise ValueError("The only valid color bands for a des star catalog are \'griz'\'!")
+        if isinstance(bands, basestring):
+            # Strip all whitespace
+            bands = bands.replace(' ', '')
+            # More useful as a list of individual bands
+            bands_list = list(bands)
+            if len(bands_list) > 1:
+                warnings.warn('WARNING: Passed more than one band - injections will use flux ' +
+                              'from all passed bands!')
+            if set(bands_list).issubset(self._valid_band_types):
+                self.bands = bands_list
             else:
-                # TODO: Wouldn't be a bad idea to allow a list of individual bands as well
-                raise ValueError('Must enter desired color bands as a string!' +
-                                 ' (For example, `bands : \'gr\'`')
+                raise ValueError("The only valid color bands for a des star catalog are \'griz'\'!")
         else:
-            # Set the 'g' band to be the default behaviour, although warn user
-            warnings.warn('No color band chosen; selecting \'g\'-band by default.')
-            self.bands = ['g']
+            # TODO: Wouldn't be a bad idea to allow a list of individual bands as well
+            raise ValueError('Must enter desired color bands as a string!' +
+                                ' (For example, `bands : \'gr\'`')
 
         if file_type:
             if file_type not in self._valid_file_types:
@@ -288,7 +286,6 @@ class desStarCatalog(object):
         stars = []
 
         for index in indices:
-            # TODO: Make new method for stars!!
             star = self.star2gs(index, gsparams)
             stars.append(star)
 
