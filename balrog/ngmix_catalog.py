@@ -10,6 +10,7 @@ import galsim.config
 import ngmix # Used for GMix -> GSObject conversion
 import numpy as np
 import logging
+import warnings
 from past.builtins import basestring # Python 2&3 compatibility
 # import pudb
 
@@ -51,9 +52,9 @@ class ngmixCatalog(object):
                            be used without processing the whole input catalog.
     """
 
-    _req_params = { 'file_name' : str }
-    _opt_params = { 'dir' : str, 'catalog_type' : str, 'bands': str, 'snr_min' : float,
-                    'snr_max' : float, 't_frac' : float, 't_min' : float, 't_max' : float}
+    _req_params = { 'file_name' : str, 'bands' : str}
+    _opt_params = { 'dir' : str, 'catalog_type' : str, 'snr_min' : float, 'snr_max' : float,
+                    't_frac' : float, 't_min' : float, 't_max' : float}
     _single_params = []
     _takes_rng = False
 
@@ -74,7 +75,7 @@ class ngmixCatalog(object):
     # of 'cm' for most columns). Set this for each new supported catalog type.
     _cat_col_prefix = {'gauss' : 'gauss', 'cm' : 'cm', 'mof' : 'cm'}
 
-    def __init__(self, file_name, dir=None, catalog_type=None, bands=None, snr_min=None, snr_max=None,
+    def __init__(self, file_name, bands, dir=None, catalog_type=None, snr_min=None, snr_max=None,
                  t_frac=None, t_min=None, t_max=None, _nobjects_only=False):
 
         if dir:
@@ -89,7 +90,6 @@ class ngmixCatalog(object):
         if catalog_type:
             if catalog_type in self._valid_catalog_types:
                 if catalog_type not in self.file_name:
-                    import warnings
                     warnings.warn( ("Inputted ngmix catalog type of `{}` does not match filename, which is standard "
                                      "for DES ngmix catalogs. Ensure this is correct.".format(catalog_type) ) )
                 self.cat_type = catalog_type
@@ -112,24 +112,21 @@ class ngmixCatalog(object):
         # Catalog column name prefixes don't always match catalog type (e.g. 'cm' is still used for many 'mof' columns)
         self.col_prefix = self._cat_col_prefix[self.cat_type]
 
-        if bands:
-            if isinstance(bands, basestring):
-                # Strip all whitespace
-                bands = bands.replace(" ", "")
-                # More useful as a list of individual bands
-                bands_list = list(bands)
-                if set(bands_list).issubset(self._valid_band_types):
-                    self.bands = bands_list
-                else:
-                    raise ValueError("The only valid color bands for a ngmix catalog are \'griz'\'!")
+        if isinstance(bands, basestring):
+            # Strip all whitespace
+            bands = bands.replace(" ", "")
+            # More useful as a list of individual bands
+            bands_list = list(bands)
+            if len(bands_list) > 1:
+                warnings.warn('WARNING: Passed more than one band - injections will contain ' + \
+                              'flux from multiple bands!')
+            if set(bands_list).issubset(self._valid_band_types):
+                self.bands = bands_list
             else:
-                # TODO: Wouldn't be a bad idea to allow a list of individual bands as well
-                raise ValueError("Must enter desired color bands as a string! (For example, `bands : \'gr\'`)")
+                raise ValueError("The only valid color bands for a ngmix catalog are {}!".format(self._valid_band_types))
         else:
-            # Set the 'g' band to be the default behaviour, although warn user
-            import warnings
-            warnings.warn('No color band chosen; selecting \'g\'-band by default.')
-            self.bands = ['g']
+            # TODO: Wouldn't be a bad idea to allow a list of individual bands as well
+            raise ValueError("Must enter desired color bands as a string! (For example, `bands : \'gr\'`)")
 
         if snr_min:
             if snr_min < 0.0:
@@ -169,7 +166,6 @@ class ngmixCatalog(object):
             self.t_frac = t_frac
         else:
             # Default of t_frac = 0.5, but warn user that some objects will be removed.
-            import warnings
             warnings.warn("No t_frac cutoff was chosen; removing objects with `T/T_err` < 0.5.")
             self.t_frac = 0.5
 
@@ -329,7 +325,6 @@ class ngmixCatalog(object):
         else:
             # n_random is set to None by default instead of 1 for this check
             if n_random is not None:
-                import warnings
                 warnings.warn("Ignoring input n_random, since indices were specified!")
 
         # Format indices correctly
@@ -499,7 +494,6 @@ class ngmixCatalog(object):
         if hasattr(self.catalog, 'weight'):
             use_weights = self.catalog.weight[self.orig_index]
         else:
-            import warnings
             warnings.warn('Selecting random object without correcting for catalog-level selection effects.')
             use_weights = None
 
