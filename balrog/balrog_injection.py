@@ -763,8 +763,9 @@ class Tile(object):
                 }
 
             # Setup 'output' field
-            out_file = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), \
-                                    self.tile_name, chip.band, '{}_balrog_inj.fits'.format(chip.name))
+            out_file = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real),
+                                    config.data_version, self.tile_name, chip.band,
+                                    '{}_balrog_inj.fits'.format(chip.name))
             self.bal_config[i]['output'] = {'file_name' : out_file}
 
             # NOTE: Some input types require the field `bands` to be set, and so will fail
@@ -986,7 +987,8 @@ class Tile(object):
 
         real = self.curr_real
         base_outfile = os.path.join(config.output_dir, 'balrog_images', str(real),
-                       self.tile_name, '{}_{}_balrog_truth_cat'.format(self.tile_name, real))
+                                    config.data_version, self.tile_name,
+                                    '{}_{}_balrog_truth_cat'.format(self.tile_name, real))
 
         if config.sim_gals is True:
             outfiles['gals'] = base_outfile + '_gals.fits'
@@ -1051,15 +1053,16 @@ class Tile(object):
 
         # pudb.set_trace()
         for band in self.bands:
-            out_band_dir = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), \
-                                            self.tile_name, band)
+            out_band_dir = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real),
+                                        config.data_version, self.tile_name, band)
             chips = self.chips[band]
             for chip in chips:
                 orig_fits = chip.filename
 
                 # Grabbed from `add_gs_injection()`
-                bal_fits = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real), \
-                                        self.tile_name, chip.band, '{}_balrog_inj.fits'.format(chip.name))
+                bal_fits = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real),
+                                        config.data_version, self.tile_name, chip.band,
+                                        '{}_balrog_inj.fits'.format(chip.name))
 
                 # As we want to rewrite orig_fits with bal_fits, we pass the same name for combined_fits
                 combined_fits = bal_fits
@@ -2248,7 +2251,8 @@ def RunBalrog():
                         # needed to correct the background image in `injector.py`
                         # TODO: Eventually use a return_output_name() function
                         outfile = os.path.join(config.output_dir, 'balrog_images', str(tile.curr_real),
-                                tile.tile_name, chip.band, '{}_balrog_inj.fits'.format(chip.name))
+                                               config.data_version, tile.tile_name, chip.band,
+                                               '{}_balrog_inj.fits'.format(chip.name))
                         chip.save_without_injection(outfile)
 
             # Once all chips in tile have had Balrog injections, run modified config file
