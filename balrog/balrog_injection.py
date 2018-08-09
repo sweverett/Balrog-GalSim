@@ -545,6 +545,7 @@ class Tile(object):
                         ngals = self.gals_per_real
                         self.Ngals[real] = ngals
 
+                        # pudb.set_trace()
                         # Generate galaxy coordinates
                         ps = config.pos_sampling
                         if ps['type'] == 'uniform':
@@ -579,7 +580,7 @@ class Tile(object):
                                 warnings.warn('The passed n_galaxies : {}'.format(self.gals_per_real) +
                                               ' does not match the {} needed'.format(ngals) +
                                               ' for {} with spacing {}.'.format(ps['type'], gs) +
-                                              ' Ignoring input n_galaxies.')
+                                              ' Ignoring input n_galaxies (Only for grids!).')
                             self.Ngals[real] = ngals
 
                         # Generate galaxy indices (in input catalog)
@@ -766,6 +767,20 @@ class Tile(object):
                                     self.tile_name, chip.band, '{}_balrog_inj.fits'.format(chip.name))
             self.bal_config[i]['output'] = {'file_name' : out_file}
 
+            # NOTE: Some input types require the field `bands` to be set, and so will fail
+            # if we do not set it for this chip injection (even though it is never technically
+            # used)
+            if chip.Ngals == 0:
+                try:
+                    gal_type = self.input_types['gals']
+                    self.bal_config[i]['input'].update({gal_type : {'bands' : chip.band}})
+                except KeyError: pass
+            if chip.Nstars == 0:
+                try:
+                    star_type = self.input_types['stars']
+                    self.bal_config[i]['input'].update({star_type : {'bands' : chip.band}})
+                except KeyError: pass
+
             # If multiple input types, add list setup
             if len(self.input_types) > 1:
                 # TODO: Find a cleaner way to do this!
@@ -810,6 +825,13 @@ class Tile(object):
                 'bandpass' : config.filters[chip.band].band_config
             })
 
+        # pudb.set_trace()
+        if input_type in ['ngmix_catalog', 'des_star_catalog']:
+            # Set the band for injection
+            self.bal_config[i]['input'].update({
+                input_type : {'bands' : chip.band}
+            })
+
         #-----------------------------------------------------------------------------------------------
         # If only one input type, don't use list structure
         if Ninput == 1:
@@ -837,11 +859,7 @@ class Tile(object):
             })
 
             # NOTE: Any extra fields to be set for a given input can be added here.
-            if (inj_type=='gals') and (input_type=='ngmix_catalog'):
-                # Set the band for injection
-                self.bal_config[i]['input'].update({
-                    self.input_types.values()[0] : {'bands' : chip.band}
-                })
+            # ...
 
         #-----------------------------------------------------------------------------------------------
         # If multiple input types, use list structure
@@ -875,20 +893,16 @@ class Tile(object):
             # pudb.set_trace()
 
             # NOTE: Any extra fields to be set for a given input can be added here.
-            if (inj_type=='gals') and (input_type=='ngmix_catalog'):
-                # Set the band for injection
-                self.bal_config[i]['input'].update({
-                    input_type : {'bands' : chip.band}
-                })
+            # ...
 
         chip.types_injected += 1
 
-        # If all injections have been completed but 'nobjects' is still 0, then add
-        # a dummy injection if 'inj_objs_only' is true. This is to ensure that the
-        # background is correctly set in `injector.py` during the GalSim call, even
-        # for chips with no injections.
-        # pudb.set_trace()
+        # A few final checks...
         if Ninput == chip.types_injected:
+            # NOTE: If all injections have been completed but 'nobjects' is still 0, then
+            # add a dummy injection if 'inj_objs_only' is true. This is to ensure that the
+            # background is correctly set in `injector.py` during the GalSim call, even
+            # for chips with no injections.
             if chip.Ngals + chip.Nstars == 0:
                 # This edge case should have only happened for 'inj_objs_only'
                 assert config.inj_objs_only['value'] is True
@@ -951,22 +965,12 @@ class Tile(object):
 
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
 
+        if vb>0:
+            for line in iter(process.stdout.readline, ''): print(line.replace('\n', ''))
+
         # Needed to get the return code from GalSim
         streamdata = process.communicate()[0]
         rc = process.returncode
-
-        pudb.set_trace()
-
-        if vb>0:
-            # while True:
-            #     line = p.stdout.readline()
-            #     sys.stdout.write(line)
-            # #     if not line: break
-            # p = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-            for line in iter(process.stdout.readline, ''): print(line.replace('\n', ''))
-        #else:
-        #    # process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-        #    output, error = process.communicate()
 
         return rc
 
@@ -2253,7 +2257,7 @@ def RunBalrog():
             tile.write_bal_config()
             if vb: print('Running GalSim for tile...')
             rc = tile.run_galsim(vb=vb)
-            if rc != 0: raise Exception('GalSim failed to complete successfully!')
+            if rc != 0: raise Exception('\nYou shall not pass!\nGalSim failed to complete successfully.')
             if vb: print('Copying extra image planes...')
             tile.copy_extensions(config)
             if vb: print('Truth Catalog...')
