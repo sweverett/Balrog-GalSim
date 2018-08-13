@@ -36,7 +36,7 @@ import grid
 import filters
 
 # Use for debugging
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Important todo's:
@@ -728,18 +728,18 @@ class Tile(object):
                         'gain' : float(np.mean(chip.gain)),
                         'read_noise' : float(np.mean(chip.read_noise))
                     }
-		elif self.noise_model in ['BKG+RN', 'BKG+SKY']:
-		    if self.noise_model == 'BKG+RN':
-			sigma = float(np.mean(chip.read_noise))
-		    elif self.noise_model == 'BKG+SKY':
-                        sigma = chip.sky_sigma
+            elif self.noise_model in ['BKG+RN', 'BKG+SKY']:
+                if self.noise_model == 'BKG+RN':
+                    sigma = float(np.mean(chip.read_noise))
+                elif self.noise_model == 'BKG+SKY':
+                    sigma = chip.sky_sigma
                     self.bal_config[i]['image']['noise'] = {
                         'type' : 'Gaussian',
                         'sigma' : sigma
                     }
-                if self.noise_model in ['BKG', 'BKG+CCD', 'BKG+RN']:
-                    # Use chip background file as initial image instead
-                    self.bal_config[i]['image'].update({'initial_image' : chip.bkg_file})
+            if self.noise_model in ['BKG', 'BKG+CCD', 'BKG+RN']:
+                # Use chip background file as initial image instead
+                self.bal_config[i]['image'].update({'initial_image' : chip.bkg_file})
             # Can add more noise models here!
             # elif ...
 
@@ -766,7 +766,9 @@ class Tile(object):
             out_file = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real),
                                     config.data_version, self.tile_name, chip.band,
                                     '{}_balrog_inj.fits'.format(chip.name))
-            self.bal_config[i]['output'] = {'file_name' : out_file}
+            # NOTE: It is more efficient to put `nproc` here rather than `image` when
+            # constructing lots of files
+            self.bal_config[i]['output'] = {'file_name' : out_file, 'nproc' : config.nproc}
 
             # NOTE: Some input types require the field `bands` to be set, and so will fail
             # if we do not set it for this chip injection (even though it is never technically
@@ -1426,6 +1428,7 @@ class Config(object):
         self.tile_dir = args.tile_dir
         self.psf_dir = args.psf_dir
         self.output_dir = args.output_dir
+        self.nproc = int(args.nproc)
         self.vb = args.verbose
 
         # TESTING: Can remove in future
@@ -1540,7 +1543,6 @@ class Config(object):
                 self.n_realizations = len(self.realizations)
 
         except KeyError:
-            # DEPRECATED: Parse `n_realizations` as only input for older configs
             try:
                 n_reals = self.gs_config[0]['image']['n_realizations']
                 # If it has been passed, warn user but still use
@@ -1694,24 +1696,30 @@ class Config(object):
 
         # NOTE: config_dir and verbose have already been parsed correctly
         args = {'tile_list':self.tile_list, 'geom_file':self.geom_file, 'tile_dir':self.tile_dir,
-                'psf_dir':self.psf_dir, 'output_dir':self.output_dir}
+                'psf_dir':self.psf_dir, 'output_dir':self.output_dir, 'nproc':self.nproc}
 
         base = {'tile_list':'image', 'geom_file':'image', 'tile_dir':'image', 'psf_dir':'image',
-                'output_dir':'output'}
+                'output_dir':'output', 'nproc':'output'}
 
         req = ['tile_list', 'geom_file']
-        opt = ['tile_dir', 'psf_dir', 'output_dir']
+        opt = ['tile_dir', 'psf_dir', 'output_dir', 'nproc']
 
         for arg, arg_val in args.items():
             try:
+                if arg=='nproc':
+                    pudb.set_trace()
                 # Have to handle `output_dir` to be consistent with GalSim
                 if arg == 'output_dir':
                     config_val = self.gs_config[0][base[arg]]['dir']
                 else:
                     config_val = self.gs_config[0][base[arg]][arg]
                 if arg_val and config_val != arg_val:
-                    # The following works for both files and directories
-                    if not os.path.samefile(arg_val, config_val):
+                    if os.path.isfile(arg_val) or os.path.isdir(arg_val):
+                        # The following works for both files and directories
+                        if not os.path.samefile(arg_val, config_val):
+                            raise ValueError('Command-line argument {}={} '.format(arg, arg_val) +
+                                            'is inconsistent with config value of {}!'.format(config_val))
+                    else:
                         raise ValueError('Command-line argument {}={} '.format(arg, arg_val) +
                                         'is inconsistent with config value of {}!'.format(config_val))
                 val = config_val
@@ -1739,6 +1747,10 @@ class Config(object):
                 if val is None:
                     val = 'balrog_outputs/'
                 self.output_dir = os.path.abspath(val)
+            elif arg == 'nproc':
+                if val is None:
+                    val = 1
+                self.nproc = val
             # Can add others if needed
             # elif ...
 
@@ -2162,6 +2174,8 @@ def parse_args():
     parser.add_argument('-p', '--psf_dir', help='Directory that houses individual psf files for DES chips.')
     # Optional argument for output directory (if not .)
     parser.add_argument('-o', '--output_dir', help='Directory that houses output Balrog images.')
+    # Optional argument for GalSim # of processors
+    parser.add_argument('-n', '--nproc', help='Number of processors that GalSim will use when building files.')
     # Optional argument for verbose messages
     parser.add_argument('-v', '--verbose', action='store', nargs='?', default='0', const='1', type=int,
                         help='Turn on verbose mode for additional messages.')
