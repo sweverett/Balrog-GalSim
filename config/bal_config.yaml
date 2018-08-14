@@ -7,7 +7,7 @@
 # with a standard galsim executable of the form `galsim balrog_config.yaml`; instead, it is passed
 # as an input to the python script `balrog_injection.py`. This serves as the base of a multi-output
 # yaml file that all of the individual chip simulations will inherit from. Do not set any fields or
-# variables here that are not universal.
+# variables here that are not universal for all simulations.
 #
 # Spencer Everett
 # USCS
@@ -17,6 +17,7 @@
 modules :
   - galsim.des
   - injector
+  - grid
   - ngmix_catalog
   - des_star_catalog
 
@@ -29,10 +30,9 @@ some_variables :
   # - &max_fft 16384
   # - &max_fft 8192
   # - &max_fft 4096 # GalSim default (likely want higher)
-  # - &max_fft 64 # For testing purposes!
-  - &bal_dir '/data/des61.a/data/severett/Balrog-GalSim/'
-  - &ngmix_dir '/data/des61.a/data/severett/Balrog-GalSim/inputs'
-  - &ngmix_file 'y3_balrog_test_input.fits'
+  - &bal_dir '/path/to/baldir/'
+  - &ngmix_dir '/path/to/ngmix/'
+  - &ngmix_file 'y3_balrog_test_input.fits' # for example
   - &star_dir '/data/des20.b/data/sallam/Yanny-balrog/5sigma/'
 
 # Define the input files
@@ -51,20 +51,17 @@ input :
       # from the filename as standard ngmix catalogs include 'gauss', 'cm', or 'mof' in name. Still
       # safer to specify, however.
 
-      # To use all bands:
-      # NOTE: Don't use this anymore! This is ONLY for ngmix-specific simulations. Will cause
-      # Balrog to inject *all* bands in *all* chip images. Only here as a warning
-      # bands : 'griz'
+      # NOTE: Do not set bands here! They are set for each image simulation separately.
 
       # Set masking / selection thresholds for catalog
       t_frac : 0.5
       t_min : 0.001
-      t_max : 100
+      t_max : 200
       snr_min : 20.0
 
     des_star_catalog :
       base_dir : *star_dir
-      model_type :  'Model_16.5-26.5'
+      model_type :  'Model_16.5-26.5' # Can select which of Sahar's catalogs you want here
       data_version : 'y3v02'
 
 # The gal field defines what kind of galaxy profile to use.
@@ -73,19 +70,21 @@ gal :
     items :
         - # Galaxy component
           type : ngmixGalaxy
-          rotate :
-              # Random means uniform within 0-2pi rads
-              type : Random
+          # NOTE: Rotations do not currently work, as they are not consistent between different
+          # exposures. This will be added in a future update!
+          #rotate :
+          #    # Random means uniform within 0-2pi rads
+          #    type : Random
         - # Star component
           type : desStar
 
-    # NOTE: Here you would normally define various fields such as index to choose which galaxies
+    # Here you would normally define various fields such as index to choose which galaxies
     # are injected. The balrog injection script takes care of position / index sampling, so
     # you will likely leave the rest of the field blank.
 
 psf :
     # For DES chip images with PSFEx files
-    # NOTE: In figure, Piff PSFs may be used instead
+    # In future, Piff PSFs may be used instead
     type : DES_PSFEx
 
     # If for some reason you want to use a different PSF model, any standard GalSim
@@ -125,11 +124,14 @@ image :
     # Can choose to ignore existing image data and only include injected objects
     # inj_objs_only : True
     # Or if you want to include chip noise:
-    # inj_obs_only : {val : True, noise : True}
+    # NOTE: Currently allowed noise models for `inj_objs_only` are:
+    # 'CCD', 'BKG', 'BKG+CCD', 'BKG+RN', 'BKG+SKY', and 'None'
+    # inj_obs_only : {val : True, noise : CCD}
 
     # Can inject objects onto a grid
-    # NOTE: For now, grid parameters are hard coded including galaxy #
-    # pos_sampling : grid
+    pos_sampling :
+      type : HexGrid
+      grid_spacing : 20 # arcsec
 
     # Load WCS from DES chip file
     wcs :
@@ -137,6 +139,7 @@ image :
 
     # Must set galaxy density or total number of injected galaxies per tile
     # NOTE: Set the desired density or number PER realization!
+    # NOTE: This is ignored for grid runs in which it doesn't equal the required grid points
     # gal_density : 10 # per arcmin^2
     n_galaxies : 5000 # per tile
 
@@ -144,18 +147,18 @@ image :
     # NOTE: This replaces the old version of the keyword `n_realizations` (although it will
     # still be processed correctly for now). You can pass a single realization value, a range
     # using a dictionary filled with min/max, or a list of individual values:
+    realizations : [1]
     # realizations : [4]
     # realizations : {'min' : 2, 'max' : 4}
-    realizations : [1, 3, 5]
+    # realizations : [1, 3, 5]
     # Redefined from earlier versions; now the total number of realizations for this
     # simulation *across all simulations/jobs*!
     # For example, split up injections between 5 realizations but only simulate
     # reals 1, 3, 5 *in this job*. This is needed for consistent catalog sampling
     # for some inputs
-    n_realizations : 5
+    # n_realizations : 5 # for example
+    n_realizations : 1
 
-
-    # TODO: In future, we should load these fields automatically in script.
     xsize: 2048 # DES nullwt chip
     ysize: 4096 # DES nullwt chip
 
