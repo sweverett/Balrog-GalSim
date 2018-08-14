@@ -1428,8 +1428,11 @@ class Config(object):
         self.tile_dir = args.tile_dir
         self.psf_dir = args.psf_dir
         self.output_dir = args.output_dir
-        self.nproc = int(args.nproc)
         self.vb = args.verbose
+        if args.nproc:
+            self.nproc = int(args.nproc)
+        else:
+            self.nproc = args.nproc
 
         # TESTING: Can remove in future
         self.flux_factors = {}
