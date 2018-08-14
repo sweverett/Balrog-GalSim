@@ -1706,8 +1706,6 @@ class Config(object):
 
         for arg, arg_val in args.items():
             try:
-                if arg=='nproc':
-                    pudb.set_trace()
                 # Have to handle `output_dir` to be consistent with GalSim
                 if arg == 'output_dir':
                     config_val = self.gs_config[0][base[arg]]['dir']
