@@ -79,7 +79,7 @@ class HexGrid(Grid):
         return
 
     @classmethod
-    def calc_hex_coords(cls, HexGrid, startx, starty, endx, endy, radius):
+    def calc_hex_coords(cls, startx, starty, endx, endy, radius):
         sl = (2 * radius) * np.tan(np.pi / 6)
 
         # Geoemtric factors of given hexagon
