@@ -281,6 +281,10 @@ class Tile(object):
         assert len(self.bal_config) == 1
         self.bal_config_len = 1
 
+        # NOTE: It is more efficient to put `nproc` in global output field
+        # when constructing lots of files
+        self.bal_config[0]['output'].update({'nproc':config.nproc})
+
         return
 
     def _load_zeropoints(self, config, s_begin=0, s_end=4):
@@ -766,9 +770,7 @@ class Tile(object):
             out_file = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real),
                                     config.data_version, self.tile_name, chip.band,
                                     '{}_balrog_inj.fits'.format(chip.name))
-            # NOTE: It is more efficient to put `nproc` here rather than `image` when
-            # constructing lots of files
-            self.bal_config[i]['output'] = {'file_name' : out_file, 'nproc' : config.nproc}
+            self.bal_config[i]['output'] = {'file_name' : out_file}
 
             # NOTE: Some input types require the field `bands` to be set, and so will fail
             # if we do not set it for this chip injection (even though it is never technically
