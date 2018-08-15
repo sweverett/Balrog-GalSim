@@ -281,12 +281,12 @@ class Tile(object):
         assert len(self.bal_config) == 1
         self.bal_config_len = 1
 
-        # NOTE: It is more efficient to put `nproc` in global output field
-        # when constructing lots of files
+        # NOTE: The GalSim documentation states that it is more efficient to put `nproc` in global
+        # output field when constructing lots of files, but we have not found that to be the case
         try:
-            self.bal_config[0]['output'].update({'nproc':config.nproc})
+            self.bal_config[0]['image'].update({'nproc':config.nproc})
         except KeyError:
-            self.bal_config[0]['output'] = {'nproc':config.nproc}
+            self.bal_config[0]['image'] = {'nproc':config.nproc}
 
         return
 
@@ -1435,10 +1435,6 @@ class Config(object):
         self.output_dir = args.output_dir
         self.vb = args.verbose
         self.nproc = args.nproc
-        # if args.nproc:
-        #     self.nproc = int(args.nproc)
-        # else:
-        #     self.nproc = args.nproc
 
         # TESTING: Can remove in future
         self.flux_factors = {}
@@ -1708,7 +1704,7 @@ class Config(object):
                 'psf_dir':self.psf_dir, 'output_dir':self.output_dir, 'nproc':self.nproc}
 
         base = {'tile_list':'image', 'geom_file':'image', 'tile_dir':'image', 'psf_dir':'image',
-                'output_dir':'output', 'nproc':'output'}
+                'output_dir':'output', 'nproc':'image'}
 
         req = ['tile_list', 'geom_file']
         opt = ['tile_dir', 'psf_dir', 'output_dir', 'nproc']
