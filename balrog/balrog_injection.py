@@ -36,7 +36,7 @@ import grid
 import filters
 
 # Use for debugging
-import pudb
+# import pudb
 
 #-------------------------------------------------------------------------------
 # Important todo's:
@@ -1731,7 +1731,7 @@ class Config(object):
                                         'is inconsistent with config value of {}!'.format(config_val))
                 val = config_val
 
-            except KeyError:
+            except (KeyError, TypeError):
                 if arg_val is None and arg in req:
                     raise ValueError('Must pass {} in command line or config file!'.format(arg))
                 val = arg_val
