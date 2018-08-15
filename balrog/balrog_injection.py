@@ -36,7 +36,7 @@ import grid
 import filters
 
 # Use for debugging
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Important todo's:
@@ -283,7 +283,10 @@ class Tile(object):
 
         # NOTE: It is more efficient to put `nproc` in global output field
         # when constructing lots of files
-        self.bal_config[0]['output'].update({'nproc':config.nproc})
+        try:
+            self.bal_config[0]['output'].update({'nproc':config.nproc})
+        except KeyError:
+            self.bal_config[0]['output'] = {'nproc':config.nproc}
 
         return
 
@@ -1431,10 +1434,11 @@ class Config(object):
         self.psf_dir = args.psf_dir
         self.output_dir = args.output_dir
         self.vb = args.verbose
-        if args.nproc:
-            self.nproc = int(args.nproc)
-        else:
-            self.nproc = args.nproc
+        self.nproc = args.nproc
+        # if args.nproc:
+        #     self.nproc = int(args.nproc)
+        # else:
+        #     self.nproc = args.nproc
 
         # TESTING: Can remove in future
         self.flux_factors = {}
@@ -1717,7 +1721,7 @@ class Config(object):
                 else:
                     config_val = self.gs_config[0][base[arg]][arg]
                 if arg_val and config_val != arg_val:
-                    if os.path.isfile(arg_val) or os.path.isdir(arg_val):
+                    if isinstance(arg_val, str) and (os.path.isfile(arg_val) or os.path.isdir(arg_val)):
                         # The following works for both files and directories
                         if not os.path.samefile(arg_val, config_val):
                             raise ValueError('Command-line argument {}={} '.format(arg, arg_val) +
@@ -2178,7 +2182,8 @@ def parse_args():
     # Optional argument for output directory (if not .)
     parser.add_argument('-o', '--output_dir', help='Directory that houses output Balrog images.')
     # Optional argument for GalSim # of processors
-    parser.add_argument('-n', '--nproc', help='Number of processors that GalSim will use when building files.')
+    parser.add_argument('-n', '--nproc', action='store', default='1', type=int,
+                        help='Number of processors that GalSim will use when building files.')
     # Optional argument for verbose messages
     parser.add_argument('-v', '--verbose', action='store', nargs='?', default='0', const='1', type=int,
                         help='Turn on verbose mode for additional messages.')
