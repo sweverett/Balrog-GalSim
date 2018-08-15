@@ -661,6 +661,12 @@ class Tile(object):
         # Reset injections
         self.has_injections = False
 
+        # Place `nproc` in the config if it isn't there already
+        try:
+            self.bal_config[0]['image'].update({'nproc':config.nproc})
+        except KeyError:
+            self.bal_config[0]['image'] = {'nproc':config.nproc}
+
         return
 
     def set_bal_config_name(self, config):
