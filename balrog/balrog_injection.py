@@ -568,15 +568,62 @@ class Tile(object):
 
                             gs = ps['grid_spacing']
 
+                            # Rotate grid if asked
+                            try:
+                                r = ps['rotate']
+                                if (isinstance(r, str)) and (r.lower() == 'random'):
+                                    if ps['type'] == 'RectGrid':
+                                        self.grid_rot_angle = np.rand.uniform(0., np.pi/2.)
+                                    elif ps['type'] == 'HexGrid':
+                                        self.grid_rot_angle = np.rand.uniform(0., np.pi/3.)
+                                else:
+                                    unit = ps['angle_unit']
+                                    if unit == 'deg':
+                                        if (r>=0.0) and (r<360.0):
+                                            self.grid_rot_angle = float(r)
+                                        else:
+                                            raise ValueError('Grid rotation of {} '.format(r) +
+                                                             'deg is not valid!')
+                                    else:
+                                        if (r>=0.0) and (r<2*np.pi):
+                                            self.grid_rot_angle = float(r)
+                                        else:
+                                            raise ValueError('Grid rotation of {} '.format(r) +
+                                                             'rad is not valid!')
+                            except KeyError:
+                                self.grid_rot_angle = 0.0
+
+                            # Offset grid if asked
+                            try:
+                                o = ps['offset']
+                                if (isinstance(o, str)) and (o.lower() == 'random'):
+                                    self.grid_offset = [np.rand.uniform(-gs/2., gs/2.),
+                                                        np.rand.uniform(-gs/2., gs/2.)]
+                                else:
+                                    if isinstance(o, list):
+                                        self.grid_offset = list(o)
+                                    else:
+                                        raise ValueError('Grid offset of {} '.format(r) +
+                                                         'is not an array!')
+                            except KeyError:
+                                self.grid_offset = [0.0, 0.0]
+
                             # Creates the rectangular grid given tile parameters and calculates the
                             # image / world positions for each object
                             if ps['type'] == 'RectGrid':
                                 tile_grid = grid.RectGrid(gs, self.wcs, Npix_x=self.Npix_x,
-                                                    Npix_y=self.Npix_y, pixscale=self.pixel_scale)
+                                                          Npix_y=self.Npix_y,
+                                                          pixscale=self.pixel_scale,
+                                                          rot_angle = self.grid_rot_angle,
+                                                          angle_unit = ps['angle_unit'],
+                                                          pos_offset = self.grid_offset)
                             elif ps['type'] == 'HexGrid':
-                                # But for the future...
                                 tile_grid = grid.HexGrid(gs, self.wcs, Npix_x=self.Npix_x,
-                                                    Npix_y=self.Npix_y, pixscale=self.pixel_scale)
+                                                         Npix_y=self.Npix_y,
+                                                         pixscale=self.pixel_scale,
+                                                         rot_angle = self.grid_rot_angle,
+                                                         angle_unit = ps['angle_unit'],
+                                                         pos_offset = self.grid_offset)
 
                             self.gals_pos[real] = tile_grid.pos
 
@@ -1664,7 +1711,8 @@ class Config(object):
         # Process input 'pos_sampling'
         self.pos_sampling = {}
         valid_pos_sampling = ['uniform', 'RectGrid', 'HexGrid']
-        default_gs = 40. # arcsec
+        valid_grid_types = ['RectGrid', 'HexGrid']
+        default_gs = 20 # arcsec
         try:
             ps = self.gs_config[0]['image']['pos_sampling']
             if isinstance(ps, basestring):
@@ -1673,21 +1721,63 @@ class Config(object):
                     raise ValueError('{} is not a valid position sampling method. '.format(ps) +
                                     'Currently allowed methods are {}'.format(valid_pos_sampling))
 
-                print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
-                self.pos_sampling = {'type' : ps, 'grid_spacing' : default_gs}
+                if ps in valid_grid_types:
+                    print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
+                    self.pos_sampling = {'type' : ps, 'grid_spacing' : default_gs}
+                else:
+                    self.pos_sampling = {'type' : ps}
             elif isinstance(ps, dict):
                 if 'type' not in ps.keys():
                     raise ValueError('If `pos_sampling` is passed as a dict, then must set a type!')
-                if 'grid_spacing' not in ps.keys():
+                if (ps in valid_grid_types) and ('grid_spacing' not in ps.keys()):
                     print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
                     ps['grid_spacing'] = default_gs
-                keys = ['type', 'grid_spacing']
+                keys = ['type', 'grid_spacing', 'rotate', 'offset', 'angle_unit']
                 for key, val in ps.items():
                     if key not in keys:
                         raise ValueError('{} is not a valid key for `pos_sampling`! '.format(key) +
                                          'You may only pass the keys {}'.format(keys))
                     if key == 'grid_spacing':
-                        assert val > 0.
+                        if val < 0.0:
+                            raise ValueError('grid_spacing of {} is invalid; '.format(val) +
+                                             'must be positive!')
+                    if key == 'rotate':
+                        if isinstance(val, str):
+                            if val.lower() != 'random':
+                                raise ValueError('{} is not a valid grid rotation type!'.format(val) +
+                                                 'Must be `Random` or a number.')
+                        self.pos_sampling.update({'rotate':val})
+                        try:
+                            unit = ps['angle_unit'].lower()
+                            if unit == 'deg':
+                                if (val<0.0) or (val>360.0):
+                                    raise ValueError('rotate value of {} deg is invalid!'.format(val))
+                            if unit == 'rad':
+                                if (val<0.0) or (val>2*np.pi):
+                                    raise ValueError('rotate value of {} rad is invalid!'.format(val))
+                                else:
+                                    raise ValueError('angle_unit of {} is invalid! '.format(unit) +
+                                                     'only can pass `deg` or `rad`.')
+                            self.pos_sampling.update({'angle_unit':unit})
+                        except KeyError:
+                            # Default of rad
+                            if (val<0.0) or (val>2*np.pi):
+                                raise ValueError('rotate value of {} rad is invalid!'.format(val))
+                            self.pos_sampling.update({'angle_unit':'rad'})
+                        self.pos_sampling.update({'rotate':val})
+
+                    if key == 'offset':
+                        if isinstance(val, str):
+                            if val.lower() != 'random':
+                                raise ValueError('{} is not a valid grid offset!'.format(val) +
+                                'must be `Random` or an array.')
+                            self.pos_sampling.update({'offset':val})
+                        elif isinstance(val, list):
+                            assert len(val)==2
+                            self.pos_sampling.update({'offset':val})
+                        else:
+                            raise TypeError('grid offset of type {} is invalid!'.format(type(val)))
+
 
                     self.pos_sampling[key] = val
 
@@ -2184,7 +2274,7 @@ def parse_args():
     # Optional argument for output directory (if not .)
     parser.add_argument('-o', '--output_dir', help='Directory that houses output Balrog images.')
     # Optional argument for GalSim # of processors
-    parser.add_argument('-n', '--nproc', action='store', default='1', type=int,
+    parser.add_argument('-n', '--nproc', action='store', type=int,
                         help='Number of processors that GalSim will use when building files.')
     # Optional argument for verbose messages
     parser.add_argument('-v', '--verbose', action='store', nargs='?', default='0', const='1', type=int,
