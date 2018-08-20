@@ -647,7 +647,6 @@ class Tile(object):
                         # for some testing it would be nice to use an identical galaxy for all
                         # injections. In this case, the user can set a single index in the 'gal'
                         # section of the global config
-                        pudb.set_trace()
                         try:
                             orig_indx = config.gs_config[0]['gal']['index']
                             if type(orig_indx) is int:
