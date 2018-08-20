@@ -608,6 +608,11 @@ class Tile(object):
                             except KeyError:
                                 self.grid_offset = [0.0, 0.0]
 
+                            try:
+                                self.angle_unit = ps['angle_unit']
+                            except KeyError:
+                                self.angle_unit = None
+
                             # Creates the rectangular grid given tile parameters and calculates the
                             # image / world positions for each object
                             if ps['type'] == 'RectGrid':
@@ -615,14 +620,14 @@ class Tile(object):
                                                           Npix_y=self.Npix_y,
                                                           pixscale=self.pixel_scale,
                                                           rot_angle = self.grid_rot_angle,
-                                                          angle_unit = ps['angle_unit'],
+                                                          angle_unit = self.angle_unit,
                                                           pos_offset = self.grid_offset)
                             elif ps['type'] == 'HexGrid':
                                 tile_grid = grid.HexGrid(gs, self.wcs, Npix_x=self.Npix_x,
                                                          Npix_y=self.Npix_y,
                                                          pixscale=self.pixel_scale,
                                                          rot_angle = self.grid_rot_angle,
-                                                         angle_unit = ps['angle_unit'],
+                                                         angle_unit = self.angle_unit,
                                                          pos_offset = self.grid_offset)
 
                             self.gals_pos[real] = tile_grid.pos
