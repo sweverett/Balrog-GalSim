@@ -647,12 +647,14 @@ class Tile(object):
                         # for some testing it would be nice to use an identical galaxy for all
                         # injections. In this case, the user can set a single index in the 'gal'
                         # section of the global config
-                        # pudb.set_trace()
+                        pudb.set_trace()
                         try:
                             orig_indx = config.gs_config[0]['gal']['index']
                             if type(orig_indx) is int:
                                 # Need to find original index of catalog
                                 gs_config = copy.deepcopy(config.gs_config[0])
+                                # Add dummy band index
+                                gs_config['input']['ngmix_catalog'].update({'bands':'griz'})
                                 galsim.config.ProcessInput(gs_config)
                                 cat_proxy = gs_config['input_objs'][input_type][0] # Actually a proxy
                                 cat = cat_proxy.getCatalog()
