@@ -786,7 +786,7 @@ class Tile(object):
 
             # If noise is to be added, do it here
             # pudb.set_trace()
-            if self.noise_model is not None:
+            if self.noise_model:
                 if self.noise_model in ['CCD', 'BKG+CCD']:
                     self.bal_config[i]['image']['noise'] = {
                         'type' : 'CCD',
@@ -794,16 +794,16 @@ class Tile(object):
                         'gain' : float(np.mean(chip.gain)),
                         'read_noise' : float(np.mean(chip.read_noise))
                     }
-            elif self.noise_model in ['BKG+RN', 'BKG+SKY']:
-                if self.noise_model == 'BKG+RN':
-                    sigma = float(np.mean(chip.read_noise))
-                elif self.noise_model == 'BKG+SKY':
-                    sigma = chip.sky_sigma
-                    self.bal_config[i]['image']['noise'] = {
-                        'type' : 'Gaussian',
-                        'sigma' : sigma
-                    }
-            if self.noise_model in ['BKG', 'BKG+CCD', 'BKG+RN']:
+                elif self.noise_model in ['BKG+RN', 'BKG+SKY']:
+                    if self.noise_model == 'BKG+RN':
+                        sigma = float(np.mean(chip.read_noise))
+                    elif self.noise_model == 'BKG+SKY':
+                        sigma = chip.sky_sigma
+                        self.bal_config[i]['image']['noise'] = {
+                            'type' : 'Gaussian',
+                            'sigma' : sigma
+                        }
+            if 'BKG' in self.noise_model:
                 # Use chip background file as initial image instead
                 self.bal_config[i]['image'].update({'initial_image' : chip.bkg_file})
             # Can add more noise models here!
