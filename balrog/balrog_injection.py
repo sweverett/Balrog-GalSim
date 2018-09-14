@@ -801,7 +801,7 @@ class Tile(object):
                         sigma = chip.sky_sigma
                         self.bal_config[i]['image']['noise'] = {
                             'type' : 'Gaussian',
-                            'sigma' : sigma / 100.0
+                            'sigma' : sigma
                         }
             if 'BKG' in self.noise_model:
                 # Use chip background file as initial image instead
