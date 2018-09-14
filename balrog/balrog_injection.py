@@ -801,7 +801,7 @@ class Tile(object):
                         sigma = chip.sky_sigma
                         self.bal_config[i]['image']['noise'] = {
                             'type' : 'Gaussian',
-                            'sigma' : sigma
+                            'sigma' : sigma / 100.0
                         }
             if 'BKG' in self.noise_model:
                 # Use chip background file as initial image instead
@@ -1060,9 +1060,10 @@ class Tile(object):
             outfiles['gals'] = base_outfile + '_gals.fits'
             truth['gals'] = config.input_cats[config.input_types['gals']][self.gals_indx[real]]
             # Now update ra/dec positions for truth catalog
-            if config.input_types['gals'] == 'ngmix_catalog':
-                truth['gals']['ra'] = self.gals_pos[self.curr_real][:,0]
-                truth['gals']['dec'] = self.gals_pos[self.curr_real][:,1]
+            # TODO: Make sure this is ok to remove!
+            # if config.input_types['gals'] == 'ngmix_catalog':
+            truth['gals']['ra'] = self.gals_pos[self.curr_real][:,0]
+            truth['gals']['dec'] = self.gals_pos[self.curr_real][:,1]
         if config.sim_stars is True:
             outfiles['stars'] = base_outfile + '_stars.fits'
             truth['stars'] = config.input_cats[config.input_types['stars']][self.stars_indx[real]]
@@ -1070,6 +1071,9 @@ class Tile(object):
             if config.input_types['stars'] == 'des_star_catalog':
                 truth['stars']['RA_new'] = self.stars_pos[self.curr_real][:,0]
                 truth['stars']['DEC_new'] = self.stars_pos[self.curr_real][:,1]
+            else:
+                truth['stars']['ra'] = self.stars_pos[self.curr_real][:,0]
+                truth['stars']['dec'] = self.stars_pos[self.curr_real][:,1]
 
         for inj_type, outfile in outfiles.items():
             try:
