@@ -803,9 +803,9 @@ class Tile(object):
                             'type' : 'Gaussian',
                             'sigma' : sigma
                         }
-            if 'BKG' in self.noise_model:
-                # Use chip background file as initial image instead
-                self.bal_config[i]['image'].update({'initial_image' : chip.bkg_file})
+                if 'BKG' in self.noise_model:
+                    # Use chip background file as initial image instead
+                    self.bal_config[i]['image'].update({'initial_image' : chip.bkg_file})
             # Can add more noise models here!
             # elif ...
 
