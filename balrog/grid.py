@@ -13,7 +13,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import pudb
+# import pudb
 
 class Grid(object):
 
@@ -141,7 +141,6 @@ class HexGrid(Grid):
 
         po = self.pos_offset
         im_po = [p / self.pixscale for p in po]
-        pudb.set_trace()
         self.im_pos = HexGrid.calc_hex_coords(self.startx, self.starty,
                                               self.endx, self.endy, im_gs)
 
