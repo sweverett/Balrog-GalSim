@@ -13,7 +13,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-# import pudb
+import pudb
 
 class Grid(object):
 
@@ -141,6 +141,7 @@ class HexGrid(Grid):
 
         po = self.pos_offset
         im_po = [p / self.pixscale for p in po]
+        pudb.set_trace()
         self.im_pos = HexGrid.calc_hex_coords(self.startx, self.starty,
                                               self.endx, self.endy, im_gs)
 
@@ -192,9 +193,9 @@ class HexGrid(Grid):
         s = np.shape(p)
         L = s[0]*s[1]
         pp = np.array(p).reshape(L,2)
-	return np.vstack({tuple(row) for row in pp})
-        # NOTE: Requires numpy 1.3.3
-        # return np.unique(pp, axis=0)
+        c = np.vstack({tuple(row) for row in pp})
+        # Some of the redundant coordinates are offset by ~1e-10 pixels
+        return np.unique(c.round(decimals=6), axis=0)
 
     def rotate_polygons():
         return
