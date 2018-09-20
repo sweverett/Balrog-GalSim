@@ -661,9 +661,9 @@ class Tile(object):
                                 indices = indx * np.ones(ngals, dtype='int16')
                                 del cat_proxy
                                 del cat
-				# Now remove `index` from global config (can cause issues w/
-				# other input types
-				self.bal_config[0]['gal'].pop('index', None)
+                                # Now remove `index` from global config (can cause issues w/
+                                # other input types
+                                self.bal_config[0]['gal'].pop('index', None)
                             else:
                                 raise TypeError('Can only set a global galaxy index in the ' +
                                                 'config if it is an integer!')
