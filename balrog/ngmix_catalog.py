@@ -15,7 +15,7 @@ from past.builtins import basestring # Python 2&3 compatibility
 # import pudb
 
 # TODO: Include noise, pixscale
-# TODO: Understand T=0 cases! (shouldn't be)
+# TODO: Understand T=0 cases!
 # TODO: Handle case of gparams=None
 
 class ngmixCatalog(object):
@@ -409,11 +409,7 @@ class ngmixCatalog(object):
                 # gm_pars = [centroid1, centroid2, g1, g2, T, flux]
                 # (this is identical to ngmix catalogs, except that flux is a vector
                 # of fluxes in all color bands)
-                #
-                # NOTE: Naively I would expect to put shape (g1,g2) in this array,
-                # but I will follow what is done in ESheldon's repo `nsim/sigms.py`
-                # https://github.com/esheldon/nsim/
-                gm_pars = [0.0, 0.0, 0.0, 0.0, T, flux]
+                gm_pars = [0.0, 0.0, g1, g2, T, flux]
 
                 # Build the appropriate Gaussian mixture for a cm-model
                 # NOTE: we use a slightly modified version of the GMixCM class.
@@ -440,15 +436,6 @@ class ngmixCatalog(object):
                 # TODO: While this check has already been made, it is possible that a new valid catalog type
                 # is added but whose GSObject conversion isn't implemented. Should come up with a more robust check!
                 raise ValueError('The ngmix catalog type {} is not yet supported!'.format(ct))
-
-            # Give intrinsic shape
-            gal = gal.shear(g1=g1, g2=g2)
-
-            # TODO: Implement shearing of intrinsic shape
-            # now shear it
-            # if 'shear' in pars:
-            #     shear=pars['shear']
-            #     gal = gal.shear(g1=shear.g1, g2=shear.g2)
 
             # Add galaxy in given band to list
             gsobjects.append(gal)
