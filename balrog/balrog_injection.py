@@ -40,7 +40,6 @@ import filters
 
 #-------------------------------------------------------------------------------
 # Important todo's:
-# TODO: Add a cut on TdByTe!
 # TODO: Implement error handling for galaxy injections / gsparams! (Working solution, but need
 #       to look into more detail per Erin)
 # TODO: Clean up evals in add_gs_injection()!
