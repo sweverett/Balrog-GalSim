@@ -12,7 +12,7 @@ import numpy as np
 import logging
 import warnings
 from past.builtins import basestring # Python 2&3 compatibility
-# import pudb
+import pudb
 
 # TODO: Include noise, pixscale
 # TODO: Understand T=0 cases!
@@ -559,6 +559,7 @@ class BalGMixCM(ngmix.gmix.GMixCM):
             flux = data['p'][i]
             T = data['irr'][i] + data['icc'][i]
             # assert(T!=0.0)
+            print 'For index {}: T={:.16f}; flux={:.16f}'.format(i, T, flux)
             if T==0:
                 # TODO: Explore this issue more! T is being stored as nonzero -
                 #       what is causing this?
@@ -575,6 +576,8 @@ class BalGMixCM(ngmix.gmix.GMixCM):
             sigma_round = np.sqrt(Tround/2.0)
 
             gsobj = galsim.Gaussian(flux=flux, sigma=sigma_round,gsparams=gsparams)
+            if flux==0:
+                print 'For index {} after GS: flux={:.16f}'.format(i, gsobj.flux)
 
             gsobj = gsobj.shear(g1=g1, g2=g2)
             gsobj = gsobj.shift(colshift, rowshift)
