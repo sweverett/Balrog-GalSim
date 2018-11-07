@@ -2069,7 +2069,6 @@ class Config(object):
         # Grab needed info from the proxy catalog
         # for i, input_type in enumerate(input_cat_types):
         # for  input_type in enumerate(self.input_types)
-        # pudb.set_trace()
         for input_type in self.input_types.values():
             # Only do this for injection types (gals, stars)
             # if i not in self.input_indx.values(): continue
