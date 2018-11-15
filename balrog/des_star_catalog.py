@@ -22,27 +22,30 @@ class desStarCatalog(object):
     """ Class that handles Sahar's star catalogs for DES. These are cvs files with names typically
     of the form #TODO.
 
-    # TODO: Update list for stars when ready!
-    # @param file_name       The file name to be read in, or a pyfits HDU in which case it is used
-    #                        directly instead of being opened.
-    # @param dir             Optionally a directory name can be provided if the file_name does not
-    #                        already include it.  (The image file is assumed to be in the same
-    #                        directory.) (Default `dir = None`).  Cannot pass an HDU with this option.
-    # @param catalog_type    The type of the input ngmix catalog. Only those in `valid_catalog_types`
-    #                        are currently supported. If none is passed, the type is attempted to be
-    #                        inferred from the filename.
+    # @param base_dir        Location of all tile-specific catalog directories.
+    # @param model_type      A string of which star catalog model type to use
+                             (e.g. 'Extra_10_percent_16.5-26.5').
+    # @param tile            Which catalog tile to load.
     # @param bands           A string of the desired bands to simulate from (only griz allowed). For
     #                        example, selecting only the 'g' and 'r' bands would be done by setting
     #                        bands='gr'. If none are passed, the g-band is selected by default.
     # @param snr_min         The lower allowed bound for signal-to-noise ratio (snr). Can be any
     #                        positive value, as long as it is smaller than `snr_max`. All objects with
     #                        negative snr are removed by default.
-    # @param snr_max         The upper allowed bound for snr. Unlikely to be used very often, but
-    #                        included for completeness.
-    # @param t_frac          The cutoff used for object size (T) / object size error (T_err). All
+    # @param file_type       Which file extension is used for the star catalogs (not needed yet, is csv)
+    #                        between versions is different (not needed yet)
+    # @param data_version    Specify which version of the catalog is being used if the processing
+    #                        between versions is different (not needed yet)
+    # @param zeropoint       Reference zeropoint used for star catalog (Default: 30)
     #                        objects below this cutoff will be removed. (Default: `t_frac=0.5`).
+    # @param base_model      Used for Balrog simulations where multiple model types will be
+    #                        needed accross many realizations of images. Must be a valid model type
+    #                        and must be a divisor of the selected model type.
+    #                        For example, a simulation with 10 realizations will need to use a model
+    #                        type of `Extra_%_percent` where % is a multiple of 10 up to 100.
+    #                        So the base_model would be 'Extra_10_percent'.
     # @param _nobjects_only  This is only passed if GalSim wants to know how many input objects will
-                           be used without processing the whole input catalog.
+                             be used without processing the whole input catalog.
     """
 
     _req_params = { 'base_dir' : str, 'model_type' : str, 'tile' : str, 'bands': str}
@@ -385,7 +388,8 @@ class desStarCatalog(object):
         if rng is None:
             rng = galsim.BaseDeviate()
 
-        # QSTN: What is the weighting scheme for des star catalogs? Will need to adjust below code to match (or exclude entierly)
+        # QSTN: What is the weighting scheme for des star catalogs? Will need to adjust below code
+        # to match (or exclude entierly)
         if hasattr(self.catalog, 'weight'):
             use_weights = self.catalog.weight[self.orig_index]
         else:
