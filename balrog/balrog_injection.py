@@ -64,16 +64,15 @@ import filters
 # MUST be one of the types. For `supported`, no guarantees are made if input is
 # not one of the types.
 
-# QUESTION: Will we ever use `u`?
 _allowed_bands = 'grizy'
 
 # TODO: Allow Piff when available!
 _supported_psf_types = ['DES_PSFEx']#, 'Piff'}
 _psf_extensions = {'DES_PSFEx' : 'psfexcat.psf'}#, 'Piff' : 'something.piff'}
 
-# TODO: Incorporate postage stamps!
-_supported_input_types = ['ngmix_catalog', 'des_star_catalog', 'cosmos_chromatic_catalog']#, 'postage_stamps'}
-_supported_gal_types = ['ngmix_catalog', 'cosmos_chromatic_catalog']
+_supported_input_types = ['ngmix_catalog', 'des_star_catalog', 'cosmos_chromatic_catalog',
+                          'meds_catalog']
+_supported_gal_types = ['ngmix_catalog', 'cosmos_chromatic_catalog', 'meds_catalog']
 _supported_star_types = ['des_star_catalog']
 
 #-------------------------------------------------------------------------------
@@ -532,8 +531,8 @@ class Tile(object):
         '''
 
         input_type = config.input_types['gals']
-        if input_type == 'ngmix_catalog' or input_type == 'cosmos_chromatic_catalog':
-            input_type = 'ngmix_catalog'
+        if input_type in ['ngmix_catalog, cosmos_chromatic_catalog', 'meds_catalog']:
+            # input_type = 'ngmix_catalog'
             gal_type = config.input_types['gals']
             if config.data_version == 'y3v02':
                 # Generate galaxy positions and indices if this is the first realization
@@ -646,17 +645,23 @@ class Tile(object):
                         # for some testing it would be nice to use an identical galaxy for all
                         # injections. In this case, the user can set a single index in the 'gal'
                         # section of the global config
+                        # pudb.set_trace()
                         try:
                             orig_indx = config.gs_config[0]['gal']['index']
                             if type(orig_indx) is int:
                                 # Need to find original index of catalog
                                 gs_config = copy.deepcopy(config.gs_config[0])
                                 # Add dummy band index
-                                gs_config['input']['ngmix_catalog'].update({'bands':'griz'})
+                                gs_config['input'][input_type].update({'bands':'griz'})
                                 galsim.config.ProcessInput(gs_config)
                                 cat_proxy = gs_config['input_objs'][input_type][0] # Actually a proxy
                                 cat = cat_proxy.getCatalog()
-                                indx = int(np.where(cat['id']==orig_indx)[0])
+                                if input_type == 'ngmix_catalog':
+                                    indx = int(np.where(cat['id']==orig_indx)[0])
+                                elif input_type == 'meds_catalog':
+                                    # ID's consistent between bands
+                                    b = cat_proxy.bands[0]
+                                    indx = int(np.where(cat[b]['id']==orig_indx)[0])
                                 indices = indx * np.ones(ngals, dtype='int16')
                                 del cat_proxy
                                 del cat
@@ -892,7 +897,7 @@ class Tile(object):
             })
 
         # pudb.set_trace()
-        if input_type in ['ngmix_catalog', 'des_star_catalog']:
+        if input_type in ['ngmix_catalog', 'meds_catalog', 'des_star_catalog']:
             # Set the band for injection
             self.bal_config[i]['input'].update({
                 input_type : {'bands' : chip.band}
@@ -1059,8 +1064,6 @@ class Tile(object):
             outfiles['gals'] = base_outfile + '_gals.fits'
             truth['gals'] = config.input_cats[config.input_types['gals']][self.gals_indx[real]]
             # Now update ra/dec positions for truth catalog
-            # TODO: Make sure this is ok to remove!
-            # if config.input_types['gals'] == 'ngmix_catalog':
             truth['gals']['ra'] = self.gals_pos[self.curr_real][:,0]
             truth['gals']['dec'] = self.gals_pos[self.curr_real][:,1]
         if config.sim_stars is True:
@@ -1883,7 +1886,7 @@ class Config(object):
 
     def _load_input_catalogs(self):
         '''
-        Load any relevant info from the input catalog(s) (for now just ngmix and desStars)
+        Load any relevant info from the input catalog(s)
         '''
 
         # Determine input type
@@ -1916,15 +1919,23 @@ class Config(object):
                     self.sim_gals = True
                     self.input_indx['gals'] = i
                     self.input_types['gals'] = input_type
+
                     # TODO: Can we grab the injection type from the registered GS catalog?
-                    if input_type == 'ngmix_catalog':
-                        import ngmix_catalog
-                        self.inj_types['gals'] = 'ngmixGalaxy'
+                    # pudb.set_trace()
+                    if input_type in ['ngmix_catalog', 'meds_catalog']:
+                        if input_type == 'ngmix_catalog':
+                            from ngmix_catalog import ngmixCatalog as CATMOD
+                            from ngmix_catalog import ngmixCatalogLoader as LOADMOD
+                        if input_type == 'meds_catalog':
+                            from meds_catalog import MEDSCatalog as CATMOD
+                            from meds_catalog import MEDSCatalogLoader as LOADMOD
 
                         # As we are outside of the GalSim executable, we need to register
                         # the input type explicitly
-                        galsim.config.RegisterInputType('ngmix_catalog', ngmix_catalog.ngmixCatalogLoader(
-                            ngmix_catalog.ngmixCatalog, has_nobj=True))
+                        galsim.config.RegisterInputType(input_type, LOADMOD(CATMOD, has_nobj=True))
+
+                        base_cat = input_type.split()[0]
+                        self.inj_types['gals'] = base_cat + 'Galaxy'
 
                         # This avoids a printed warning, and sets up the input correctly
                         # as no bands are passed in bal_config
@@ -1937,9 +1948,8 @@ class Config(object):
                             self.input_zp = 30.0
                         else:
                             # In future, can add updated input parsing
-                            raise ValueError('No input parsing defined for ngmix catalogs for ' +
-                            'data version {}'.format(self.data_version))
-
+                            raise ValueError('No input parsing defined for {} catalogs for ' +
+                            'data version {}. (y3v02 for DES Y3A2)'.format(input_type, self.data_version))
 
                     elif input_type == 'cosmos_chromatic_catalog':
                         self.inj_types['gals'] = 'COSMOSChromaticGalaxy'
