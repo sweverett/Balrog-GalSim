@@ -3,6 +3,7 @@ from . import sim
 from . import files
 from . import ngmix_catalog
 from . import des_star_catalog
+from . import meds_catalog
 from . import injector
 from . import scene_chromatic
 from . import input_cosmos_chromatic
