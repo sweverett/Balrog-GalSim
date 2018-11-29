@@ -139,7 +139,7 @@ class ngmixCatalog(object):
             if snr_max < 0.0:
                 raise ValueError("The signal-to-noise ratio `snr` must be positive!")
             elif snr_min and (snr_min > snr_max):
-                raise ValueError("`t_max` must be greater than `t_min`!")
+                raise ValueError("`snr_max` must be greater than `snr_min`!")
             self.snr_max = snr_max
         else:
             self.snr_max = None
@@ -267,12 +267,6 @@ class ngmixCatalog(object):
         mask[self.catalog[cp+'_T'] < self.t_min] = False
         if self.t_max:
             mask[self.catalog[cp+'_T'] > self.t_max] = False
-
-        # TODO: Quick fix for the moment, should figure out rigorous cutoff
-        # Looks like we likely want SNR > 10 and T/T_err>0.5; leaving for the moment
-        # but should be deleted soon
-        # cut = 1e-5
-        # mask[self.catalog[self.col_prefix+'_T'] < cut] = False
 
         self.mask = mask
 
