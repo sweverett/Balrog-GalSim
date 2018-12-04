@@ -1,0 +1,102 @@
+modules :
+  - galsim.des
+  - injector
+  - ngmix_catalog
+  - meds_catalog
+
+# These variables are not directly processed by GalSim; this simply allows a convenient way
+# to change multiple variable instances quickly throughout the config file.
+some_variables :
+  # Pick a maximum fft size
+  - &max_fft 65536
+  - &bal_dir '/data/des61.a/data/severett/Balrog-GalSim'
+  - &ngmix_dir '/data/des61.a/data/severett/Balrog-GalSim/inputs'
+  - &ngmix_file 'DES0113-4331-y3v02a-mof-001.fits'
+  - &meds_dir '/home/spencer/research/balrog/deep-fields/corr_meds'
+  - &meds_file 'SN-C3_C28_r3513p01_r_meds-Y3A2_DEEP.fits.fz'
+  - &psf_dir '/home/spencer/research/balrog/deep-fields/psfs/'
+  - &psf_file 'SN-C3_C28_r3513p01_r_psfcat.psf'
+  - &truth_file '/home/spencer/research/balrog/deep-fields/mof/SN-C3_C28_r3513p01_g_meds-Y3A2_DEEP_mof.fits'
+    #- &truth_dir ''
+
+# Define the input files
+input :
+    meds_catalog :
+      bands : 'griz'
+      snr_min : 40
+      #flux_min : 10000
+      #flux_max : 11000
+      param_catalog : *truth_file
+      meds_dir : *meds_dir
+      meds_files : [ corr_SN-C3_C28_r3513p01_g_meds-Y3A2_DEEP.fits.fz,
+                     corr_SN-C3_C28_r3513p01_r_meds-Y3A2_DEEP.fits.fz,
+                     corr_SN-C3_C28_r3513p01_i_meds-Y3A2_DEEP.fits.fz,
+                     corr_SN-C3_C28_r3513p01_z_meds-Y3A2_DEEP.fits.fz ]
+      psf_dir : *psf_dir
+      psf_files : [ SN-C3_C28_r3513p01_g_psfcat.psf,
+                    SN-C3_C28_r3513p01_r_psfcat.psf,
+                    SN-C3_C28_r3513p01_i_psfcat.psf,
+                    SN-C3_C28_r3513p01_z_psfcat.psf ]
+
+# The gal field defines what kind of galaxy profile to use.
+gal:
+    type : MEDSGalaxy
+
+psf :
+    # For DES chip images with PSFEx files
+    # NOTE: In figure, Piff PSFs may be used instead
+    type : DES_PSFEx
+
+stamp :
+    # Nothing required here, but feel free to add additional config options
+    gsparams :
+      # fft size is the most likely change you'll want to make
+      maximum_fft_size : *max_fft
+
+    draw_method : no_pixel
+
+image :
+    # For injected images:
+    type : Balrog # Same as AddOn, but with some additional input attributes and checking
+    tile_list : '/home/spencer/research/balrog/Balrog-GalSim/inputs/tilelist.csv'
+    geom_file : '/home/spencer/research/balrog/Balrog-GalSim/inputs/Y3A2_COADDTILE_GEOM.fits'
+    tile_dir : '/home/spencer/research/balrog/tiles/'
+
+    bands : 'griz'
+    # bands : 'r'
+
+    version : 'y3v02'
+    run_name : 'meds-test'
+
+    pos_sampling :
+        type : 'RectGrid'
+        grid_spacing : 50
+    inj_objs_only :
+      value : True
+      noise : None
+
+    noise :
+      type : Gaussian
+      sigma : 3.
+
+    # Load WCS from DES chip file
+    wcs :
+      type : Fits
+
+    # For the moment, 'grid' type images overwrite the number of galaxies by the correct
+    # number to fit the grid. Will update this when grid parameters can be passed
+    #n_galaxies : 4096 # for 1 realization
+    n_galaxies : 500
+
+    # Set the number of realizations / layers
+    n_realizations : 1
+
+    # TODO: In future, we should load these fields automatically in script.
+    xsize: 2048 # DES nullwt chip
+    ysize: 4096 # DES nullwt chip
+
+    # Number of processors to be used on GalSim injection step
+    nproc : 1
+
+output :
+    dir : '/home/spencer/research/balrog/Balrog-GalSim/tests/meds_test/'
