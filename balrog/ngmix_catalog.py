@@ -507,6 +507,9 @@ class ngmixCatalog(object):
     def getCatalog(self):
         return self.catalog
 
+    def getBands(self):
+        return self.bands
+
     # TODO: Write remaining `get` methods once saved columns are determined
 
     #------------------------------------------------------------------------------------------------

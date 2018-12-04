@@ -661,7 +661,7 @@ class Tile(object):
                                     indx = int(np.where(cat['id']==orig_indx)[0])
                                 elif input_type == 'meds_catalog':
                                     # ID's consistent between bands
-                                    b = cat_proxy.bands[0]
+                                    b = cat_proxy.getBands()[0]
                                     indx = int(np.where(cat[b]['id']==orig_indx)[0])
                                 indices = indx * np.ones(ngals, dtype='int16')
                                 del cat_proxy

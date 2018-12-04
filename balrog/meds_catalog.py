@@ -162,7 +162,7 @@ class MEDSGalaxy(GSObject):
         if band not in self._valid_bands:
             raise ValueError('Passed band %s is not valid ' %band +
                             '- only %s are currently accepted.' %self._valid_bands)
-        if band not in meds_catalog.bands:
+        if band not in meds_catalog.getBands():
             raise ValueError('Passed band %s is not contained in loaded MEDS catalog.' % band)
 
         if flux is not None and flux_rescale is not None:
@@ -182,14 +182,14 @@ class MEDSGalaxy(GSObject):
             iobj = meds_catalog.getIobjForID(id)
         elif random:
             ud = galsim.UniformDeviate(self.rng)
-            iobj = int(meds_catalog.nobjects * ud())
+            iobj = int(meds_catalog.getNObjects() * ud())
             if hasattr(meds_catalog, 'weight'):
                 # If weight factors are available, make sure the random selection uses the
                 # weights to remove the catalog-level selection effects (flux_radius-dependent
                 # probability of making a postage stamp for a given object).
                 while ud() > meds_catalog.weight[iobj]:
                     # Pick another one to try.
-                    iobj = int(meds_catalog.nobjects * ud())
+                    iobj = int(meds_catalog.getNObjects() * ud())
         else:
             raise AttributeError('No method specified for selecting a galaxy!')
         if logger:
@@ -197,7 +197,7 @@ class MEDSGalaxy(GSObject):
         # print('\niobj = {}!\n'.format(iobj))
 
         # Used for logging purposes
-        ident = meds_catalog.ident[iobj]
+        ident = meds_catalog.getIdent()[iobj]
 
         # Read in the galaxy, PSF images; for now, rely on pyfits to make I/O errors.
         self.gal_image = meds_catalog.getGalImage(iobj, icutout, band)
@@ -243,7 +243,7 @@ class MEDSGalaxy(GSObject):
 
         # Save any other relevant information as instance attributes
         self.index = iobj
-        self.pixel_scale = float(meds_catalog.pixel_scale)
+        self.pixel_scale = float(meds_catalog.getPixelScale())
         self._x_interpolant = x_interpolant
         self._k_interpolant = k_interpolant
         self._pad_factor = pad_factor
@@ -682,6 +682,10 @@ class MEDSCatalog(object):
     def getPSFFiles(self): return self.psf_files
 
     def getCatalog(self): return self.cats
+
+    def getIdent(self): return self.ident
+
+    def getPixelScale(self): return self.pixel_scale
 
     def getParamCatalog(self):
         model_fits = fitsio.read(self.param_catalog)
