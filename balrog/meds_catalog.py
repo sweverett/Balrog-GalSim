@@ -11,16 +11,17 @@
 
 import galsim
 from galsim import GSObject
-#from galsim import RealGalaxyCatalog
 from galsim.config.gsobject import RegisterObjectType
 from galsim.config.gsobject import SkipThisObject
 from galsim._pyfits import pyfits
+import fitsio
 import logging
 import os
 import meds
 import numpy as np
+import warnings
 
-import pudb
+# import pudb
 
 class MEDSGalaxy(GSObject):
     """A class describing real galaxies from some training dataset.  Its underlying implementation
@@ -460,7 +461,7 @@ class MEDSCatalog(object):
     _opt_params = {'meds_dir' : str, 'psf_dir' : str, 'preload' : str,
                    'pixel_scale' : float, 'psf_hdu' : int, 'jacob_flip' : bool,
                    'snr_min' : float, 'snr_max' : float, 'flux_min' : float,
-                   'flux_max' : float}
+                   'flux_max' : float, 'param_catalog' : str}
     _single_params = []
     _takes_rng = False
 
@@ -471,21 +472,29 @@ class MEDSCatalog(object):
     # So skip any other calculations that might normally be necessary on construction.
     def __init__(self, meds_files, psf_files, bands, meds_dir=None, psf_dir=None, preload=True,
                  pixel_scale=0.263, psf_hdu=1, logger=None, _nobjects_only=False,
-                 jacob_flip=False, snr_min=None, snr_max=None, flux_min=None, flux_max=None):
+                 jacob_flip=False, snr_min=None, snr_max=None, flux_min=None, flux_max=None,
+                 param_catalog=None):
 
+        # pudb.set_trace()
         bl = len(bands)
         if (bl != len(meds_files)) or (bl != len(psf_files)):
             raise ValueError('The number of passed bands (%s) does not match the number' % bl,
                              'of passed files!')
         self.bands = bands
         self.nbands = bl
-        self.bindex = dict(zip('griz', range(self.nbands)))
+        self.bindex = dict(zip(bands, range(self.nbands)))
 
         self.full_files = self._parse_files_dirs(meds_files, psf_files, meds_dir, psf_dir, bands)
         self.meds_files = self.full_files['MEDS']
         self.psf_files = self.full_files['PSF']
         # self.wcs_files = self.full_files['WCS']
+
+        if not os.path.isdir(os.path.abspath(meds_dir)):
+            raise ValueError('Passed `meds_dir` does not exist!')
         self.meds_dir = meds_dir
+
+        if not os.path.isdir(os.path.abspath(psf_dir)):
+            raise ValueError('Passed `psf_dir` does not exist!')
         self.psf_dir = psf_dir
         # self.wcs_dir = wcs_dir
 
@@ -527,6 +536,15 @@ class MEDSCatalog(object):
 
         self.jacob_flip = jacob_flip
         self._preload = preload
+
+        # Parametric truth catalog file, if passed
+        if not isinstance(param_catalog, str):
+            raise TypeError('`param_catalog` must be a filename!')
+        if not os.path.isfile(param_catalog):
+            # Try looking in the meds directory
+            if not os.path.isfile(os.path.join(self.meds_dir, param_catalog)):
+                raise ValueError('Passed `param_catalog` file does not exist!')
+        self.param_catalog = param_catalog
 
         self._setup_meds()
 
@@ -594,11 +612,11 @@ class MEDSCatalog(object):
                 if '_{}_'.format(b) not in files[b]:
                     for ob in bands.replace(b, ''):
                         if '_{}_'.format(ob) in files[band]:
-                            raise IOError('''Inconsistent matching between inputted bands and {} files!
-                                        '\'_{}_\' found in filename for band {}'''.format(ftype, ob, b))
-                    warnings.warn('No \'_{}_\' string was found in {} filename for band {},'.format(b,b),
-                                'but no explicit identifier for another band was found.',
-                                'Please ensure that bands and input files are listed consistently.')
+                            raise IOError('''Inconsistent matching between inputted bands and {:s} files!
+                                        '\'_{:s}_\' found in filename for band {:s}'''.format(ftype, ob, b))
+                    warnings.warn('No `_{}_` string was found in filename for band {},'.format(b,b) +
+                                  'but no explicit identifier for another band was found.' +
+                                  'Please ensure that bands and input files are listed consistently.')
 
         valid_bands = MEDSCatalog._valid_bands
         full_meds_files = {}
@@ -665,6 +683,15 @@ class MEDSCatalog(object):
 
     def getCatalog(self): return self.cats
 
+    def getParamCatalog(self):
+        model_fits = fitsio.read(self.param_catalog)
+        # NB: As discussed in `scene.py`, there is a bug in the pyfits FITS_Rec class that leads to memory leaks.
+        # The simplest workaround seems to be to convert it to a regular numpy recarray.
+        model_fits = np.array(model_fits, copy=True)
+
+        # Only return fits for objects that survived cuts
+        return model_fits[self.mask]
+
     def getIobjForID(self, id):
         """Internal function to find which object index corresponds to the value
         ID in the ident field.
@@ -713,32 +740,19 @@ class MEDSCatalog(object):
         return
 
     def _get_flags(self):
-        # self.flags = {}
-        # self.obj_flags = {}
-
-        # for band in self.bands:
-        #     # General flags
-        #     self.flags[band] = self.cats[band]['flags']
-        #     # self.obj_flags = self.catalog['obj_flags']
-
-        # self.flags = np.ones((self.nbands, self.orig_nobjects))
-
         self.flags = np.array([self.cats[b]['flags'] for b in self.bands])
 
         return
 
     def _make_mask(self):
 
-        # ones = np.ones(self.orig_nobjects, dtype=bool)
-        # base = self.orig_nobjects * [True]
-        # mask = zip(self.bands, lb*base)
-        # mask = dict.fromkeys(self.bands, np.ones(self.orig_nobjects, dtype=bool))
         mask = np.ones((self.nbands, self.orig_nobjects), dtype=bool)
 
         for b, i in self.bindex.items():
             mask[i][self.flags[i] != 0] = False
 
             # Remove objects with flux_min < flux < flux_max
+            # pudb.set_trace()
             flux = self.cats[b]['flux']
             mask[i][flux < self.flux_min] = False
             if self.flux_max:

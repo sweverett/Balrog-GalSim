@@ -222,6 +222,7 @@ class Tile(object):
 
         # For convenience of later functions
         self.bands = config.bands
+        self.bindx = dict(zip(self.bands, range(len(self.bands))))
 
         # Will store directory locatations for each band
         self.band_dir = {}
@@ -465,7 +466,7 @@ class Tile(object):
 
                     # Set up proxy catalog
                     gs_config = copy.deepcopy(config.orig_gs_config[0])
-                    gs_config['input'][input_type]['bands'] = 'griz'
+                    gs_config['input'][input_type]['bands'] = 'g' # Band doesn't matter
                     gs_config['input'][input_type]['tile'] = self.tile_name
 
                     # Don't need galaxy info, so remove for speed
@@ -651,8 +652,8 @@ class Tile(object):
                             if type(orig_indx) is int:
                                 # Need to find original index of catalog
                                 gs_config = copy.deepcopy(config.gs_config[0])
-                                # Add dummy band index
-                                gs_config['input'][input_type].update({'bands':'griz'})
+                                # Add dummy band index (band doesn't matter)
+                                gs_config['input'][input_type].update({'bands':'g'})
                                 galsim.config.ProcessInput(gs_config)
                                 cat_proxy = gs_config['input_objs'][input_type][0] # Actually a proxy
                                 cat = cat_proxy.getCatalog()
@@ -672,7 +673,7 @@ class Tile(object):
                                 raise TypeError('Can only set a global galaxy index in the ' +
                                                 'config if it is an integer!')
                         except KeyError:
-                            indices = np.array(rand.sample(xrange(Ng), ngals))
+                            indices = np.random.choice(xrange(Ng), size=ngals)
                             # indices = sample_uniform_indx(0, config.input_nobjects[gal_type], Ng)
                         self.gals_indx[real] = indices
 
@@ -742,6 +743,10 @@ class Tile(object):
         be done using nullwt chip-specific infomation and Balrog injected galaxy/star positions
         in image coordinates.
         '''
+
+        # TODO: This function has gotten unwieldly as Balrog has gotten more complex. We should
+        # restructure this in kind with new input object classes that have their own method for
+        # adding a gs injection to the config
 
         assert len(inj_indx) == len(inj_pos_im)
 
@@ -898,7 +903,7 @@ class Tile(object):
 
         # pudb.set_trace()
         if input_type in ['ngmix_catalog', 'meds_catalog', 'des_star_catalog']:
-            # Set the band for injection
+            # Only load into memory the needed band catalog information
             self.bal_config[i]['input'].update({
                 input_type : {'bands' : chip.band}
             })
@@ -930,7 +935,23 @@ class Tile(object):
             })
 
             # NOTE: Any extra fields to be set for a given input can be added here.
-            # ...
+
+            # pudb.set_trace()
+            if input_type == 'meds_catalog':
+                # Only use meds/psf files for needed band
+                b = self.bindx[chip.band]
+                meds_file = [self.bal_config[0]['input'][input_type]['meds_files'][b]]
+                psf_file = [self.bal_config[0]['input'][input_type]['psf_files'][b]]
+                self.bal_config[i]['input'][input_type].update({
+                    'meds_files' : meds_file,
+                    'psf_files' : psf_file
+                })
+
+                # TODO: We should switch all other input gal types to do the same.
+                # Set the injection band
+                self.bal_config[i]['gal'].update({
+                    'band' : chip.band
+                })
 
         #-----------------------------------------------------------------------------------------------
         # If multiple input types, use list structure
@@ -961,10 +982,23 @@ class Tile(object):
                 'y' : { 'type' : 'List', 'items' : y }
             })
 
-            # pudb.set_trace()
-
             # NOTE: Any extra fields to be set for a given input can be added here.
-            # ...
+
+            if input_type == 'meds_catalog':
+                # Only use meds/psf files for needed band
+                b = self.bindx[chip.band]
+                meds_file = [self.bal_config[0]['input']['items'][indx]['meds_files'][b]]
+                psf_file = [self.bal_config[0]['input']['items'][indx]['psf_files'][b]]
+                self.bal_config[i]['input']['items'][indx].update({
+                    'meds_files' : meds_file,
+                    'psf_files' : psf_file
+                })
+
+                # TODO: We should switch all other input gal types to do the same.
+                # Set the injection band
+                self.bal_config[i]['gal']['items'][indx].update({
+                    'band' : chip.band
+                })
 
         chip.types_injected += 1
 
@@ -1061,12 +1095,22 @@ class Tile(object):
                                     '{}_{}_balrog_truth_cat'.format(self.tile_name, real))
 
         if config.sim_gals is True:
+            itype = config.input_types['gals']
             outfiles['gals'] = base_outfile + '_gals.fits'
-            truth['gals'] = config.input_cats[config.input_types['gals']][self.gals_indx[real]]
+            # pudb.set_trace()
             # Now update ra/dec positions for truth catalog
-            truth['gals']['ra'] = self.gals_pos[self.curr_real][:,0]
-            truth['gals']['dec'] = self.gals_pos[self.curr_real][:,1]
+            if itype == 'ngmix_catalog':
+                truth['gals'] = config.input_cats[itype][self.gals_indx[real]]
+            elif itype == 'meds_catalog':
+                # Parametric truth catalog previously loaded in `load_input_catalogs()`
+                truth['gals'] = config.meds_param_catalog[self.gals_indx[real]]
+            # elif ...
+
+            # Tries multiple column keywords
+            self._write_new_positions(truth, 'gals', itype)
+
         if config.sim_stars is True:
+            itype = config.input_types['stars']
             outfiles['stars'] = base_outfile + '_stars.fits'
             truth['stars'] = config.input_cats[config.input_types['stars']][self.stars_indx[real]]
             # Now update ra/dec positions for truth catalog
@@ -1074,8 +1118,8 @@ class Tile(object):
                 truth['stars']['RA_new'] = self.stars_pos[self.curr_real][:,0]
                 truth['stars']['DEC_new'] = self.stars_pos[self.curr_real][:,1]
             else:
-                truth['stars']['ra'] = self.stars_pos[self.curr_real][:,0]
-                truth['stars']['dec'] = self.stars_pos[self.curr_real][:,1]
+                # Tries multiple column keywords
+                self._write_new_positions(truth, 'stars', itype)
 
         for inj_type, outfile in outfiles.items():
             try:
@@ -1114,6 +1158,25 @@ class Tile(object):
                 print('Warning: Injection for tile {}, realization {} failed! '
                     'Skipping truth-table writing.'.format(self.tile_name, self.curr_real))
                 return
+
+        return
+
+    def _write_new_positions(self, truth_cat, inj_type, in_type):
+        # pudb.set_trace()
+        if inj_type == 'gals': pos = self.gals_pos
+        elif inj_type == 'stars': pos = self.stars_pos
+
+        try:
+            truth_cat[inj_type]['ra'] = pos[self.curr_real][:,0]
+            truth_cat[inj_type]['dec'] = pos[self.curr_real][:,1]
+        except KeyError:
+            try:
+                truth_cat[in_type]['RA'] = pos[self.curr_real][:,0]
+                truth_cat[in_type]['DEC'] = pos[self.curr_real][:,1]
+            except KeyError as e:
+                raise('Tried to write truth positions using column names of ra/dec; RA/DEC.',
+                        'either rename position columns or add an entry for {}'.format(in_type),
+                        'in `write_truth_catalog()`\n',e)
 
         return
 
@@ -1701,7 +1764,7 @@ class Config(object):
                 inj_objs_only = dict(inj_objs_only)
                 self.inj_objs_only = {}
                 keys = ['value', 'noise']
-                valid_noise = ['CCD', 'BKG', 'BKG+CCD', 'BKG+RN', 'BKG+SKY', 'None']
+                valid_noise = ['CCD', 'BKG', 'BKG+CCD', 'BKG+RN', 'BKG+SKY', 'None', None]
 
                 if 'noise' not in inj_objs_only:
                     # Default is no noise
@@ -2074,6 +2137,7 @@ class Config(object):
 
         # Now that we are saving truth tables, it is necessary to load in the entire
         # catalog
+        # TODO: possible race condition here?
         galsim.config.ProcessInput(gs_config)
 
         # Grab needed info from the proxy catalog
@@ -2085,6 +2149,10 @@ class Config(object):
             cat_proxy = gs_config['input_objs'][input_type][0] # Actually a proxy
             self.input_cats[input_type] = cat_proxy.getCatalog()
             self.input_nobjects[input_type] = cat_proxy.getNObjects()
+
+            # Need to load in additional parametric catalog for MEDSCatalog truth table
+            if input_type == 'meds_catalog':
+                self.meds_param_catalog = cat_proxy.getParamCatalog()
 
         return
 
