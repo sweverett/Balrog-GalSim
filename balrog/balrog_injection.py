@@ -532,7 +532,7 @@ class Tile(object):
         '''
 
         input_type = config.input_types['gals']
-        if input_type in ['ngmix_catalog, cosmos_chromatic_catalog', 'meds_catalog']:
+        if input_type in ['ngmix_catalog', 'cosmos_chromatic_catalog', 'meds_catalog']:
             # input_type = 'ngmix_catalog'
             gal_type = config.input_types['gals']
             if config.data_version == 'y3v02':
