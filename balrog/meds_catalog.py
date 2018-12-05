@@ -538,12 +538,13 @@ class MEDSCatalog(object):
         self._preload = preload
 
         # Parametric truth catalog file, if passed
-        if not isinstance(param_catalog, str):
-            raise TypeError('`param_catalog` must be a filename!')
-        if not os.path.isfile(param_catalog):
-            # Try looking in the meds directory
-            if not os.path.isfile(os.path.join(self.meds_dir, param_catalog)):
-                raise ValueError('Passed `param_catalog` file does not exist!')
+        if param_catalog:
+            if not isinstance(param_catalog, str):
+                raise TypeError('`param_catalog` must be a filename!')
+            if not os.path.isfile(param_catalog):
+                # Try looking in the meds directory
+                if not os.path.isfile(os.path.join(self.meds_dir, param_catalog)):
+                    raise ValueError('Passed `param_catalog` file does not exist!')
         self.param_catalog = param_catalog
 
         self._setup_meds()
