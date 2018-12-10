@@ -131,7 +131,7 @@ image :
     # Can inject objects onto a grid
     pos_sampling :
       type : HexGrid
-      grid_spacing : 20 # arcsec
+      grid_spacing : 30 # arcsec
 
     # Load WCS from DES chip file
     wcs :
