@@ -1998,7 +1998,7 @@ class Config(object):
                         galsim.config.RegisterInputType(input_type, LOADMOD(CATMOD, has_nobj=True))
 
                         base_cat = input_type.split()[0]
-                        self.inj_types['gals'] = base_cat + 'Galaxy'
+                        self.inj_types['gals'] = base_cat.split('_')[0]+ 'Galaxy'
 
                         # This avoids a printed warning, and sets up the input correctly
                         # as no bands are passed in bal_config
