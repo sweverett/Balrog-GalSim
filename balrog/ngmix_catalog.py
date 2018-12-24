@@ -254,9 +254,10 @@ class ngmixCatalog(object):
         if self.cat_type == 'mof':
             mask[self.mof_flags != 0] = False
 
-        # Remove any object with `T/T_err` < t_frac
+        # Remove any object with `|T/T_err|` < t_frac
+        # (have to do absolute value as T can be negative)
         T_fraction = self.catalog[cp+'_T'] / self.catalog[cp+'_T_err']
-        mask[T_fraction < self.t_frac ] = False
+        mask[abs(T_fraction) < self.t_frac ] = False
 
         # Remove objects with snr_min < S/N < snr_max
         mask[self.catalog[cp+'_s2n_r'] < self.snr_min] = False
@@ -406,21 +407,12 @@ class ngmixCatalog(object):
                 gm_pars = [0.0, 0.0, g1, g2, T, flux]
 
                 # Build the appropriate Gaussian mixture for a cm-model
-                # NOTE: we use a slightly modified version of the GMixCM class.
                 fracdev = self.catalog[cp+'_fracdev'][index]
                 TdByTe = self.catalog[cp+'_TdByTe'][index]
-                # print('\nfracdev, TdByTe = {}, {}\n'.format(fracdev, TdByTe))
-                gm = BalGMixCM(fracdev, TdByTe, gm_pars)
+                gm = ngmix.gmix.GMixCM(fracdev, TdByTe, gm_pars)
 
                 # pudb.set_trace()
-
-                # Convert to a GSObject
-
-                gal = gm.make_galsim_object(gsp) # Uses customized ngmix code
-                # gal = gm.make_galsim_object() # Uses native ngmix
-
-                # print('gal._gsparams = {}'.format(gal._gsparams))
-                # print('_gsparams.__dict__ = {}'.format(gal._gsparams.__dict__))
+                gal = gm.make_galsim_object(gsparams=gsp) # Uses customized ngmix code
 
                 if ct == 'mof':
                     # TODO: Add any extra processing for mof catalogs, if needed
@@ -525,62 +517,64 @@ class ngmixCatalog(object):
 
 #####------------------------------------------------------------------------------------------------
 
-class BalGMixCM(ngmix.gmix.GMixCM):
-    '''
-    This is a slightly modified version of Erin Sheldon's GmixCM class from ngmix.gmix. Rather than
-    updating his repo for a few small changes, we overwrite the desired methods here.
-    '''
+# NOTE: The following was used as a stand-in for esheldon's GMixCM ngmix code when it didn't have
+# features that we want. It has now been updated (https://github.com/esheldon/ngmix/pull/51) and
+# the following will be removed once the new ngmix version has been fully tested.
 
-    def make_galsim_object(self, gsparams=None):
-        '''
-        Make a galsim representation for the gaussian mixture.
-        NOTE: The only difference from Erin's original code is the type checking and passing
-        of gsparams. This is especially useful for increasing fft sizes.
-        '''
+# class BalGMixCM(ngmix.gmix.GMixCM):
+#     '''
+#     This is a slightly modified version of Erin Sheldon's GmixCM class from ngmix.gmix. Rather than
+#     updating his repo for a few small changes, we overwrite the desired methods here.
+#     '''
 
-        # Accept optional gsparams for GSObject construction
-        if gsparams and ( type(gsparams) is not galsim._galsim.GSParams ):
-            if type(gsparams) is dict:
-                # Convert to actual gsparams object
-                gsparams = galsim.GSParams(**gsparams)
-            else:
-                raise TypeError('Only `dict` and `galsim.GSParam` types allowed for'
-                                'gsparams; input has {} type.'.format(type(gsparams)))
+#     def make_galsim_object(self, Tmin=1e-6, gsparams=None):
+#         '''
+#         Make a galsim representation for the gaussian mixture.
+#         NOTE: The only difference from Erin's original code is the type checking and passing
+#         of gsparams. This is especially useful for increasing fft sizes.
+#         '''
 
-        data = self._get_gmix_data()
+#         # Accept optional gsparams for GSObject construction
+#         if (gsparams is not None) and (not isinstance(gsparams, galsim.GSParams)):
+#             if isinstance(gsparams, dict):
+#                 # Convert to actual gsparams object
+#                 gsparams = galsim.GSParams(**gsparams)
+#             else:
+#                 raise TypeError('Only `dict` and `galsim.GSParam` types allowed'
+#                                 ' for gsparams; input has type of {}.'
+#                                 .format(type(gsparams)))
 
-        row, col = self.get_cen()
+#         data = self._get_gmix_data()
 
-        gsobjects = []
-        for i in xrange(len(self)):
-            flux = data['p'][i]
-            T = data['irr'][i] + data['icc'][i]
-            # assert(T!=0.0)
-            if T==0:
-                # TODO: Explore this issue more! T is being stored as nonzero -
-                #       what is causing this?
-                continue
-            e1 = (data['icc'][i] - data['irr'][i])/T
-            e2 = 2.0*data['irc'][i]/T
+#         row, col = self.get_cen()
 
-            rowshift = data['row'][i]-row
-            colshift = data['col'][i]-col
+#         gsobjects = []
+#         for i in xrange(len(self)):
+#             flux = data['p'][i]
+#             T = data['irr'][i] + data['icc'][i]
+#             if T == 0:
+#                 T = Tmin
+#             e1 = (data['icc'][i] - data['irr'][i])/T
+#             e2 = 2.0*data['irc'][i]/T
 
-            g1,g2 = ngmix.shape.e1e2_to_g1g2(e1,e2)
+#             rowshift = data['row'][i]-row
+#             colshift = data['col'][i]-col
 
-            Tround = ngmix.moments.get_Tround(T, g1, g2)
-            sigma_round = np.sqrt(Tround/2.0)
+#             g1,g2 = ngmix.shape.e1e2_to_g1g2(e1,e2)
 
-            gsobj = galsim.Gaussian(flux=flux, sigma=sigma_round,gsparams=gsparams)
+#             Tround = ngmix.moments.get_Tround(T, g1, g2)
+#             sigma_round = np.sqrt(Tround/2.0)
 
-            gsobj = gsobj.shear(g1=g1, g2=g2)
-            gsobj = gsobj.shift(colshift, rowshift)
+#             gsobj = galsim.Gaussian(flux=flux, sigma=sigma_round,gsparams=gsparams)
 
-            gsobjects.append( gsobj )
+#             gsobj = gsobj.shear(g1=g1, g2=g2)
+#             gsobj = gsobj.shift(colshift, rowshift)
 
-        gs_obj = galsim.Add(gsobjects)
+#             gsobjects.append( gsobj )
 
-        return gs_obj
+#         gs_obj = galsim.Add(gsobjects)
+
+#         return gs_obj
 
 #####------------------------------------------------------------------------------------------------
 
