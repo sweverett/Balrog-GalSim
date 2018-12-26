@@ -15,6 +15,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 # import pudb
 
+_valid_pos_sampling = ['uniform', 'RectGrid', 'HexGrid']
+_valid_grid_types = ['RectGrid', 'HexGrid']
+
 class Grid(object):
 
     def __init__(self, grid_spacing, wcs, Npix_x=10000, Npix_y=10000, pixscale=0.2631,
