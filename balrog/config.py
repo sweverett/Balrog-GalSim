@@ -9,6 +9,7 @@ import warnings
 
 # Balrog files
 import filters
+import grid
 
 # import pudb
 
@@ -72,17 +73,12 @@ class Config(object):
         # TODO: Allow multiple config types (JSON)
 
         self.gs_config_file = os.path.join(self.config_dir, self.args.config_file)
-        # Add config directory path, if needed
-        # if self.args.config_dir:
-        #     self.gs_config_file = self.args.config_dir + self.gs_config_file
 
         # NOTE: `self.config` will be a list of `OrderedDict`'s with length given by
         # the number of configurations specified in the file. To work with a specific
         # simulated image, say with `galsim.config.BuildImage()`, you must pass a
         # *single* config file (e.g. BuildImage(config[3]) ).
         self.gs_config = galsim.config.process.ReadYaml(self.gs_config_file)
-
-        # pudb.set_trace()
 
         # For now, we will not accept multi-output yaml files. We will work with
         # the loaded config object and build a multi-output config OrderedDict ourselves.
@@ -267,8 +263,8 @@ class Config(object):
 
         # Process input 'pos_sampling'
         self.pos_sampling = {}
-        valid_pos_sampling = ['uniform', 'RectGrid', 'HexGrid']
-        valid_grid_types = ['RectGrid', 'HexGrid']
+        valid_pos_sampling = grid._valid_pos_sampling
+        valid_grid_types= grid._valid_grid_types
         default_gs = 20 # arcsec
         try:
             ps = self.gs_config[0]['image']['pos_sampling']
