@@ -10,6 +10,7 @@ import warnings
 # Balrog files
 import filters
 import grid
+import injector
 
 # import pudb
 
@@ -107,237 +108,245 @@ class Config(object):
         Additionally, it ensures that only 1 of 'n_galaxies' or 'gal_density' is passed.)
         '''
 
-        # TODO: Some of this type checking should be moved into `injector.py`
-
-        if self.gs_config[0]['image']['type'] != 'Balrog':
-            raise ValueError('GalSim image type must be \'Balrog\'!')
-
         self.parse_command_args()
 
-        # Process input 'realizations' & 'n_realizations':
-        try:
-            reals = self.gs_config[0]['image']['realizations']
-            if type(reals) is int:
-                self.realizations = np.array([reals])
-            elif isinstance(reals, list):
-                if all(isinstance(x, int) for x in reals):
-                    self.realizations = reals
-                else:
-                    raise TypeError('Passed realizations must be integers!')
-            elif isinstance(reals, dict):
-                try:
-                    max_real = reals['max']
-                    min_real = reals['min']
-                    if min_real >= max_real:
-                        raise ValueError('Key `min_real` must be less than `max_real`!')
-                    if all(isinstance(x, int) for x in [min_real, max_real]):
-                        self.realizations = [x for x in range(min_real, max_real+1)]
-                    else:
-                        raise TypeError('The realization values `min` and `max` must be ints!')
-                except KeyError as e:
-                    print(e + '\nThe only valid keys for `realizations` are `min` and `max`!')
-            # Now check if `n_realizations` was also passed
-            # NOTE: If n_realizations>len(realizations), this indicates that a larger simulation
-            # is being split up between multiple runs. The main impact is star generation for
-            # Y3 DES star catalogs, as they cannot be shuffled in this case to ensure all stars
-            # are injected w/o repeats.
-            try:
-                n_reals = self.gs_config[0]['image']['n_realizations']
-                if isinstance(n_reals, int):
-                    if n_reals < len(self.realizations):
-                        raise ValueError('`n_realizations` cannot be smaller than len(realizations).')
-                    self.n_realizations = n_reals
-                else:
-                    raise TypeError('The value `n_realizations` must be an int!')
-            except KeyError:
-                # In this case, assume that n_realizations=len(realizations)
-                self.n_realizations = len(self.realizations)
+        if self.gs_config[0]['image']['type'] != 'Balrog':
+            raise ValueError('GalSim image type must be `Balrog`!')
 
-        except KeyError:
-            try:
-                n_reals = self.gs_config[0]['image']['n_realizations']
-                # If it has been passed, warn user but still use
-                warnings.warn('DEPRECATED: `n_realizations` without `realizations` has been ' +
-                              'deprecated. Please use argument `realizations` (or both) instead.')
-                if isinstance(n_reals, int):
-                    self.n_realizations = n_reals
-                    self.realizations = [x for x in range(n_reals)]
-                else:
-                    raise TypeError('The value `n_realizations` must be an int!')
-            except KeyError:
-                # Default is to use realization 0
-                warnings.warn('No realization passed; using default of 0.')
-                self.n_realizations = 1
-                self.realizations = np.array([0])
+        # NOTE: All of the type checking is now done in `injector.py` as part of the custom
+        # GalSim image class
+        self.gs_config[0]['image'].update(injector.parse_bal_image_inputs(
+            self.gs_config[0]['image']))
 
-        # Process input 'n_galaxies':
-        try:
-            # Number of galaxies per tile
-            self.n_galaxies = self.gs_config[0]['image']['n_galaxies']
-        except KeyError:
-            self.n_galaxies = None
+        # The above function now guarantees the required options are checked, present,
+        # & safe
+        im = self.gs_config[0]['image']
+        self.realizations = im['realizations']
+        self.n_realizations = im['n_realizations']
+        self.n_galaxies = im['n_galaxies']
+        self.gal_density = im['gal_density']
+        self.bands = im['bands']
+        self.data_version = im['version']
+        self.run_name = im['run_name']
+        self.inj_objs_only = im['inj_objs_only']
+        self.pos_sampling = im['pos_sampling']
 
-        # Process input 'gal_density':
-        try:
-            # Assumes units in galaxies per arcmin^2
-            self.gal_density = self.gs_config[0]['image']['gal_density']
-            # TODO: Should allow for more unit input types! e.g.:
-            # den_unit = self.gs_config[0]['image']['gal_density']['unit']
-            # self.gal_density = convert_units(val=self.gal_density, u1 = den_unit, u2 = 'arcmin^2')
-        except KeyError:
-            self.gal_density = None
+        # TODO: OLD!
+        # # Process input 'realizations' & 'n_realizations':
+        # try:
+        #     reals = self.gs_config[0]['image']['realizations']
+        #     if type(reals) is int:
+        #         self.realizations = np.array([reals])
+        #     elif isinstance(reals, list):
+        #         if all(isinstance(x, int) for x in reals):
+        #             self.realizations = reals
+        #         else:
+        #             raise TypeError('Passed realizations must be integers!')
+        #     elif isinstance(reals, dict):
+        #         try:
+        #             max_real = reals['max']
+        #             min_real = reals['min']
+        #             if min_real >= max_real:
+        #                 raise ValueError('Key `min_real` must be less than `max_real`!')
+        #             if all(isinstance(x, int) for x in [min_real, max_real]):
+        #                 self.realizations = [x for x in range(min_real, max_real+1)]
+        #             else:
+        #                 raise TypeError('The realization values `min` and `max` must be ints!')
+        #         except KeyError as e:
+        #             print(e + '\nThe only valid keys for `realizations` are `min` and `max`!')
+        #     # Now check if `n_realizations` was also passed
+        #     # NOTE: If n_realizations>len(realizations), this indicates that a larger simulation
+        #     # is being split up between multiple runs. The main impact is star generation for
+        #     # Y3 DES star catalogs, as they cannot be shuffled in this case to ensure all stars
+        #     # are injected w/o repeats.
+        #     try:
+        #         n_reals = self.gs_config[0]['image']['n_realizations']
+        #         if isinstance(n_reals, int):
+        #             if n_reals < len(self.realizations):
+        #                 raise ValueError('`n_realizations` cannot be smaller than len(realizations).')
+        #             self.n_realizations = n_reals
+        #         else:
+        #             raise TypeError('The value `n_realizations` must be an int!')
+        #     except KeyError:
+        #         # In this case, assume that n_realizations=len(realizations)
+        #         self.n_realizations = len(self.realizations)
 
-        # This is ensured by `BalrogImageBuilder`, but not bad to check it here
-        assert self.n_galaxies is None or self.gal_density is None
+        # except KeyError:
+        #     try:
+        #         n_reals = self.gs_config[0]['image']['n_realizations']
+        #         # If it has been passed, warn user but still use
+        #         warnings.warn('DEPRECATED: `n_realizations` without `realizations` has been ' +
+        #                       'deprecated. Please use argument `realizations` (or both) instead.')
+        #         if isinstance(n_reals, int):
+        #             self.n_realizations = n_reals
+        #             self.realizations = [x for x in range(n_reals)]
+        #         else:
+        #             raise TypeError('The value `n_realizations` must be an int!')
+        #     except KeyError:
+        #         # Default is to use realization 0
+        #         warnings.warn('No realization passed; using default of 0.')
+        #         self.n_realizations = 1
+        #         self.realizations = np.array([0])
 
-        # If both 'gal_density' and 'gal_density' are None, use default case:
-        if self.n_galaxies is None and self.gal_density is None:
-            self.n_galaxies = 1000 # Keep it small for default!
-            print('Warning: Neither n_galaxies nor gal_density was passed in config file. ' +
-                  'Using default of {} galaxies per tile'.format(self.n_galaxies))
+        # # Process input 'n_galaxies':
+        # try:
+        #     # Number of galaxies per tile
+        #     self.n_galaxies = self.gs_config[0]['image']['n_galaxies']
+        # except KeyError:
+        #     self.n_galaxies = None
 
-        # Process input 'bands'
-        try:
-            # Grab selected bands in config, if present
-            self.bands = self.gs_config[0]['image']['bands']
+        # # Process input 'gal_density':
+        # try:
+        #     # Assumes units in galaxies per arcmin^2
+        #     self.gal_density = self.gs_config[0]['image']['gal_density']
+        #     # TODO: Should allow for more unit input types! e.g.:
+        #     # den_unit = self.gs_config[0]['image']['gal_density']['unit']
+        #     # self.gal_density = convert_units(val=self.gal_density, u1 = den_unit, u2 = 'arcmin^2')
+        # except KeyError:
+        #     self.gal_density = None
 
-            # Make sure there aren't any incorrect inputs
-            for band in self.bands:
-                if band not in self._allowed_bands:
-                    raise ValueError('Passed band {} is not one of the allowed bands in {}'\
-                                     .format(band, _allowed_bands))
-        except KeyError:
-            # By default, use griz
-            print('Warning: No injection bands were passed in config. Using `griz` by default')
-            self.bands = 'griz'
+        # # Process input 'bands'
+        # try:
+        #     # Grab selected bands in config, if present
+        #     self.bands = self.gs_config[0]['image']['bands']
 
-        # Process input 'version'
-        try:
-            self.data_version = self.gs_config[0]['image']['version']
-        except KeyError:
-            # Warn user, but assume y3v02 for now
-            warnings.warn('Data version not passed in config! Assuming y3v02.')
-            self.data_version = 'y3v02'
+        #     # Make sure there aren't any incorrect inputs
+        #     for band in self.bands:
+        #         if band not in self._allowed_bands:
+        #             raise ValueError('Passed band {} is not one of the allowed bands in {}'\
+        #                              .format(band, _allowed_bands))
+        # except KeyError:
+        #     # By default, use griz
+        #     print('Warning: No injection bands were passed in config. Using `griz` by default')
+        #     self.bands = 'griz'
 
-        # Process input 'run_name'
-        try:
-            rname = self.gs_config[0]['image']['run_name']
-            if not isinstance(rname, basestring):
-                raise ValueError('The input `run_name` must be a string!')
-            self.run_name = rname
-        except KeyError:
-            # TODO: Maybe come up with sensible default run name?
-            #       Current metadata should provide enough info for now.
-            # self.run_name = 'None'
-            self.run_name = None
+        # # Process input 'version'
+        # try:
+        #     self.data_version = self.gs_config[0]['image']['version']
+        # except KeyError:
+        #     # Warn user, but assume y3v02 for now
+        #     warnings.warn('Data version not passed in config! Assuming y3v02.')
+        #     self.data_version = 'y3v02'
 
-        # Process input 'inj_objs_only'. This is used to test Balrog injections on blank images
-        try:
-            inj_objs_only = self.gs_config[0]['image']['inj_objs_only']
-            if type(inj_objs_only) is bool:
-                # Default is to include chip noise in injection
-                self.inj_objs_only = {'value':inj_objs_only, 'noise':'CCD'}
-            elif isinstance(inj_objs_only, dict):
-                # Is likely an OrderedDict, so convert
-                inj_objs_only = dict(inj_objs_only)
-                self.inj_objs_only = {}
-                keys = ['value', 'noise']
-                valid_noise = ['CCD', 'BKG', 'BKG+CCD', 'BKG+RN', 'BKG+SKY', 'None', None]
+        # # Process input 'run_name'
+        # try:
+        #     rname = self.gs_config[0]['image']['run_name']
+        #     if not isinstance(rname, basestring):
+        #         raise ValueError('The input `run_name` must be a string!')
+        #     self.run_name = rname
+        # except KeyError:
+        #     # TODO: Maybe come up with sensible default run name?
+        #     #       Current metadata should provide enough info for now.
+        #     # self.run_name = 'None'
+        #     self.run_name = None
 
-                if 'noise' not in inj_objs_only:
-                    # Default is no noise
-                    inj_objs_only['noise'] = None
-                for key, val in inj_objs_only.items():
-                    if key not in keys:
-                        raise ValueError('{} is not a valid key for `inj_objs_only`! '.format(key) +
-                                         'You may only pass the keys {}'.format(keys))
-                    if (key == 'noise') and (val not in valid_noise):
-                        raise ValueError('{} is not a valid value for the noise field!'.format(val) +
-                                         'You may only pass the values {}'.format(valid_noise))
-                    self.inj_objs_only[key] = val
-            else:
-                raise ValueError('The field \'inj_objs_only\' must be set with a bool or dict!')
-        except KeyError:
-            # Most runs will add objects to existing images
-            self.inj_objs_only = {'value':False, 'noise':None}
+        # # Process input 'inj_objs_only'. This is used to test Balrog injections on blank images
+        # try:
+        #     inj_objs_only = self.gs_config[0]['image']['inj_objs_only']
+        #     if type(inj_objs_only) is bool:
+        #         # Default is to include chip noise in injection
+        #         self.inj_objs_only = {'value':inj_objs_only, 'noise':'CCD'}
+        #     elif isinstance(inj_objs_only, dict):
+        #         # Is likely an OrderedDict, so convert
+        #         inj_objs_only = dict(inj_objs_only)
+        #         self.inj_objs_only = {}
+        #         keys = ['value', 'noise']
+        #         valid_noise = ['CCD', 'BKG', 'BKG+CCD', 'BKG+RN', 'BKG+SKY', 'None', None]
 
-        # Process input 'pos_sampling'
-        self.pos_sampling = {}
-        valid_pos_sampling = grid._valid_pos_sampling
-        valid_grid_types= grid._valid_grid_types
-        default_gs = 20 # arcsec
-        try:
-            ps = self.gs_config[0]['image']['pos_sampling']
-            if isinstance(ps, basestring):
-                # Then the string is the input type
-                if ps not in valid_pos_sampling:
-                    raise ValueError('{} is not a valid position sampling method. '.format(ps) +
-                                    'Currently allowed methods are {}'.format(valid_pos_sampling))
+        #         if 'noise' not in inj_objs_only:
+        #             # Default is no noise
+        #             inj_objs_only['noise'] = None
+        #         for key, val in inj_objs_only.items():
+        #             if key not in keys:
+        #                 raise ValueError('{} is not a valid key for `inj_objs_only`! '.format(key) +
+        #                                  'You may only pass the keys {}'.format(keys))
+        #             if (key == 'noise') and (val not in valid_noise):
+        #                 raise ValueError('{} is not a valid value for the noise field!'.format(val) +
+        #                                  'You may only pass the values {}'.format(valid_noise))
+        #             self.inj_objs_only[key] = val
+        #     else:
+        #         raise ValueError('The field \'inj_objs_only\' must be set with a bool or dict!')
+        # except KeyError:
+        #     # Most runs will add objects to existing images
+        #     self.inj_objs_only = {'value':False, 'noise':None}
 
-                if ps in valid_grid_types:
-                    print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
-                    self.pos_sampling = {'type' : ps, 'grid_spacing' : default_gs}
-                else:
-                    self.pos_sampling = {'type' : ps}
-            elif isinstance(ps, dict):
-                if 'type' not in ps.keys():
-                    raise ValueError('If `pos_sampling` is passed as a dict, then must set a type!')
-                if (ps in valid_grid_types) and ('grid_spacing' not in ps.keys()):
-                    print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
-                    ps['grid_spacing'] = default_gs
-                keys = ['type', 'grid_spacing', 'rotate', 'offset', 'angle_unit']
-                for key, val in ps.items():
-                    if key not in keys:
-                        raise ValueError('{} is not a valid key for `pos_sampling`! '.format(key) +
-                                         'You may only pass the keys {}'.format(keys))
-                    if key == 'grid_spacing':
-                        if val < 0.0:
-                            raise ValueError('grid_spacing of {} is invalid; '.format(val) +
-                                             'must be positive!')
-                    if key == 'rotate':
-                        if isinstance(val, str):
-                            if val.lower() != 'random':
-                                raise ValueError('{} is not a valid grid rotation type!'.format(val) +
-                                                 'Must be `Random` or a number.')
-                        self.pos_sampling.update({'rotate':val})
-                        try:
-                            unit = ps['angle_unit'].lower()
-                            if unit == 'deg':
-                                if (val<0.0) or (val>360.0):
-                                    raise ValueError('rotate value of {} deg is invalid!'.format(val))
-                            if unit == 'rad':
-                                if (val<0.0) or (val>2*np.pi):
-                                    raise ValueError('rotate value of {} rad is invalid!'.format(val))
-                                else:
-                                    raise ValueError('angle_unit of {} is invalid! '.format(unit) +
-                                                     'only can pass `deg` or `rad`.')
-                            self.pos_sampling.update({'angle_unit':unit})
-                        except KeyError:
-                            # Default of rad
-                            if (val<0.0) or (val>2*np.pi):
-                                raise ValueError('rotate value of {} rad is invalid!'.format(val))
-                            self.pos_sampling.update({'angle_unit':'rad'})
-                        self.pos_sampling.update({'rotate':val})
+        # # Process input 'pos_sampling'
+        # self.pos_sampling = {}
+        # valid_pos_sampling = grid._valid_pos_sampling
+        # valid_grid_types= grid._valid_grid_types
+        # default_gs = 20 # arcsec
+        # try:
+        #     ps = self.gs_config[0]['image']['pos_sampling']
+        #     if isinstance(ps, basestring):
+        #         # Then the string is the input type
+        #         if ps not in valid_pos_sampling:
+        #             raise ValueError('{} is not a valid position sampling method. '.format(ps) +
+        #                             'Currently allowed methods are {}'.format(valid_pos_sampling))
 
-                    if key == 'offset':
-                        if isinstance(val, str):
-                            if val.lower() != 'random':
-                                raise ValueError('{} is not a valid grid offset!'.format(val) +
-                                'must be `Random` or an array.')
-                            self.pos_sampling.update({'offset':val})
-                        elif isinstance(val, list):
-                            assert len(val)==2
-                            self.pos_sampling.update({'offset':val})
-                        else:
-                            raise TypeError('grid offset of type {} is invalid!'.format(type(val)))
+        #         if ps in valid_grid_types:
+        #             print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
+        #             self.pos_sampling = {'type' : ps, 'grid_spacing' : default_gs}
+        #         else:
+        #             self.pos_sampling = {'type' : ps}
+        #     elif isinstance(ps, dict):
+        #         if 'type' not in ps.keys():
+        #             raise ValueError('If `pos_sampling` is passed as a dict, then must set a type!')
+        #         if (ps in valid_grid_types) and ('grid_spacing' not in ps.keys()):
+        #             print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
+        #             ps['grid_spacing'] = default_gs
+        #         keys = ['type', 'grid_spacing', 'rotate', 'offset', 'angle_unit']
+        #         for key, val in ps.items():
+        #             if key not in keys:
+        #                 raise ValueError('{} is not a valid key for `pos_sampling`! '.format(key) +
+        #                                  'You may only pass the keys {}'.format(keys))
+        #             if key == 'grid_spacing':
+        #                 if val < 0.0:
+        #                     raise ValueError('grid_spacing of {} is invalid; '.format(val) +
+        #                                      'must be positive!')
+        #             if key == 'rotate':
+        #                 if isinstance(val, str):
+        #                     if val.lower() != 'random':
+        #                         raise ValueError('{} is not a valid grid rotation type!'.format(val) +
+        #                                          'Must be `Random` or a number.')
+        #                 self.pos_sampling.update({'rotate':val})
+        #                 try:
+        #                     unit = ps['angle_unit'].lower()
+        #                     if unit == 'deg':
+        #                         if (val<0.0) or (val>360.0):
+        #                             raise ValueError('rotate value of {} deg is invalid!'.format(val))
+        #                     if unit == 'rad':
+        #                         if (val<0.0) or (val>2*np.pi):
+        #                             raise ValueError('rotate value of {} rad is invalid!'.format(val))
+        #                         else:
+        #                             raise ValueError('angle_unit of {} is invalid! '.format(unit) +
+        #                                              'only can pass `deg` or `rad`.')
+        #                     self.pos_sampling.update({'angle_unit':unit})
+        #                 except KeyError:
+        #                     # Default of rad
+        #                     if (val<0.0) or (val>2*np.pi):
+        #                         raise ValueError('rotate value of {} rad is invalid!'.format(val))
+        #                     self.pos_sampling.update({'angle_unit':'rad'})
+        #                 self.pos_sampling.update({'rotate':val})
+
+        #             if key == 'offset':
+        #                 if isinstance(val, str):
+        #                     if val.lower() != 'random':
+        #                         raise ValueError('{} is not a valid grid offset!'.format(val) +
+        #                         'must be `Random` or an array.')
+        #                     self.pos_sampling.update({'offset':val})
+        #                 elif isinstance(val, list):
+        #                     assert len(val)==2
+        #                     self.pos_sampling.update({'offset':val})
+        #                 else:
+        #                     raise TypeError('grid offset of type {} is invalid!'.format(type(val)))
 
 
-                    self.pos_sampling[key] = val
+        #             self.pos_sampling[key] = val
 
-        except KeyError:
-            # Most runs use uniform sampling
-            self.pos_sampling['type'] = 'uniform'
-            self.pos_sampling['grid_spacing'] = None
+        # except KeyError:
+        #     # Most runs use uniform sampling
+        #     self.pos_sampling['type'] = 'uniform'
+        #     self.pos_sampling['grid_spacing'] = None
 
         return
 
@@ -622,9 +631,15 @@ class Config(object):
         # for i, input_type in enumerate(input_cat_types):
         # for  input_type in enumerate(self.input_types)
         for input_type in self.input_types.values():
+            # pudb.set_trace()
             # Only do this for injection types (gals, stars)
             # if i not in self.input_indx.values(): continue
-            cat_proxy = gs_config['input_objs'][input_type][0] # Actually a proxy
+            try:
+                cat_proxy = gs_config['input_objs'][input_type][0] # Actually a proxy
+            except KeyError:
+                # Internal field name changed in newer versions of GalSim
+                cat_proxy = gs_config['_input_objs'][input_type][0] # Actually a proxy
+
             self.input_cats[input_type] = cat_proxy.getCatalog()
             self.input_nobjects[input_type] = cat_proxy.getNObjects()
 
