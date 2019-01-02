@@ -475,7 +475,11 @@ class Tile(object):
 
                     # Make proxy catalog
                     galsim.config.ProcessInput(gs_config)
-                    cat_proxy = gs_config['input_objs'][input_type][0]
+                    try:
+                        cat_proxy = gs_config['input_objs'][input_type][0]
+                    except KeyError:
+                        # The field name changed in GalSim 2.0+
+                        cat_proxy = gs_config['_input_objs'][input_type][0]
 
                     # pudb.set_trace()
                     # If all stars in Sahar's catalogs were guaranteed to be in the
