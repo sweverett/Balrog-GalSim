@@ -60,12 +60,17 @@ class Tile(object):
 
         # NOTE: `n_galaxies` and `gal_density` are now defined to be *per realization*
         # Set the number of galaxies injected per realization
-        if config.n_galaxies:
-            # Then fixed number of galaxies regardless of tile size
+        if config.n_galaxies is not None:
+            # Fixed number of galaxies regardless of tile size
             self.gals_per_real = config.n_galaxies
-        else:
-            # Then gal_density was set; galaxy number depends on area
+        elif config.gal_density is not None:
             self.gals_per_real = round(self.u_area * config.gal_density)
+        else:
+            # This should only happen for grid runs
+            assert config.pos_sampling['type'] in grid._valid_grid_types
+            # This will be set during grid creation
+            self.gals_per_real = None
+            # self.gals_per_real = grid.nobjs_given_gs(config.pos_sampling['grid_size'])
 
         # Set tile directory structure
         self.dir = os.path.abspath(os.path.join(config.tile_dir, self.tile_name))
@@ -573,7 +578,7 @@ class Tile(object):
                             # NOTE: We ignore the inputted ngals and use the correct grid value
                             # instead (user was already warned)
                             ngals = np.shape(tile_grid.pos)[0]
-                            if ngals != self.gals_per_real:
+                            if (ngals is not None)  and (ngals != self.gals_per_real):
                                 warnings.warn('The passed n_galaxies : {}'.format(self.gals_per_real) +
                                               ' does not match the {} needed'.format(ngals) +
                                               ' for {} with spacing {}.'.format(ps['type'], gs) +
@@ -1142,7 +1147,7 @@ class Tile(object):
                 combined_fits = bal_fits
 
                 # Combine balrog image with extra extentions
-                combine_fits_extensions(combined_fits, bal_fits, orig_fits, config=config)
+                io.combine_fits_extensions(combined_fits, bal_fits, orig_fits, config=config)
 
         return
 
@@ -1181,51 +1186,4 @@ def load_tile_list(tile_list_file, config):
         print('Loaded {} tiles...'.format(len(tile_list)))
 
     return tile_list
-
-def combine_fits_extensions(combined_file, bal_file, orig_file, config=None):
-    '''
-    Combine other needed image extensions (e.g. weight and mask maps).
-    Modified from Nikolay's original version in BalrogPipeline.py.
-    '''
-
-    # Read in simulated image and pre-injection extensions
-    sciIm = fitsio.read(bal_file, ext=0)
-    sciHdr = fitsio.read_header(orig_file, ext=0)
-    wgtIm, wgtHdr = fitsio.read(orig_file, ext=1, header=True)
-    wgt_me_Im, wgt_me_Hdr = fitsio.read(orig_file, ext=2, header=True)
-    mskIm, mskHdr = fitsio.read(orig_file, ext=3, header=True)
-
-    # If injecting on blank images, then set these to some sensible values
-    # pudb.set_trace()
-    if config:
-        if config.inj_objs_only['value'] is True:
-            # TODO: This needs to be generalized for different noise models!
-	    if config.inj_objs_only['noise'] == 'BKG+SKY':
-		noise = sciHdr['SKYSIGMA']
-	    else:
-		noise = np.mean([sciHdr['RDNOISEA'], sciHdr['RDNOISEB']])
-            inv_sky_var = 1.0 / (noise**2)
-            wgtIm.fill(inv_sky_var)
-            wgt_me_Im.fill(inv_sky_var)
-            mskIm.fill(0)
-
-    # Write all 3 extensions in the output file
-    # NOTE: Usually combined_file will be the same name as bal_file,
-    # so we delete the original injection and replace it with the new extensions
-    if os.path.exists(combined_file):
-        os.remove(combined_file)
-
-    fits = fitsio.FITS(combined_file,'rw')
-    fits.write(sciIm, header=sciHdr)
-    fits.write(wgtIm, header=wgtHdr)
-    fits.write(wgt_me_Im, header=wgtHdr)
-    fits.write(mskIm, header=mskHdr)
-
-    # Put back EXTNAME into headers
-    fits[0].write_key('EXTNAME', 'SCI', comment="Extension name")
-    fits[1].write_key('EXTNAME', 'WGT', comment="Extension name")
-    fits[2].write_key('EXTNAME', 'WGT_ME', comment="Extension name")
-    fits[3].write_key('EXTNAME', 'MSK', comment="Extension name")
-
-    return
 
