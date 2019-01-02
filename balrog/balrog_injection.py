@@ -23,10 +23,7 @@ import fileio as io
 
 #-------------------------------------------------------------------------------
 # Important todo's:
-# TODO: Implement error handling for galaxy injections / gsparams! (Working solution, but need
-#       to look into more detail per Erin)
 # TODO: Clean up evals in add_gs_injection()!
-# TODO: Figure out injector.py parameter parsing issue!
 # TODO: Check pixel origin for transformations!
 
 # Some extra todo's:
