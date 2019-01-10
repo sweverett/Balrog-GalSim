@@ -54,7 +54,7 @@ class ngmixCatalog(object):
 
     _req_params = { 'file_name' : str, 'bands' : str}
     _opt_params = { 'dir' : str, 'catalog_type' : str, 'snr_min' : float, 'snr_max' : float,
-                    't_frac' : float, 't_min' : float, 't_max' : float}
+                    't_frac' : float, 't_min' : float, 't_max' : float, 'version' : str}
     _single_params = []
     _takes_rng = False
 
@@ -76,7 +76,7 @@ class ngmixCatalog(object):
     _cat_col_prefix = {'gauss' : 'gauss', 'cm' : 'cm', 'mof' : 'cm'}
 
     def __init__(self, file_name, bands, dir=None, catalog_type=None, snr_min=None, snr_max=None,
-                 t_frac=None, t_min=None, t_max=None, _nobjects_only=False):
+                 t_frac=None, t_min=None, t_max=None, version=None, _nobjects_only=False):
 
         if dir:
             if not isinstance(file_name, basestring):
@@ -87,7 +87,7 @@ class ngmixCatalog(object):
             raise ValueError("The input filename must be a string!")
         self.file_name = file_name
 
-        if catalog_type:
+        if catalog_type is not None:
             if catalog_type in self._valid_catalog_types:
                 if catalog_type not in self.file_name:
                     warnings.warn( ("Inputted ngmix catalog type of `{}` does not match filename, which is standard "
@@ -128,14 +128,14 @@ class ngmixCatalog(object):
             # TODO: Wouldn't be a bad idea to allow a list of individual bands as well
             raise ValueError("Must enter desired color bands as a string! (For example, `bands : \'gr\'`)")
 
-        if snr_min:
+        if snr_min is not None:
             if snr_min < 0.0:
                 raise ValueError("The signal-to-noise ratio `snr` must be positive!")
             self.snr_min = snr_min
         else:
             self.snr_min = 0.0
 
-        if snr_max:
+        if snr_max is not None:
             if snr_max < 0.0:
                 raise ValueError("The signal-to-noise ratio `snr` must be positive!")
             elif snr_min and (snr_min > snr_max):
@@ -144,14 +144,14 @@ class ngmixCatalog(object):
         else:
             self.snr_max = None
 
-        if t_min:
+        if t_min is not None:
             if t_min < 0.0:
                 raise ValueError("The object size cutoff `t_min` must be positive!".format())
             self.t_min = t_min
         else:
             self.t_min = 0.0
 
-        if t_max:
+        if t_max is not None:
             if t_max < 0.0:
                 raise ValueError("The object size cutoff `t_max` must be positive!".format())
             elif t_min and (t_min > t_max):
@@ -160,7 +160,7 @@ class ngmixCatalog(object):
         else:
             self.t_max = None
 
-        if t_frac:
+        if t_frac is not None:
             if t_frac < 0.0:
                 raise ValueError("The allowed size/size_err fraction `t_frac` must be positive!")
             self.t_frac = t_frac
@@ -168,6 +168,11 @@ class ngmixCatalog(object):
             # Default of t_frac = 0.5, but warn user that some objects will be removed.
             warnings.warn("No t_frac cutoff was chosen; removing objects with `T/T_err` < 0.5.")
             self.t_frac = 0.5
+
+        if version is not None:
+            if not isinstance(version, basestring):
+                raise TypeError('`version` must be a string!`')
+        self.version = version
 
         self.read()
 
