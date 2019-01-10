@@ -10,7 +10,7 @@ Coming soon!
 
 ## Installation
 
-The only non-standard Balrog dependency is [GalSim](https://github.com/GalSim-developers/GalSim). While it's a non-trivial install, the [installation wiki found here](https://github.com/GalSim-developers/GalSim/blob/master/INSTALL.md) outlines the steps in great detail.
+The only non-standard Balrog dependency is [GalSim](https://github.com/GalSim-developers/GalSim). While it's a non-trivial install, the [installation wiki found here](https://github.com/GalSim-developers/GalSim/blob/master/INSTALL.md) outlines the steps in great detail. (edit - Galsim 2.0+ can now be installed with pip/conda!)
 
 Once GalSim is installed, simply clone this repo:
 
