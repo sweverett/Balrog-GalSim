@@ -5,6 +5,7 @@ from . import chip
 from . import fileio
 from . import mathutil
 from . import balobject
+from . import balinput
 from . import ngmix_catalog
 from . import des_star_catalog
 from . import meds_catalog
