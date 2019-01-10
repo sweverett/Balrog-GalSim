@@ -136,6 +136,8 @@ class Config(BaseConfig):
         self.inj_objs_only = im['inj_objs_only']
         self.pos_sampling = im['pos_sampling']
 
+        self.bindx = dict(zip(self.bands, range(len(self.bands))))
+
         return
 
     def parse_command_args(self):

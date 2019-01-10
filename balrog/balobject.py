@@ -1,4 +1,5 @@
 import numpy as np
+import galsim.config.input as gsinput
 import os
 
 # Balrog files
@@ -272,7 +273,7 @@ class MEDSInjectionCatalog(DESInjectionCatalog):
             'psf_files' : psf_file
         })
 
-        self.bal_config[i]['gal'].update({
+        bal_config[chip_indx]['gal'].update({
             'band' : chip.band
         })
 
@@ -280,15 +281,15 @@ class MEDSInjectionCatalog(DESInjectionCatalog):
 
     def build_multi_chip_config(self, config, bal_config, chip, chip_indx, input_indx):
         # Only use meds/psf files for needed band
-        b = self.bindx[chip.band]
-        meds_file = [self.bal_config[0]['input']['items'][input_indx]['meds_files'][b]]
-        psf_file = [self.bal_config[0]['input']['items'][input_indx]['psf_files'][b]]
-        self.bal_config[i]['input']['items'][input_indx].update({
+        b = config.bindx[chip.band]
+        meds_file = [bal_config[0]['input']['items'][input_indx]['meds_files'][b]]
+        psf_file = [bal_config[0]['input']['items'][input_indx]['psf_files'][b]]
+        bal_config[chip_indx]['input']['items'][input_indx].update({
             'meds_files' : meds_file,
             'psf_files' : psf_file
         })
 
-        self.bal_config[i]['gal']['items'][input_indx].update({
+        bal_config[chip_indx]['gal']['items'][input_indx].update({
             'band' : chip.band
         })
 
@@ -424,8 +425,8 @@ def build_bal_inject_cat(input_type, inj_type, tile, needs_band):
 
 BALROG_INJECTION_TYPES = {
     'ngmix_catalog' : NGMIXInjectionCatalog,
-    'meds_catalg' : MEDSInjectionCatalog,
+    'meds_catalog' : MEDSInjectionCatalog,
     'udg_catalog' : UDGInjectionCatalog,
     'des_star_catalog' : DESStarInjectionCatalog,
     'cosmos_chromatic_catalog' : COSMOSInjectionCatalog
-}
+    }

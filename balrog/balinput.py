@@ -12,9 +12,6 @@ import filters
 # import pudb
 
 class BalInput(object):
-    '''
-    '''
-
     def __init__(self, input_type, gsconfig, indx=None):
         if not isinstance(input_type, basestring):
             raise TypeError('`input_type` must be a string!')
@@ -109,7 +106,7 @@ class DESInputCatalog(InputCatalog):
 
         # This avoids a printed warning, and sets up the input correctly
         # as no bands are passed in bal_config
-        self.gsconfig['input'][input_type]['bands'] = 'g' # dummy band
+        self.gsconfig['input'][input_type]['bands'] = 'griz' # dummy bands
 
         return
 
@@ -133,7 +130,7 @@ class NGMIXInputCatalog(DESInputCatalog):
 
 class MEDSInputCatalog(DESInputCatalog):
     def __init__(self, gsconfig, indx=None):
-        super(DESInputCatalog, self).__init__('meds_catalog', gsconfig, indx)
+        super(MEDSInputCatalog, self).__init__('meds_catalog', gsconfig, indx)
 
         from meds_catalog import MEDSCatalog as CATMOD
         from meds_catalog import MEDSCatalogLoader as LOADMOD
@@ -308,8 +305,8 @@ def build_bal_input(input_type, gsconfig, indx=None):
 
 BALROG_INPUT_TYPES = {
     'ngmix_catalog' : NGMIXInputCatalog,
-    'meds_catalg' : MEDSInputCatalog,
+    'meds_catalog' : MEDSInputCatalog,
     'udg_catalog' : UDGInputCatalog,
     'des_star_catalog' : DESStarInputCatalog,
     'cosmos_chromatic_catalog' : COSMOSInputCatalog
-}
+    }
