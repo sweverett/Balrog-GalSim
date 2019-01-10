@@ -3,6 +3,7 @@ import logging
 
 # Balrog files
 import grid
+import config as Config
 
 # Can use for debugging
 # import pudb
@@ -31,9 +32,14 @@ class BalrogImageBuilder(AddOnImageBuilder):
 
     def setup(self, config, base, image_num, obj_num, ignore, logger):
         extra_ignore = ignore + ['tile_list', 'geom_file', 'tile_dir', 'config_dir', 'psf_dir',
-                                 'version', 'run_name', 'Ngals', 'Nstars', 'bands', 'n_galaxies',
-                                 'n_realizations', 'gal_density', 'inj_objs_only', 'pos_sampling',
-                                 'realizations']
+                                 'version', 'run_name', 'bands', 'n_objects', 'n_realizations',
+                                 'object_density', 'inj_objs_only', 'pos_sampling', 'realizations']
+
+        # There are additionally the keywords `N_{inj_type}` that we want to ignore
+        for key in config:
+            if 'N_' in key:
+                extra_ignore.append(key)
+
         full_xsize, full_ysize = super(BalrogImageBuilder, self).setup(config, base, image_num,
                                                                     obj_num, extra_ignore, logger)
 
@@ -46,13 +52,13 @@ class BalrogImageBuilder(AddOnImageBuilder):
         # req = {'bands'}
         # opt = {'Ngals':int, 'Nstars':int, 'n_realizations':int,
         #        'version':str, 'run_name':str, 'inj_objs_only':bool,
-    #        'pos_sampling':str}
-        # single = [{'n_galaxies':int, 'gal_density':float},
+        #        'pos_sampling':str}
+        # single = [{'n_objects':int, 'object_density':float},
         #           {'n_realizations':int, 'realizations':[int, list, dict]}]
         # params = galsim.config.GetAllParams(config, base, req=req, opt=opt, single=single)[0]
         # print 'params=',params
 
-        config = parse_bal_image_inputs(config)
+        config = parse_bal_image_inputs(config, base)
 
         return full_xsize, full_ysize
 
@@ -60,24 +66,44 @@ class BalrogImageBuilder(AddOnImageBuilder):
         try:
             ioo = config['inj_objs_only']
             if (type(ioo) is bool) and (ioo is True):
-                return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+                return super(AddOnImageBuilder, self).buildImage(config,
+                                                                 base,
+                                                                 image_num,
+                                                                 obj_num,
+                                                                 logger)
             elif (isinstance(ioo, dict)) and (ioo['value'] is True):
                 # Still want to use existing image if changed to be BKG
                 if (ioo['noise']) and ('BKG' in ioo['noise']):
-                    return super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+                    return super(BalrogImageBuilder, self).buildImage(config,
+                                                                      base,
+                                                                      image_num,
+                                                                      obj_num,
+                                                                      logger)
                 else:
-                    return super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+                    return super(AddOnImageBuilder, self).buildImage(config,
+                                                                     base,
+                                                                     image_num,
+                                                                     obj_num,
+                                                                     logger)
             else:
                 # Default is to add on top of initial images
-                return super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+                return super(BalrogImageBuilder, self).buildImage(config,
+                                                                  base,
+                                                                  image_num,
+                                                                  obj_num,
+                                                                  logger)
 
         except KeyError:
             # Default is to add on top of initial images
-            return super(BalrogImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+            return super(BalrogImageBuilder, self).buildImage(config,
+                                                              base,
+                                                              image_num,
+                                                              obj_num,
+                                                              logger)
 
 galsim.config.RegisterImageType('Balrog', BalrogImageBuilder())
 
-def parse_bal_image_inputs(config):
+def parse_bal_image_inputs(config, base):
     # Process input 'realizations' & 'n_realizations':
     try:
         reals = config['realizations']
@@ -111,6 +137,8 @@ def parse_bal_image_inputs(config):
             if isinstance(n_reals, int):
                 if n_reals < len(self.realizations):
                     raise ValueError('`n_realizations` cannot be smaller than len(realizations).')
+                if n_reals < 1:
+                    raise ValueError('`n_realizations` must be a positive integer!')
             else:
                 raise TypeError('The value `n_realizations` must be an int!')
         except KeyError:
@@ -120,10 +148,12 @@ def parse_bal_image_inputs(config):
         try:
             n_reals = config['n_realizations']
             # If it has been passed, warn user but still use
-            warnings.warn('DEPRECATED: `n_realizations` without `realizations` has been '
-                            'deprecated. Please use argument `realizations` (or both) instead. '
-                            'Will assume realizations=1,2,...,n_realizations.')
+            print('DEPRECATED: `n_realizations` without `realizations` has been '
+                  'deprecated. Please use argument `realizations` (or both) instead. '
+                  'Will assume realizations=1,2,...,n_realizations.')
             if isinstance(n_reals, int):
+                if n_reals < 1:
+                    raise ValueError('`n_realizations` must be a positive integer!')
                 config['realizations'] = [x for x in range(n_reals)]
             else:
                 raise TypeError('The value `n_realizations` must be an int!')
@@ -133,20 +163,64 @@ def parse_bal_image_inputs(config):
             config['realizations'] = [0]
             config['n_realizations'] = 1
 
-    for arg in ['n_realizations', 'n_galaxies', 'gal_density']:
-        if arg not in config:
-            config[arg] = None
+    # Process inputs 'n_objects' and 'object_density'
+    Ninput = 0
+    input_list = []
+    for inpt in base['input'].keys():
+        if inpt not in Config.BaseConfig()._non_inj_input_types:
+            Ninput += 1
+            input_list.append(inpt)
+    try:
+        nobjs = config['n_objects']
+        if isinstance(nobjs, int):
+            if nobjs < 1:
+                raise ValueError('`n_objects` must be a positive integer!')
+            # If a single int is passed, all objects get that #
+            config['n_objects'] = nobjs * np.ones(Ninput)
+        elif isinstance(nobjs, dict):
+            for itype, n in nobjs.items():
+                if itype not in input_list:
+                    raise ValueError('`n_objects` field {}'.format(itype) +
+                                     'is not a passed input type!')
+                if n < 1:
+                    raise ValueError('All `n_objects` values must be a positive integer!')
+            for inpt in input_list:
+                if inpt not in nobjs.keys():
+                    # This is ok if pos_sampling is grid for this input type - this
+                    # is checked later
+                    nobjs[inpt] = None
+            config['n_objects'] = nobjs
+        else:
+            raise TypeError('`n_objects` must be passed as an int or a dict!')
+    except KeyError:
+        config['n_objects'] = {inpt : None for inpt in input_list}
 
-    for arg in ['n_realizations', 'n_galaxies']:
-        if config[arg] is not None:
-            if (config[arg] < 0) or (not isinstance(config[arg], int)):
-                raise ValueError(str(arg) + ' must be a positive integer!')
-
-    # Process input 'gal_density':
-    if config['gal_density'] is not None:
-        gd = config['gal_density'] # arcmin^2
-        if (not isinstance(gd, int)) and (not isinstance(gd, float)):
-            raise TypeError('`gal_density` must be an int or float!')
+    # TODO: We should be able to combine these two together if we loop over arg/val
+    # *and* int / (float/int)
+    try:
+        density = config['object_density']
+        if isinstance(density, (int, float)):
+            if density < 0:
+                raise ValueError('`object_density` must be positive!')
+            # If a single int is passed, all objects get that #
+            config['object_density'] = density * np.ones(Ninput)
+        elif isinstance(density, dict):
+            for itype, d in density.items():
+                if itype not in input_list:
+                    raise ValueError('`object_density` field {}'.format(itype) +
+                                     'is not a passed input type!')
+                if d < 0:
+                    raise ValueError('All `object_density` values must be positive!')
+            for inpt in input_list:
+                if inpt not in density.keys():
+                    # This is ok if pos_sampling is grid for this input type - this
+                    # is checked later
+                    density[inpt] = None
+            config['object_density'] = density
+        else:
+            raise TypeError('`object_density` must be passed as a float or a dict!')
+    except KeyError:
+        config['object_density'] = {inpt : None for inpt in input_list}
 
     # Process input 'bands'
     try:
@@ -281,12 +355,14 @@ def parse_bal_image_inputs(config):
         config['pos_sampling']['type'] = 'uniform'
         config['pos_sampling']['grid_spacing'] = None
 
-    # Must have *exactly* one of `n_galaxies` or `gal_density`, unless using a grid.
-    if (config['n_galaxies'] is not None) and (config['gal_density'] is not None):
-        raise ValueError('Only one of `n_galaxies` or `gal_density` is allowed; not both!')
-    elif (config['n_galaxies'] is None) and (config['gal_density'] is None):
-        if config['pos_sampling']['type'] not in grid._valid_grid_types:
-            raise ValueError('Must pass one of `n_galaxies` or `gal_desnity` if not injecting '
-                            'on a grid!')
+    # Must have *exactly* one of `n_objects` or `object_density` for each input, unless using a grid
+    for inpt in input_list:
+        if (config['n_objects'][inpt] is not None) and (config['object_density'][inpt] is not None):
+            raise ValueError('Only one of `n_objects` or `object_density` is allowed for '
+                             'input {}, not both!'.format(inpt))
+        elif (config['n_objects'][inpt] is None) and (config['object_density'][inpt] is None):
+            if config['pos_sampling']['type'] not in grid._valid_grid_types:
+                raise ValueError('Must pass one of `n_objects` or `object_desnity` for '
+                                 'input {} if not injecting on a grid!'.format(inpt))
 
     return config

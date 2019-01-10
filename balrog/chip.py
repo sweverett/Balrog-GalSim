@@ -25,11 +25,14 @@ class Chip(object):
         self.zeropoint = zeropoint
 
         # Will be set later
-        self.Ngals, self.Nstars = 0, 0
+        self.nobjects = {}
+        self.total_n_objects = 0
 
+        # TODO: Can probably get rid of this after update
         # Keeps track of how many input types for this chip have been added
         # to bal_config by add_gs_injection()
         self.types_injected = 0
+        self.N_inj_types = len(config.inj_types)
 
         self._set_name(config)
         self._set_psf(config)
@@ -63,7 +66,6 @@ class Chip(object):
             # Check if PSF type is supported
             if self.psf_type in config._supported_psf_types:
                 self.psf_extension = config._psf_extensions[self.psf_type]
-                # pudb.set_trace()
                 # NOTE: Due to peculiarities of DES_PSFEx GalSim class, we cannot keep psf
                 # dir and filename separate; must be combined for an absolute path. This is
                 # due to the psf file and chip file being stored in different directories.
@@ -141,8 +143,6 @@ class Chip(object):
         self.naxis1_range = [np.min(self.corners_im[:,0]), np.max(self.corners_im[:,0])]
         self.naxis2_range = [np.min(self.corners_im[:,1]), np.max(self.corners_im[:,1])]
 
-        # pudb.set_trace()
-
         return
 
     def _set_noise(self, config):
@@ -164,7 +164,10 @@ class Chip(object):
         Calculate and set the flux factor needed to consistently lay down fluxes from the
         input catalog given different image zeropoints.
         '''
-        self.flux_factor = np.power(10.0, 0.4 * (self.zeropoint - config.input_zp))
+        if config.input_zp is not None:
+            self.flux_factor = np.power(10.0, 0.4 * (self.zeropoint - config.input_zp))
+        else:
+            self.flux_factor = 1.0
 
         return
 
@@ -173,7 +176,7 @@ class Chip(object):
         Set chip background file, if needed for grid test.
         '''
 
-        if config.inj_objs_only['noise'] in ['BKG', 'BKG+CCD', 'BKG+RN', 'BKG+SKY']:
+        if config.inj_objs_only['noise'] in config._valid_background_types:
             assert tile is not None
             self.bkg_file = tile.bkg_files[self.band][self.name]
 
@@ -184,8 +187,6 @@ class Chip(object):
         For an input vector of (RA,DEC) positions, returns a boolean vector
         of whether each position is contained within the chip image.
         '''
-
-        # pudb.set_trace()
 
         # Load image bounds
         n1min, n1max = self.naxis1_range[0], self.naxis1_range[1]
@@ -203,16 +204,15 @@ class Chip(object):
 
         return in_chip, pos_im
 
-    # NOTE: Depreciated
-    def set_Ngals(self, Ng):
-        self.Ngals = Ng
+    def set_nobjects(self, Nobjs, inj_type):
+        self.nobjects[inj_type] = Nobjs
+        self.total_n_objects += Nobjs
 
-    def set_Nstars(self, Ns):
-        self.Nstars = Ns
+        return
 
     def save_without_injection(self, outfile):
         '''
-        If there are no Balrog galaxies to inject in the chip area, then save
+        If there are no Balrog objects to inject in the chip area, then save
         copy of current chip image in the new Balrog image format.
         '''
 

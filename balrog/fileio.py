@@ -7,6 +7,8 @@ import itertools
 import csv
 import warnings
 
+# import pudb
+
 #-------------------------------------------------------------------------------
 # Input parsing and file loading
 
@@ -45,14 +47,14 @@ def setup_output_dir(config, tiles):
     # Setup parent-level directories
     for d in dirs:
         try:
-	    os.makedirs(d)
+            os.makedirs(d)
         except OSError as e:
-	    if e.errno != errno.EEXIST:
-	        raise
+            if e.errno != errno.EEXIST:
+                raise e
 
     # Setup tiles, reals, and bands
     for tile in tiles:
-	pass
+        pass
 
     return
 
@@ -70,14 +72,13 @@ def combine_fits_extensions(combined_file, bal_file, orig_file, config=None):
     mskIm, mskHdr = fitsio.read(orig_file, ext=3, header=True)
 
     # If injecting on blank images, then set these to some sensible values
-    # pudb.set_trace()
-    if config:
+    if config is not None:
         if config.inj_objs_only['value'] is True:
             # TODO: This needs to be generalized for different noise models!
-	    if config.inj_objs_only['noise'] == 'BKG+SKY':
-		noise = sciHdr['SKYSIGMA']
-	    else:
-		noise = np.mean([sciHdr['RDNOISEA'], sciHdr['RDNOISEB']])
+            if config.inj_objs_only['noise'] == 'BKG+SKY':
+                noise = sciHdr['SKYSIGMA']
+            else:
+                noise = np.mean([sciHdr['RDNOISEA'], sciHdr['RDNOISEB']])
             inv_sky_var = 1.0 / (noise**2)
             wgtIm.fill(inv_sky_var)
             wgt_me_Im.fill(inv_sky_var)
@@ -102,3 +103,7 @@ def combine_fits_extensions(combined_file, bal_file, orig_file, config=None):
     fits[3].write_key('EXTNAME', 'MSK', comment="Extension name")
 
     return
+
+def return_output_fname(output_dir, dir_name, real, version, tile_name, band, chip_name):
+    return os.path.join(output_dir, dir_name, str(real), version, tile_name, band,
+                        '{}_balrog_inj.fits'.format(chip_name))
