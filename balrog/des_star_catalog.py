@@ -453,8 +453,11 @@ class desStarCatalog(object):
         # Used by input/logger methods
         return self.ntotal
 
-    def getCatalog(self):
-        return self.catalog
+    def getCatalog(self, indices=None):
+        if indices is None:
+            return self.catalog
+        else:
+            return self.catalog[indices]
 
     #------------------------------------------------------------------------------------------------
 
