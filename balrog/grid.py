@@ -15,10 +15,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 # import pudb
 
-_valid_pos_sampling = ['uniform', 'RectGrid', 'HexGrid']
-_valid_grid_types = ['RectGrid', 'HexGrid']
+# The following base class is useful for accessing allowed parameter values
+# without constructing a full config
+class BaseGrid(object):
 
-class Grid(object):
+    _valid_pos_sampling = ['uniform', 'RectGrid', 'HexGrid', 'MixedGrid']
+    _valid_grid_types = ['RectGrid', 'HexGrid'] #, 'FibonacciGrid']
+
+class Grid(BaseGrid):
 
     def __init__(self, grid_spacing, wcs, Npix_x=10000, Npix_y=10000, pixscale=0.2631,
                  rot_angle=None, pos_offset=None, angle_unit='rad'):
@@ -202,6 +206,10 @@ class HexGrid(Grid):
     def rotate_polygons():
         return
 
+class MixedGrid(BaseGrid):
+    pass
+
+# TODO: This Grid hasn't been fully implemented yet
 class FibonacciGrid(Grid):
     def __init__(self, wcs, N=1000000):
         pass
@@ -219,30 +227,30 @@ class FibonacciGrid(Grid):
 
         return points
 
-def plot_fib_grid(points):
-    fig = plt.figure()
-    fig.set_size_inches(10,10)
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(points[:,0], points[:,1], zs=points[:,2])
-    return
+    def plot_fib_grid(points):
+        fig = plt.figure()
+        fig.set_size_inches(10,10)
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(points[:,0], points[:,1], zs=points[:,2])
+        return
 
-def plot_sphere(points):
-    fig = plt.figure()
-    fig.set_size_inches(10, 10)
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(points[:,0], points[:,1], zs=points[:,2])
-    return
+    def plot_sphere(points):
+        fig = plt.figure()
+        fig.set_size_inches(10, 10)
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(points[:,0], points[:,1], zs=points[:,2])
+        return
 
-def rotate_grid(self, theta, x, y, offset=[0., 0.]):
+    def rotate_grid(self, theta, x, y, offset=[0., 0.]):
 
-    c, s = np.cos(theta), np.sin(theta)
-    R = np.array(((c,-s), (s, c)))
+        c, s = np.cos(theta), np.sin(theta)
+        R = np.array(((c,-s), (s, c)))
 
-    offset_grid = np.array([x - offset[0], y - offset[1]])
-    translate = np.empty_like(offset_grid)
-    translate[0,:] = offset[0]
-    translate[1,:] = offset[1]
+        offset_grid = np.array([x - offset[0], y - offset[1]])
+        translate = np.empty_like(offset_grid)
+        translate[0,:] = offset[0]
+        translate[1,:] = offset[1]
 
-    offset_grid = np.dot(R, offset_grid) + translate
+        offset_grid = np.dot(R, offset_grid) + translate
 
-    return
+        return

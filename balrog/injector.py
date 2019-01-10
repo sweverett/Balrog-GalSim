@@ -280,8 +280,9 @@ def parse_bal_image_inputs(config, base):
         config['inj_objs_only'] = {'value':False, 'noise':None}
 
     # Process input 'pos_sampling'
-    valid_pos_sampling = grid._valid_pos_sampling
-    valid_grid_types = grid._valid_grid_types
+    bg = grid.BaseGrid()
+    valid_pos_sampling = bg._valid_pos_sampling
+    valid_grid_types = bg._valid_grid_types
     default_gs = 30 # arcsec
     try:
         ps = config['pos_sampling']
@@ -361,7 +362,7 @@ def parse_bal_image_inputs(config, base):
             raise ValueError('Only one of `n_objects` or `object_density` is allowed for '
                              'input {}, not both!'.format(inpt))
         elif (config['n_objects'][inpt] is None) and (config['object_density'][inpt] is None):
-            if config['pos_sampling']['type'] not in grid._valid_grid_types:
+            if config['pos_sampling']['type'] not in grid.BaseGrid()._valid_grid_types:
                 raise ValueError('Must pass one of `n_objects` or `object_desnity` for '
                                  'input {} if not injecting on a grid!'.format(inpt))
 
