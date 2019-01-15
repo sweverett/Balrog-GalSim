@@ -16,9 +16,10 @@ import datetime
 from chip import Chip
 import fileio as io
 import mathutil as util
+import balobject as balobj
 import grid
 
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Tile class and functions
@@ -66,7 +67,8 @@ class Tile(object):
                 self.objs_per_real[inpt] = round(self.u_area * config.object_density)
             else:
                 # This should only happen for grid runs
-                assert config.pos_sampling['type'] in grid.BaseGrid()._valid_grid_types
+                assert (config.pos_sampling[inpt]['type'] in grid.BaseGrid()._valid_grid_types) \
+                    or (config.pos_sampling[inpt]['type'] in grid.BaseGrid()._valid_mixed_types)
                 # This will be set during grid creation
                 self.objs_per_real[inpt] = None
 
@@ -361,19 +363,24 @@ class Tile(object):
         given realization (starts counting at 0).
         '''
 
-        self.inj_cats = {}
+        # NOTE: While in principle the object generation could depend explicitly on
+        # realization, for now all generation types can create realization positions
+        # and indices all at once during construction
+        if realization == 0:
+            self.inj_cats = balobj.BalInjectionCatalogs(config)
+            self.inj_cats.generate_catalogs(config, self, realization)
 
-        for inpt in config.input_types.values():
-            inj_cat = inpt.generate_inj_catalog(config, self, realization)
-
-            # Single-object injection is supported for only the first input type
+            # NOTE: Single-object injection is supported for only the first input type
             # (Only used for testing)
-            if inj_cat.single_obj_injection is True:
-                # Remove `index` from global config (can cause issues w/
-                # other input types
-                self.bal_config[0]['gal'].pop('index', None)
-
-            self.inj_cats[inpt.input_type] = inj_cat
+            for input_type in self.input_types.keys():
+                if self.inj_cats[input_type].single_obj_injection is True:
+                    # Remove `index` from global config (can cause issues w/
+                    # other input types
+                    self.bal_config[0]['gal'].pop('index', None)
+                    break
+        else:
+            # See note above
+            pass
 
         return
 

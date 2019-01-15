@@ -280,34 +280,74 @@ def parse_bal_image_inputs(config, base):
         config['inj_objs_only'] = {'value':False, 'noise':None}
 
     # Process input 'pos_sampling'
+    # TODO: Clean up after testing!
     bg = grid.BaseGrid()
-    valid_pos_sampling = bg._valid_pos_sampling
+    bc = Config.BaseConfig()
+    valid_pos_sampling = bc._valid_pos_sampling
     valid_grid_types = bg._valid_grid_types
+    valid_mixed_types = bg._valid_mixed_types
     default_gs = 30 # arcsec
+
     try:
         ps = config['pos_sampling']
-        if isinstance(ps, basestring):
-            # Then the string is the input type
-            if ps not in valid_pos_sampling:
-                raise ValueError('{} is not a valid position sampling method. '.format(ps) +
-                                'Currently allowed methods are {}'.format(valid_pos_sampling))
+    except KeyError:
+        # Most runs use uniform sampling
+        config['pos_sampling'] = {inpt : {
+            'type':'uniform', 'grid_spacing':None
+            } for inpt in input_list}
+        ps = config['pos_sampling']
 
-            if ps in valid_grid_types:
-                print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
-                config['pos_sampling'] = {'type' : ps, 'grid_spacing' : default_gs}
-            else:
-                config['pos_sampling'] = {'type' : ps}
-        elif isinstance(ps, dict):
-            if 'type' not in ps.keys():
-                raise ValueError('If `pos_sampling` is passed as a dict, then must set a type!')
-            if (ps in valid_grid_types) and ('grid_spacing' not in ps.keys()):
-                print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
-                ps['grid_spacing'] = default_gs
-            keys = ['type', 'grid_spacing', 'rotate', 'offset', 'angle_unit']
+    if isinstance(ps, basestring):
+        # Then the string is the input type
+        if ps not in valid_pos_sampling:
+            raise ValueError('{} is not a valid position sampling method. '.format(ps) +
+                            'Currently allowed methods are {}'.format(valid_pos_sampling))
+
+        if ps in valid_grid_types:
+            print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
+            config['pos_sampling'] = {inpt : {'type' : ps, 'grid_spacing' : default_gs}
+                                        for inpt in input_list}
+        else:
+            config['pos_sampling'] = {inpt : {'type' : ps} for inpt in input_list}
+    elif isinstance(ps, dict):
+        def _parse_pos_sampling_dict(ps):
+            bg = grid.BaseGrid()
+            bc = Config.BaseConfig()
+            valid_pos_sampling = bc._valid_pos_sampling
+            valid_grid_types = bg._valid_grid_types
+            valid_mixed_types = bg._valid_mixed_types
+
+            # NOTE: We actually don't check for 'grid_type' as only 1
+            # of the mixed input types needs it
+            req_mixed_keys = ['inj_frac'] #, 'grid_type']
+            if ps['type'] in valid_mixed_types:
+                for key in req_mixed_keys:
+                    if key not in ps:
+                        raise AttributeError('`pos_sampling` must contain the key '
+                                                '{} for a Mixed sampling type!'.format(key))
+
+            keys = ['type', 'grid_type', 'grid_spacing', 'rotate', 'offset',
+                    'angle_unit', 'inj_frac']
             for key, val in ps.items():
                 if key not in keys:
                     raise ValueError('{} is not a valid key for `pos_sampling`! '.format(key) +
                                         'You may only pass the keys {}'.format(keys))
+                if key == 'grid_type':
+                    if ps['type'] not in valid_mixed_types:
+                        raise ValueError('`grid_type` is only a valid key for `pos_sampling` '
+                                            'when using a `MixedGrid`!')
+                    # TODO: We should add consistency checks here to make sure that MixedGrid
+                    # params between input types are consistent
+
+                if key == 'inj_frac':
+                    if ps['type'] not in valid_mixed_types:
+                        raise ValueError('`inj_frac` is only a valid key for `pos_sampling` '
+                                            'when using a `MixedGrid`!')
+                    if not isinstance(val, float):
+                        raise TypeError('`inj_frac` must be a float!')
+                    if val <= 0 or val >= 1:
+                        raise ValueError('`inj_frac` must be between 0 and 1!')
+
                 if key == 'grid_spacing':
                     if val < 0.0:
                         raise ValueError('grid_spacing of {} is invalid; '.format(val) +
@@ -317,7 +357,6 @@ def parse_bal_image_inputs(config, base):
                         if val.lower() != 'random':
                             raise ValueError('{} is not a valid grid rotation type!'.format(val) +
                                                 'Must be `Random` or a number.')
-                    # config['pos_sampling'].update({'rotate':val})
                     try:
                         unit = ps['angle_unit'].lower()
                         if unit == 'deg':
@@ -329,32 +368,38 @@ def parse_bal_image_inputs(config, base):
                             else:
                                 raise ValueError('angle_unit of {} is invalid! '.format(unit) +
                                                     'only can pass `deg` or `rad`.')
-                        # config['pos_sampling'].update({'angle_unit':unit})
                     except KeyError:
                         # Default of rad
                         if (val<0.0) or (val>2*np.pi):
                             raise ValueError('rotate value of {} rad is invalid!'.format(val))
-                        # config['pos_sampling'].update({'angle_unit':'rad'})
-                    # config['pos_sampling'].update({'rotate':val})
 
                 if key == 'offset':
                     if isinstance(val, str):
                         if val.lower() != 'random':
                             raise ValueError('{} is not a valid grid offset!'.format(val) +
                             'must be `Random` or an array.')
-                        # config['pos_sampling'].update({'offset':val})
                     elif isinstance(val, list):
                         assert len(val)==2
-                        # config['pos_sampling'].update({'offset':val})
                     else:
                         raise TypeError('grid offset of type {} is invalid!'.format(type(val)))
 
-                # config['pos_sampling'][key] = val
+            if 'type' in ps.keys():
+                if (ps['type'] in valid_grid_types) and ('grid_spacing' not in ps.keys()):
+                    print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
+                    config['pos_sampling']['grid_spacing'] = default_gs
+                # Same type for all inputs
+                _parse_pos_sampling_dict(ps)
+                ps_temp = config['pos_sampling']
+                config['pos_sampling'] = {inpt : ps_temp for inpt in input_list}
 
-    except KeyError:
-        # Most runs use uniform sampling
-        config['pos_sampling']['type'] = 'uniform'
-        config['pos_sampling']['grid_spacing'] = None
+            else:
+                for inpt in input_list:
+                    if (ps[inpt]['type'] in valid_grid_types) \
+                    and ('grid_spacing' not in ps[inpt].keys()):
+                        print('No grid spacing passed; using default of '
+                        '{} arcsecs'.format(default_gs))
+                        config['pos_sampling'][inpt]['grid_spacing'] = default_gs
+                    _parse_pos_sampling_dict(ps[inpt])
 
     # Must have *exactly* one of `n_objects` or `object_density` for each input, unless using a grid
     for inpt in input_list:
@@ -362,8 +407,9 @@ def parse_bal_image_inputs(config, base):
             raise ValueError('Only one of `n_objects` or `object_density` is allowed for '
                              'input {}, not both!'.format(inpt))
         elif (config['n_objects'][inpt] is None) and (config['object_density'][inpt] is None):
-            if config['pos_sampling']['type'] not in grid.BaseGrid()._valid_grid_types:
-                raise ValueError('Must pass one of `n_objects` or `object_desnity` for '
+            if (config['pos_sampling'][inpt]['type'] not in bg._valid_grid_types) \
+            and (config['pos_sampling'][inpt]['type'] not in bg._valid_mixed_types):
+                raise ValueError('Must pass one of `n_objects` or `object_density` for '
                                  'input {} if not injecting on a grid!'.format(inpt))
 
     return config

@@ -83,14 +83,19 @@ class InputCatalog(BalInput):
 
         return
 
-    def generate_inj_catalog(self, config, tile, realization):
+    def generate_inj_catalog(self, config, tile, realization, mixed, mixed_grid=None):
         inp_type = self.input_type
         inj_type = self.inj_type
 
-        self.inj_catalog = balobject.build_bal_inject_cat(inp_type, inj_type, tile, self.needs_band)
-        self.inj_catalog.generate_objects(config, realization)
+        self.inj_catalog = balobject.build_bal_inject_cat(inp_type,
+                                                          inj_type,
+                                                          tile,
+                                                          needs_band=self.needs_band,
+                                                          mixed=mixed)
 
-        return self.inj_catalog
+        mixed_grid = self.inj_catalog.generate_objects(config, realization, mixed_grid=mixed_grid)
+
+        return self.inj_catalog, mixed_grid
 
 class DESInputCatalog(InputCatalog):
 
@@ -209,7 +214,7 @@ class DESStarInputCatalog(DESInputCatalog):
         return
 
     def _setup_proxy_catalog(self):
-        if self.gsconfig['image']['pos_sampling']['type'].lower() == 'sahar':
+        if self.gsconfig['image']['pos_sampling'][self.input_type]['type'].lower() == 'sahar':
             sp = True
         else:
             sp = False
