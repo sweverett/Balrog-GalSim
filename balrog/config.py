@@ -32,7 +32,9 @@ class BaseConfig(object):
     _supported_psf_types = ['DES_PSFEx']#, 'Piff'}
     _psf_extensions = {'DES_PSFEx' : 'psfexcat.psf'}#, 'Piff' : 'something.piff'}
 
-    _non_inj_input_types = ['power_spectrum', 'nfw_halo']
+    _non_inj_input_types = ['power_spectrum', 'nfw_halo', 'des_psfex', '_get']
+
+    _valid_pos_sampling = ['uniform', 'sahar', 'RectGrid', 'HexGrid', 'MixedGrid']
 
     # NOTE: only used for background subtracted runs
     _valid_background_types = ['BKG', 'BKG+CCD', 'BKG+RN', 'BKG+SKY']

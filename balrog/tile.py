@@ -16,9 +16,10 @@ import datetime
 from chip import Chip
 import fileio as io
 import mathutil as util
+import balobject as balobj
 import grid
 
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Tile class and functions
@@ -66,10 +67,10 @@ class Tile(object):
                 self.objs_per_real[inpt] = round(self.u_area * config.object_density)
             else:
                 # This should only happen for grid runs
-                assert config.pos_sampling['type'] in grid._valid_grid_types
+                assert (config.pos_sampling[inpt]['type'] in grid.BaseGrid()._valid_grid_types) \
+                    or (config.pos_sampling[inpt]['type'] in grid.BaseGrid()._valid_mixed_types)
                 # This will be set during grid creation
                 self.objs_per_real[inpt] = None
-                # self.objs_per_real[inpt] = grid.nobjs_given_gs(config.pos_sampling['grid_size'])
 
         # Set tile directory structure
         self.dir = os.path.abspath(os.path.join(config.tile_dir, self.tile_name))
@@ -126,8 +127,6 @@ class Tile(object):
         # Save in arcmin^2
         self.u_area = 3600.0 * a
 
-        # pudb.set_trace()
-
         return
 
     def _set_wcs(self, config):
@@ -163,7 +162,6 @@ class Tile(object):
 
         # For convenience of later functions
         self.bands = config.bands
-        self.bindx = dict(zip(self.bands, range(len(self.bands))))
 
         # Will store directory locatations for each band
         self.band_dir = {}
@@ -260,8 +258,6 @@ class Tile(object):
                     # self.zeropoints[band][chip_name] = zp
                     self.zeropoints[band][chip_file] = zp
 
-        # pudb.set_trace()
-
         return
 
     def _load_backgrounds(self, config, s_begin=0, s_end=4):
@@ -310,7 +306,6 @@ class Tile(object):
         self.chip_list = {}
         self.chips = {}
 
-        # pudb.set_trace()
         for band, b_dir in self.band_dir.items():
             self.chip_list[band] = []
             self.chips[band] = []
@@ -368,19 +363,24 @@ class Tile(object):
         given realization (starts counting at 0).
         '''
 
-        self.inj_cats = {}
+        # NOTE: While in principle the object generation could depend explicitly on
+        # realization, for now all generation types can create realization positions
+        # and indices all at once during construction
+        if realization == 0:
+            self.inj_cats = balobj.BalInjectionCatalogs(config)
+            self.inj_cats.generate_catalogs(config, self, realization)
 
-        for inpt in config.input_types.values():
-            inj_cat = inpt.generate_inj_catalog(config, self, realization)
-
-            # Single-object injection is supported for only the first input type
+            # NOTE: Single-object injection is supported for only the first input type
             # (Only used for testing)
-            if inj_cat.single_obj_injection is True:
-                # Remove `index` from global config (can cause issues w/
-                # other input types
-                self.bal_config[0]['gal'].pop('index', None)
-
-            self.inj_cats[inpt.input_type] = inj_cat
+            for input_type in self.input_types.keys():
+                if self.inj_cats[input_type].single_obj_injection is True:
+                    # Remove `index` from global config (can cause issues w/
+                    # other input types
+                    self.bal_config[0]['gal'].pop('index', None)
+                    break
+        else:
+            # See note above
+            pass
 
         return
 
@@ -830,7 +830,6 @@ class Tile(object):
         to the new balrog injected images.
         '''
 
-        # pudb.set_trace()
         for band in self.bands:
             out_band_dir = os.path.join(self.output_dir, 'balrog_images', str(self.curr_real),
                                         config.data_version, self.tile_name, band)
@@ -863,8 +862,6 @@ def create_tiles(config):
     '''
 
     tile_list = load_tile_list(config.tile_list, vb=config.vb)
-
-    # pudb.set_trace()
 
     # Will keep a list of desired tiles
     tiles = []

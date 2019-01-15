@@ -15,10 +15,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 # import pudb
 
-_valid_pos_sampling = ['uniform', 'RectGrid', 'HexGrid']
-_valid_grid_types = ['RectGrid', 'HexGrid']
+# The following base class is useful for accessing allowed parameter values
+# without constructing a full config
+class BaseGrid(object):
 
-class Grid(object):
+    _valid_grid_types = ['RectGrid', 'HexGrid'] #, 'FibonacciGrid']
+    _valid_mixed_types = ['MixedGrid']
+
+class Grid(BaseGrid):
 
     def __init__(self, grid_spacing, wcs, Npix_x=10000, Npix_y=10000, pixscale=0.2631,
                  rot_angle=None, pos_offset=None, angle_unit='rad'):
@@ -202,6 +206,101 @@ class HexGrid(Grid):
     def rotate_polygons():
         return
 
+class MixedGrid(BaseGrid):
+    # NOTE: Due to how Balrog processes inputs and position sampling, it can't
+    # instantiate a MixedGrid with all relevant types simultaneously. Instead,
+    # we will build the grid after all inj types are declared.
+    def __init__(self, grid_type, N_inj_types, inj_frac=None):
+        self.grid_type = grid_type
+        self.N_inj_types = N_inj_types
+
+        if inj_frac is not None:
+            if isinstance(inj_frac, float):
+                self.inj_frac = {inj_type : inj_frac}
+                self.curr_N_types = 1
+            elif isinstance(inj_frac, dict):
+                for val in inj_frac.values():
+                    if not isinstance(val, float):
+                        raise TypeError('Each `inj_frac` entry must be a float!')
+                self.inj_frac = inj_frac
+                self.curr_N_types = len(inj_frac)
+            else:
+                raise TypeError('`inj_frac` can only be passed as a float or a dict!')
+
+        self._check_inj_frac()
+
+        self.pos = {}
+        self.indx = {}
+        self.nobjects = {}
+
+        self.assigned_objects = False
+
+        return
+
+    def _check_inj_frac(self, final=False):
+        sum = 0
+        for frac in self.inj_frac.values():
+            if frac <=0 or frac >=1:
+                raise ValueError('Each injection fraction must be 0<frac<1.')
+            sum += frac
+
+        if len(self.inj_frac) == self.N_inj_types:
+            if sum != 1:
+                raise ValueError('The sum of injection fractions must equal 1 after '
+                                 'all types have been set!')
+
+        if (final is True) and (len(self.inj_frac) != self.N_inj_types):
+            raise ValueError('Cannot continue until all injection fractions are set!')
+
+        return
+
+    def add_injection(self, inj_type, inj_frac):
+        self.inj_frac[inj_type] = inj_frac
+        self.curr_N_types += 1
+
+        if self.curr_N_types == self.N_inj_types:
+            self._assign_objects()
+
+        return
+
+    def build_grid(self, **kwargs):
+        self.grid = _build_grid(self.grid_type, **kwargs)
+
+        # Only assign objects if all injection fractions are set
+        if self.curr_N_types == self.N_inj_types:
+            self._assign_objects()
+
+        return
+
+    def _assign_objects(self):
+
+        if self.curr_N_types != self.N_inj_types:
+            raise ValueError('Cannot assign injection objects to grid until the MixedGrid has '
+                             'all input types set!')
+
+        self._check_inj_frac(final=True)
+
+        N = len(self.grid.pos)
+        indx = np.arange(N)
+
+        for inj_type, inj_frac in self.inj_frac.items():
+            n = int(round(self.inj_frac[inj_type] * N))
+            self.nobjects[inj_type] = n
+
+            i = np.random.choice(indx, n, replace=False)
+            self.indx[inj_type] = i
+            self.pos[inj_type] = self.grid.pos[i]
+
+            indx = np.setdiff1d(indx, i)
+
+        assert(np.sum(self.nobjects.values()) == N)
+        assert(len(indx) == 0)
+
+        self.assigned_objects = True
+
+        return
+
+# TODO: This Grid hasn't been fully implemented yet
 class FibonacciGrid(Grid):
     def __init__(self, wcs, N=1000000):
         pass
@@ -219,30 +318,55 @@ class FibonacciGrid(Grid):
 
         return points
 
-def plot_fib_grid(points):
-    fig = plt.figure()
-    fig.set_size_inches(10,10)
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(points[:,0], points[:,1], zs=points[:,2])
-    return
+    def plot_fib_grid(points):
+        fig = plt.figure()
+        fig.set_size_inches(10,10)
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(points[:,0], points[:,1], zs=points[:,2])
+        return
 
-def plot_sphere(points):
-    fig = plt.figure()
-    fig.set_size_inches(10, 10)
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(points[:,0], points[:,1], zs=points[:,2])
-    return
+    def plot_sphere(points):
+        fig = plt.figure()
+        fig.set_size_inches(10, 10)
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(points[:,0], points[:,1], zs=points[:,2])
+        return
 
-def rotate_grid(self, theta, x, y, offset=[0., 0.]):
+    def rotate_grid(self, theta, x, y, offset=[0., 0.]):
 
-    c, s = np.cos(theta), np.sin(theta)
-    R = np.array(((c,-s), (s, c)))
+        c, s = np.cos(theta), np.sin(theta)
+        R = np.array(((c,-s), (s, c)))
 
-    offset_grid = np.array([x - offset[0], y - offset[1]])
-    translate = np.empty_like(offset_grid)
-    translate[0,:] = offset[0]
-    translate[1,:] = offset[1]
+        offset_grid = np.array([x - offset[0], y - offset[1]])
+        translate = np.empty_like(offset_grid)
+        translate[0,:] = offset[0]
+        translate[1,:] = offset[1]
 
-    offset_grid = np.dot(R, offset_grid) + translate
+        offset_grid = np.dot(R, offset_grid) + translate
 
-    return
+        return
+
+def _build_grid(grid_type, **kwargs):
+
+    if grid_type in GRID_TYPES:
+        # User-defined grid construction
+        return GRID_TYPES[grid_type](**kwargs)
+    else:
+        raise ValueError('There is not yet an implemented default `BalGrid`!')
+
+        # NOTE: In the future, we could implement something like the following:
+        # # Generic grid construction
+        # bg = BaseGrid()
+        # if grid_type not in bg.valid_grid_types:
+        #     raise ValueError('{} is not a valid grid type!'.format(grid_type))
+        # else:
+        #     raise Exception('{} is a valid grid type but not included in '.format(grid_type) +
+        #                     'grid.GRID_TYPES. Please add this type to allow for automatic '
+        #                     'grid building.')
+        # return BalGrid(input_type, gsconfig, indx)
+
+GRID_TYPES = {
+    'RectGrid' : RectGrid,
+    'HexGrid' : HexGrid
+    #'FibonacciGrid' : FibonacciGrid
+    }
