@@ -6,6 +6,8 @@ from astropy.io import fits
 import fitsio
 import warnings
 
+# import pudb
+
 #-------------------------------------------------------------------------------
 # Chip class and functions
 
@@ -20,8 +22,9 @@ class Chip(object):
 
         self.filename = filename
         self.fits_filename = ntpath.basename(filename)
-        self.tile_name = tile_name # Name of parent tile, if given
+        self.tile_name = tile_name
         self.band = band
+        self.bindx = tile.bindx[band]
         self.zeropoint = zeropoint
 
         # Will be set later
@@ -39,6 +42,7 @@ class Chip(object):
         self._set_wcs()
         self._set_noise(config)
         self._set_flux_factor(config)
+        self._set_ext_factor(tile)
         self._set_bkg(config, tile)
 
         return
@@ -168,6 +172,19 @@ class Chip(object):
             self.flux_factor = np.power(10.0, 0.4 * (self.zeropoint - config.input_zp))
         else:
             self.flux_factor = 1.0
+
+        return
+
+    def _set_ext_factor(self, tile):
+        '''
+        Calculate and set the extinction factor needed to consistently lay down fluxes from the
+        input catalog given different image extinctions.
+        '''
+
+        if tile.ext_factors is not None:
+            self.ext_factor = tile.ext_factors[self.bindx]
+        else:
+            self.ext_factor = 1.0
 
         return
 

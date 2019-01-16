@@ -19,7 +19,7 @@ import mathutil as util
 import balobject as balobj
 import grid
 
-import pudb
+# import pudb
 
 #-------------------------------------------------------------------------------
 # Tile class and functions
@@ -89,6 +89,8 @@ class Tile(object):
 
         self._set_noise(config)
 
+        self._set_extinction_factor(config)
+
         self._create_chip_list(config)
 
         # Keep track if any injections into tile have been made
@@ -134,11 +136,19 @@ class Tile(object):
         Load WCS info for each tile from geometry file.
         '''
 
-        crpix1, crpix2 = config.geom['CRPIX1'][self.indx], config.geom['CRPIX2'][self.indx]
-        crval1, crval2 = config.geom['CRVAL1'][self.indx], config.geom['CRVAL2'][self.indx]
-        ctype1, ctype2 = config.geom['CTYPE1'][self.indx], config.geom['CTYPE2'][self.indx]
-        cd1_1, cd1_2 = config.geom['CD1_1'][self.indx], config.geom['CD1_2'][self.indx]
-        cd2_1, cd2_2 = config.geom['CD2_1'][self.indx], config.geom['CD2_2'][self.indx]
+        crpix1 = float(config.geom['CRPIX1'][self.indx])
+        crpix2 = float(config.geom['CRPIX2'][self.indx])
+
+        crval1 = float(config.geom['CRVAL1'][self.indx])
+        crval2 = float(config.geom['CRVAL2'][self.indx])
+
+        ctype1 = str(config.geom['CTYPE1'][self.indx])
+        ctype2 = str(config.geom['CTYPE2'][self.indx])
+
+        cd1_1 = float(config.geom['CD1_1'][self.indx])
+        cd1_2 = float(config.geom['CD1_2'][self.indx])
+        cd2_1 = float(config.geom['CD2_1'][self.indx])
+        cd2_2 = float(config.geom['CD2_2'][self.indx])
 
         # Create WCS object
         self.wcs = wcs.WCS()
@@ -162,6 +172,7 @@ class Tile(object):
 
         # For convenience of later functions
         self.bands = config.bands
+        self.bindx = config.bindx
 
         # Will store directory locatations for each band
         self.band_dir = {}
@@ -284,6 +295,16 @@ class Tile(object):
         else:
             self.bkg_file_list = None
             self.bkg_files = None
+
+        return
+
+    def _set_extinction_factor(self, config):
+        # NOTE: In the future, we may want to generalize this to a list of extinction
+        # factors for all relevant chips. For now, making tile-wide corrections.
+        if config.ext_factors is not None:
+            self.ext_factors = config.ext_factors[self.tile_name]
+        else:
+            self.ext_factors = None
 
         return
 
@@ -578,7 +599,8 @@ class Tile(object):
                 # a list of dicts rather than a nested dict
                 # NOTE: The final 'else' will result in an index 1 larger than the list,
                 # so it will automatically error if something goes wrong
-                for i, inpt in enumerate(x['type'] for x in list_structure_gal['items']):
+                # for j, inpt in enumerate(x['type'] for x in list_structure_gal['items']):
+                for inpt in [x['type'] for x in list_structure_gal['items']]:
                     if icount == 0:
                         upper = lower + '@image.N_{}'.format(inpt)
                         indx_eval = '{} if obj_num<{} else {}'.format(icount, upper, icount+1)
@@ -628,8 +650,9 @@ class Tile(object):
             })
 
             # Set the injected objects' catalog indices and flux factor
+            # TODO: Current state; Make sure extinction factor is consistent between inputs!
             indices = inj_indx.tolist()
-            ff = float(chip.flux_factor)
+            ff = float(chip.flux_factor * chip.ext_factor)
             self.bal_config[i]['gal'].update({
                 'scale_flux' : ff,
                 'index' : {
@@ -649,11 +672,11 @@ class Tile(object):
             indx = self.input_indx[input_type]
 
             # Make sure injection type indices are consistent
-            assert self.bal_config[0]['gal']['items'][indx]['type'] == inj_type
+            assert self.bal_config[i]['gal']['items'][indx]['type'] == inj_type
 
             # Set object indices and flux factor
             indices = inj_indx.tolist()
-            ff = float(chip.flux_factor)
+            ff = float(chip.flux_factor * chip.ext_factor)
             self.bal_config[i]['gal']['items'][indx].update({
                 'scale_flux' : ff,
                 'index' : {

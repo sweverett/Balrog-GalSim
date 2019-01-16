@@ -66,12 +66,15 @@ class Config(BaseConfig):
         # Keeps track of current tile number
         self.tile_num = 0
 
-        # Process GalSim config file
         self._read_gs_config()
-        # Process geometry file
         self._load_tile_geometry()
-        # Process input catalog(s)
         self._load_input_catalogs()
+
+
+        if self.extinct_objs is True:
+            self._load_ext_factors()
+        else:
+            self.ext_factors = None
 
         return
 
@@ -135,6 +138,7 @@ class Config(BaseConfig):
         self.bands = im['bands']
         self.data_version = im['version']
         self.run_name = im['run_name']
+        self.extinct_objs = im['extinct_objs']
         self.inj_objs_only = im['inj_objs_only']
         self.pos_sampling = im['pos_sampling']
 
@@ -212,14 +216,33 @@ class Config(BaseConfig):
         TODO: Make more general to allow for non-DES tiles.
         '''
 
-        # Load unique area bounds from DES coadd tile geometry file
-        with fits.open(self.geom_file) as hdu_geom:
-            self.geom = hdu_geom[1].data
-            self.tile_names = self.geom['TILENAME']
-            uramin, uramax = self.geom['URAMIN'], self.geom['URAMAX']
-            udecmin, udecmax = self.geom['UDECMIN'], self.geom['UDECMAX']
-            # Unique tile area
-            self.u_areas = np.array([uramin, uramax, udecmin, udecmax])
+        self.geom = fitsio.read(self.geom_file)
+        self.tile_names = self.geom['TILENAME']
+
+        # Unique area bounds from DES coadd tile geometry file
+        uramin, uramax = self.geom['URAMIN'], self.geom['URAMAX']
+        udecmin, udecmax = self.geom['UDECMIN'], self.geom['UDECMAX']
+        self.u_areas = np.array([uramin, uramax, udecmin, udecmax])
+
+        return
+
+    def _load_ext_factors(self):
+        # NOTE: In the future, we may want to generalize this to a different file.
+        # For now, easiest to place this in the geometry file.
+
+        # For now, file assumed to have structure of ['g','r','i','z']
+        file_bindx = dict(zip('griz', range(4)))
+
+        # NOTE: Can also grab EXTMAG, GALLONG, GALLAT, and MEANEBV for more complex
+        # extinction methods
+        try:
+            ext_factors = np.array([self.geom['EXTFACT'][:, file_bindx[b]]
+                                                 for b in self.bands])
+        except KeyError:
+            raise AttributeError('Column `EXTFACT` required in geometry file for setting '
+                                 'extinction factors!')
+
+        self.ext_factors = dict(zip(self.geom['TILENAME'], ext_factors.T))
 
         return
 
