@@ -33,7 +33,8 @@ class BalrogImageBuilder(AddOnImageBuilder):
     def setup(self, config, base, image_num, obj_num, ignore, logger):
         extra_ignore = ignore + ['tile_list', 'geom_file', 'tile_dir', 'config_dir', 'psf_dir',
                                  'version', 'run_name', 'bands', 'n_objects', 'n_realizations',
-                                 'object_density', 'inj_objs_only', 'pos_sampling', 'realizations']
+                                 'object_density', 'inj_objs_only', 'pos_sampling', 'realizations',
+                                 'extinct_objs']
 
         # There are additionally the keywords `N_{inj_type}` that we want to ignore
         for key in config:
@@ -247,6 +248,14 @@ def parse_bal_image_inputs(config, base):
         # TODO: Maybe come up with sensible default run name?
         #       Current metadata should provide enough info for now.
         config['run_name'] = None
+
+    # Process input 'extinct_objs'
+    try:
+        ext = config['extinct_objs']
+        if not isinstance(ext, bool):
+            raise TypeError('The input `extinct_objs` must be a bool!')
+    except KeyError:
+        config['extinct_objs'] = False
 
     # Process input 'inj_objs_only'. This is used to test Balrog injections on blank images
     try:
