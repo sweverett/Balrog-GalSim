@@ -28,7 +28,7 @@ class desStarCatalog(object):
     # @param tile            Which catalog tile to load.
     # @param bands           A string of the desired bands to simulate from (only griz allowed). For
     #                        example, selecting only the 'g' and 'r' bands would be done by setting
-    #                        bands='gr'. If none are passed, the g-band is selected by default.
+    #                        bands='gr'.
     # @param snr_min         The lower allowed bound for signal-to-noise ratio (snr). Can be any
     #                        positive value, as long as it is smaller than `snr_max`. All objects with
     #                        negative snr are removed by default.
@@ -120,9 +120,6 @@ class desStarCatalog(object):
             bands = bands.replace(' ', '')
             # More useful as a list of individual bands
             bands_list = list(bands)
-            if len(bands_list) > 1:
-                warnings.warn('WARNING: Passed more than one band - injections will use flux ' +
-                              'from all passed bands!')
             if set(bands_list).issubset(self._valid_band_types):
                 self.bands = bands_list
             else:
@@ -241,7 +238,7 @@ class desStarCatalog(object):
 
     #------------------------------------------------------------------------------------------------
 
-    def make_stars(self, index=None, n_random=None, rng=None, gsparams=None):
+    def make_stars(self, band, index=None, n_random=None, rng=None, gsparams=None):
         """
         Construct GSObjects from a list of stars in the des star catalog specified by `index`
         (or a randomly generated one).
@@ -262,6 +259,9 @@ class desStarCatalog(object):
         @param gsparams         An optional GSParams argument.  See the docstring for GSParams for
                                 details. [default: None]
         """
+
+        if band not in self._valid_band_types:
+            raise ValueError('Band {} is not a valid band type for an ngmix catalog!'.format(band))
 
         # Make rng if needed
         if index is None:
@@ -289,7 +289,7 @@ class desStarCatalog(object):
         stars = []
 
         for index in indices:
-            star = self.star2gs(index, gsparams)
+            star = self.star2gs(index, band, gsparams)
             stars.append(star)
 
         # Store the orig_index as star.index
@@ -304,57 +304,53 @@ class desStarCatalog(object):
 
     #------------------------------------------------------------------------------------------------
 
-    def star2gs(self, index, gsparams):
+    def star2gs(self, index, band, gsparams=None):
 
-        # Convert from dict to actual GsParams object
-        # TODO: Currently fails if gsparams isn't passed!
-        if gsparams: gsp = galsim.GSParams(**gsparams)
-        else: gsp = None
-
+        if (gsparams is not None) and (not isinstance(gsparams, galsim.GSParams)):
+                    if isinstance(gsparams, dict):
+                        # Convert to actual gsparams object
+                        gsparams = galsim.GSParams(**gsparams)
+                    else:
+                        raise TypeError('Only `dict` and `galsim.GSParam` types allowed for '
+                                        'gsparams; input has type of {}.'.format(type(gsparams)))
         # List of individual band GSObjects
         gsobjects = []
 
-        # Iterate over all desired bands
-        for band in self.bands:
-            if self.data_version == 'y3v02':
+        # NOTE: Used to iterate over all desired bands here, but this feature has
+        # been removed as it is not useful and led to the possiblity of unintended bugs
+        # for band in self.bands:
+        if self.data_version == 'y3v02':
+            # Needed for all mag calculations
+            gmag = self.catalog['g_Corr'][index]
 
-                # Needed for all mag calculations
-                gmag = self.catalog['g_Corr'][index]
-
-                # Grab current band magnitude
-                if band == 'g':
-                    mag = gmag
-                elif band == 'r':
-                    mag = gmag - self.catalog['gr_Corr'][index]
-                elif band == 'i':
-                    mag = gmag - self.catalog['gr_Corr'][index] - self.catalog['ri_Corr'][index]
-                elif band == 'z':
-                    mag = gmag - self.catalog['gr_Corr'][index] - self.catalog['ri_Corr'][index] \
-                               - self.catalog['iz_Corr'][index]
-                else:
-                    raise ValueError('Band {} is not an allowed band input '.format(band) +
-                                     'for data_version of {}!'.format(self.data_version))
-
-                # Now convert to flux
-                flux = np.power(10.0, 0.4 * (self.zeropoint - mag))
-
-                # (star cats calibrated at zp=30)
-                # NOTE: Will just use `scale_flux` parameter in galsim config for now
-                # flux_factor = ...
-
-                # Stars are treated as a delta function, to be convolved w/ set PSF
-                star = galsim.DeltaFunction(flux)
-
+            # Grab current band magnitude
+            if band == 'g':
+                mag = gmag
+            elif band == 'r':
+                mag = gmag - self.catalog['gr_Corr'][index]
+            elif band == 'i':
+                mag = gmag - self.catalog['gr_Corr'][index] - self.catalog['ri_Corr'][index]
+            elif band == 'z':
+                mag = gmag - self.catalog['gr_Corr'][index] - self.catalog['ri_Corr'][index] \
+                            - self.catalog['iz_Corr'][index]
             else:
-                # Should already be checked by this point, but just to be safe:
-                raise ValueError('There is no implementation for `star2gs` for data_version ' +
-                                 'of {}'.format(self.data_version))
+                raise ValueError('Band {} is not an allowed band input '.format(band) +
+                                    'for data_version of {}!'.format(self.data_version))
 
-            # Add galaxy in given band to list
-            gsobjects.append(star)
+            # Now convert to flux
+            flux = np.power(10.0, 0.4 * (self.zeropoint - mag))
 
-        # NOTE: If multiple bands were passed, the fluxes are simply added together.
-        gs_star = galsim.Add(gsobjects)
+            # (star cats calibrated at zp=30)
+            # NOTE: Will just use `scale_flux` parameter in galsim config for now
+            # flux_factor = ...
+
+            # Stars are treated as a delta function, to be convolved w/ set PSF
+            gs_star = galsim.DeltaFunction(flux)
+
+        else:
+            # Should already be checked by this point, but just to be safe:
+            raise ValueError('There is no implementation for `star2gs` for data_version ' +
+                                'of {}'.format(self.data_version))
 
         return gs_star
 
@@ -463,10 +459,9 @@ class desStarCatalog(object):
 
     # Since make_stars is a function, not a class, it needs to use an unconventional location for defining
     # certain config parameters.
-    make_stars._req_params = {}
-    make_stars._opt_params = { "index" : int,
-                               "n_random": int
-                             }
+    make_stars._req_params = {'band' : str}
+    make_stars._opt_params = {'index' : int,
+                              'n_random': int}
     make_stars._single_params = []
     make_stars._takes_rng = True
 
@@ -522,11 +517,12 @@ class desStarCatalogLoader(galsim.config.InputLoader):
                         out_str += '\n  model_type = %s'%cc['model_type']
                     if out_str != '':
                         logger.log(log_level, 'Using user-specified desStarCatalog: %s',out_str)
-            logger.info("file %d: DES star catalog has %d total objects; %d passed initial cuts.",
-                        base['file_num'], des_star_catalog.getNTot(), des_star_catalog.getNObjects())
+            logger.info('file %d: DES star catalog has %d total objects; %d passed initial cuts.',
+                        base['file_num'], des_star_catalog.getNTot(),des_star_catalog.getNObjects())
 
 # Need to add the desStarCatalog class as a valid input_type.
-galsim.config.RegisterInputType('des_star_catalog', desStarCatalogLoader(desStarCatalog, has_nobj=True))
+galsim.config.RegisterInputType('des_star_catalog', desStarCatalogLoader(desStarCatalog,
+                                                                         has_nobj=True))
 
 #####------------------------------------------------------------------------------------------------
 
@@ -550,7 +546,11 @@ def build_desStar(config, base, ignore, gsparams, logger):
     single = desStarCatalog.make_stars._single_params
     ignore = ignore + ['num']
 
-    kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt, single=single, ignore=ignore)
+    kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt, single=single,
+                                              ignore=ignore)
+
+    # Guaranteed to be present as it is in _req_params
+    band = kwargs['band']
 
     # Convert gsparams from a dict to an actual GSParams object
     if gsparams:
@@ -581,12 +581,12 @@ def build_desStar(config, base, ignore, gsparams, logger):
 
     kwargs['des_star_catalog'] = des_star_cat
 
-    # NB: This uses a static method of desStarCatalog to save memory. Not needed for the moment, but
+    # NOTE: This uses a static method of desStarCatalog to save memory. Not needed for the moment, but
     # worth looking into when trying to save resources for large Balrog runs
     # star = des_star_catalog._make_single_star(**kwargs)
 
     # Create GSObject stars from the star catalog
-    des_stars = des_star_cat.make_stars(index=index,gsparams=gsparams)
+    des_stars = des_star_cat.make_stars(band, index=index, gsparams=gsparams)
 
     # The second item is "safe", a boolean that declares whether the returned value is
     # safe to save and use again for later objects (which is not the case for des_stars).

@@ -123,9 +123,6 @@ class ngmixCatalog(object):
             bands = bands.replace(" ", "")
             # More useful as a list of individual bands
             bands_list = list(bands)
-            if len(bands_list) > 1:
-                warnings.warn('WARNING: Passed more than one band - injections will contain ' + \
-                              'flux from multiple bands!')
             if set(bands_list).issubset(self._valid_band_types):
                 self.bands = bands_list
             else:
@@ -234,7 +231,7 @@ class ngmixCatalog(object):
 
         # Might need more in future...
         # TODO: Make this consistent with whatever Brian decides!
-        req_colnames = [cp+'_flux_redden']
+        req_colnames = [cp+'_flux_deredden']
 
         for colname in req_colnames:
             if colname not in self.catalog.dtype.names:
@@ -397,9 +394,6 @@ class ngmixCatalog(object):
         # grab them like this:
         # c1, c2 = self.catalog[cp+'_c'][index]
 
-        # List of individual band GSObjects
-        gsobjects = []
-
         # Convert from dict to actual GsParams object
         if gsparams is not None:
             gsp = galsim.GSParams(**gsparams)
@@ -412,7 +406,7 @@ class ngmixCatalog(object):
 
         # Grab current band flux
         if self.de_redden is True:
-            flux_colname = cp + '_flux_redden'
+            flux_colname = cp + '_flux_deredden'
         else:
             flux_colname = cp + '_flux'
 
@@ -430,18 +424,11 @@ class ngmixCatalog(object):
         gm = ngmix.gmix.GMixCM(fracdev, TdByTe, gm_pars)
 
         # The majority of the conversion will be handled by `ngmix.gmix.py`
-        gal = gm.make_galsim_object(gsparams=gsp)
+        gs_gal = gm.make_galsim_object(gsparams=gsp)
 
         # NOTE: Can add any model-specific requirements in future if needed
         # if ct == 'mof':
-        #     ...
-
-        # Add galaxy in given band to list
-        gsobjects.append(gal)
-
-        # TODO: This feature should be removed! See Issue #60
-        # NOTE: If multiple bands were passed, the fluxes are simply added together.
-        gs_gal = galsim.Add(gsobjects)
+        #     gal = ...
 
         return gs_gal
 
@@ -567,7 +554,6 @@ galsim.config.RegisterInputType('ngmix_catalog', ngmixCatalogLoader(ngmixCatalog
 def BuildNgmixGalaxy(config, base, ignore, gsparams, logger):
     """ Build a NgmixGalaxy type GSObject from user input."""
 
-    print '\n config = \n', config
     ngmix_cat = galsim.config.GetInputObj('ngmix_catalog', config, base, 'NgmixGalaxy')
 
     # If galaxies are selected based on index, and index is Sequence or Random, and max
