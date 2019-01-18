@@ -64,7 +64,8 @@ class Config(BaseConfig):
         self.config_dir = os.path.abspath(self.config_dir)
 
         # Keeps track of current tile number
-        self.tile_num = 0
+        self.tile_lsit = Tile.load_tile_list(self.tile_list_file)
+        self.set_tile_num(self.tile_list[0])
 
         self._read_gs_config()
         self._load_tile_geometry()

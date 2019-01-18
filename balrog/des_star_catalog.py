@@ -71,7 +71,8 @@ class desStarCatalog(object):
     # Dictionary of color band flux to array index in star catalog
     _band_index = {'g' : 0, 'r' : 1, 'i' : 2, 'z' : 3}
 
-    def __init__(self, base_dir, model_type, tile, bands, file_type=None, data_version=None, zeropoint=None, base_model=None):
+    def __init__(self, base_dir, model_type, tile, bands, file_type=None, data_version=None,
+                 zeropoint=None, base_model=None):
 
         if not os.path.isdir(base_dir):
             raise ValueError('{} is not a valid directory or does not exist!'.format(base_dir))
@@ -81,7 +82,8 @@ class desStarCatalog(object):
             warnings.warn('No data version passed - assuming `y3v02`.')
             data_version = 'y3v02'
         if data_version not in self._valid_data_versions:
-            raise ValueError('`{}` does not have an implementation built yet! '.format(self.data_version))
+            raise ValueError('`{}` does not have an implementation built yet!'.format(
+                self.data_version))
         self.data_version = data_version
 
         self._set_valid_model_types()
