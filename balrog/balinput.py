@@ -12,7 +12,7 @@ import filters
 # import pudb
 
 class BalInput(object):
-    def __init__(self, input_type, gsconfig, indx=None):
+    def __init__(self, input_type, gsconfig, indx=None, tilename=None):
         if not isinstance(input_type, basestring):
             raise TypeError('`input_type` must be a string!')
         self.input_type = input_type
@@ -25,6 +25,10 @@ class BalInput(object):
         if (indx is not None) and (not isinstance(indx, int)):
             raise TypeError('`indx` must be a int!')
         self.indx = indx
+
+        if (tilename is not None) and (not isinstance(tilename, str)):
+            raise TypeError('`tilename` must be a str!')
+        self.tilename = tilename
 
         try:
             self.data_version = self.gsconfig['image']['version']
@@ -39,10 +43,16 @@ class BalInput(object):
 
         return
 
+    def update_tile(self, new_tile):
+        assert isinstance(new_tile, Tile.Tile)
+        self.tilename = new_tile.tile_name
+
+        return
+
 class InputCatalog(BalInput):
 
-    def __init__(self, input_type, gsconfig, indx):
-        super(InputCatalog, self).__init__(input_type, gsconfig, indx=None)
+    def __init__(self, input_type, gsconfig, indx, tilename=None):
+        super(InputCatalog, self).__init__(input_type, gsconfig, indx=None, tilename=tilename)
 
         return
 
@@ -99,8 +109,8 @@ class InputCatalog(BalInput):
 
 class DESInputCatalog(InputCatalog):
 
-    def __init__(self, input_type, gsconfig, indx=None):
-        super(DESInputCatalog, self).__init__(input_type, gsconfig, indx)
+    def __init__(self, input_type, gsconfig, indx=None, tilename=None):
+        super(DESInputCatalog, self).__init__(input_type, gsconfig, indx, tilename=tilename)
 
         if not (self.data_version == 'y3v02'):
             print('WARNING: Unrecognized data version of {} '.format(self.data_version) +
@@ -116,8 +126,8 @@ class DESInputCatalog(InputCatalog):
         return
 
 class NGMIXInputCatalog(DESInputCatalog):
-    def __init__(self, gsconfig, indx=None):
-        super(NGMIXInputCatalog, self).__init__('ngmix_catalog', gsconfig, indx)
+    def __init__(self, gsconfig, indx=None, tilename=None):
+        super(NGMIXInputCatalog, self).__init__('ngmix_catalog', gsconfig, indx, tilename=tilename)
 
         from ngmix_catalog import ngmixCatalog as CATMOD
         from ngmix_catalog import ngmixCatalogLoader as LOADMOD
@@ -134,8 +144,8 @@ class NGMIXInputCatalog(DESInputCatalog):
         return
 
 class MEDSInputCatalog(DESInputCatalog):
-    def __init__(self, gsconfig, indx=None):
-        super(MEDSInputCatalog, self).__init__('meds_catalog', gsconfig, indx)
+    def __init__(self, gsconfig, indx=None, tilename=None):
+        super(MEDSInputCatalog, self).__init__('meds_catalog', gsconfig, indx, tilename=tilename)
 
         from meds_catalog import MEDSCatalog as CATMOD
         from meds_catalog import MEDSCatalogLoader as LOADMOD
@@ -152,8 +162,11 @@ class MEDSInputCatalog(DESInputCatalog):
         return
 
 class DESStarInputCatalog(DESInputCatalog):
-    def __init__(self, gsconfig, indx=None):
-        super(DESStarInputCatalog, self).__init__('des_star_catalog', gsconfig, indx)
+    def __init__(self, gsconfig, indx=None, tilename=None):
+        # DES Star catalogs must be initialized with a tilename
+        assert tilename is not None
+        super(DESStarInputCatalog, self).__init__('des_star_catalog', gsconfig, indx,
+                                                  tilename=tilename)
 
         from des_star_catalog import desStarCatalog as CATMOD
         from des_star_catalog import desStarCatalogLoader as LOADMOD
@@ -190,15 +203,7 @@ class DESStarInputCatalog(DESInputCatalog):
                 # Then something very strange happened! Should have been caught above
                 raise ValueError
 
-            # A tile name is also a required input, so grab the first one
-            try:
-                tile_list_file = gsconfig['image']['tile_list']
-                tile_list = Tile.load_tile_list(tile_list_file, vb=0)
-                first_tile = tile_list[0]
-            except KeyError:
-                # Place a dummy index (not actually used for injection)
-                first_tile = 0
-            self.gsconfig['input'][self.input_type]['tile'] = first_tile
+            self.gsconfig['input'][self.input_type]['tile'] = self.tilename
 
             # TODO: See if we can load this, rather than set explicitly (but true for y3v02)
             # Set input catalog zeropoint
@@ -237,16 +242,26 @@ class DESStarInputCatalog(DESInputCatalog):
 
         return
 
+    def update_tile(self, new_tilename):
+        super(DESStarInputCatalog, self).update_tile(new_tilename)
+
+        # DES star catalogs are tile-specific, so load new ones!
+        self.gsconfig['input'][self.input_type]['tile'] = self.tilename
+        self._setup_proxy_catalog()
+
+        return
+
 # TODO: This should be filled with relevant construction info from Alex DW's udg_catalog class
 class UDGInputCatalog(DESInputCatalog):
-    def __init__(self, gsconfig, indx=None):
-        super(UDGInputCatalog, self).__init__('udg_catalog', gsconfig, indx)
+    def __init__(self, gsconfig, indx=None, tilename=None):
+        super(UDGInputCatalog, self).__init__('udg_catalog', gsconfig, indx, tilename=tilename)
 
         return
 
 class COSMOSInputCatalog(InputCatalog):
-    def __init__(self, gsconfig, indx=None):
-        super(COSMOSInputCatalog, self).__init__('cosmos_chromatic_catalog', gsconfig, indx)
+    def __init__(self, gsconfig, indx=None, tilename=None):
+        super(COSMOSInputCatalog, self).__init__('cosmos_chromatic_catalog', gsconfig, indx,
+                                                 tilename=tilename)
 
         from scene_chromatic import COSMOSChromaticCatalog as CATMOD
         from input_cosmos_chromatic import COSMOSChromaticLoader as LOADMOD
@@ -293,18 +308,18 @@ class COSMOSInputCatalog(InputCatalog):
 
         return
 
-def build_bal_input(input_type, gsconfig, indx=None):
+def build_bal_input(input_type, gsconfig, indx=None, tilename=None):
 
     if input_type in BALROG_INPUT_TYPES:
         # User-defined input construction
-        bal_input = BALROG_INPUT_TYPES[input_type](gsconfig, indx)
+        bal_input = BALROG_INPUT_TYPES[input_type](gsconfig, indx=indx, tilename=tilename)
     else:
         # Generic input construction
         if input_type not in gsinput.valid_input_types:
             raise ValueError('{} is not a native GalSim input type '.format(input_type) +
                 'or a recognized Balrog input type. Make sure you have written '
                 'and registered a valid GalSim input type')
-        bal_input = BalInput(input_type, gsconfig, indx)
+        bal_input = BalInput(input_type, gsconfig, indx=indx, tilename=tilename)
 
     return bal_input
 

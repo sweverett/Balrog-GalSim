@@ -12,6 +12,7 @@ import filters
 import grid
 import injector
 import balinput
+import tile as Tile
 
 # import pudb
 
@@ -50,7 +51,7 @@ class Config(BaseConfig):
         self.args = args
         self.config_dir = args.config_dir
         self.geom_file = args.geom_file
-        self.tile_list = args.tile_list
+        self.tile_list_file = args.tile_list
         self.tile_dir = args.tile_dir
         self.psf_dir = args.psf_dir
         self.output_dir = args.output_dir
@@ -63,13 +64,14 @@ class Config(BaseConfig):
         if self.config_dir is None: self.config_dir = ''
         self.config_dir = os.path.abspath(self.config_dir)
 
-        # Keeps track of current tile number
-        self.tile_num = 0
-
         self._read_gs_config()
         self._load_tile_geometry()
-        self._load_input_catalogs()
 
+        # Keeps track of current tile number
+        self.tile_list = Tile.load_tile_list(self.tile_list_file)
+        self.set_curr_tilename(self.tile_list[0])
+
+        self._load_input_catalogs()
 
         if self.extinct_objs is True:
             self._load_ext_factors()
@@ -152,7 +154,7 @@ class Config(BaseConfig):
         '''
 
         # NOTE: config_dir and verbose have already been parsed correctly
-        args = {'tile_list':self.tile_list, 'geom_file':self.geom_file, 'tile_dir':self.tile_dir,
+        args = {'tile_list':self.tile_list_file, 'geom_file':self.geom_file, 'tile_dir':self.tile_dir,
                 'psf_dir':self.psf_dir, 'output_dir':self.output_dir, 'nproc':self.nproc}
 
         base = {'tile_list':'image', 'geom_file':'image', 'tile_dir':'image', 'psf_dir':'image',
@@ -186,7 +188,7 @@ class Config(BaseConfig):
 
             # Do any needed special processing of arg or set default
             if arg == 'tile_list':
-                self.tile_list = os.path.abspath(val)
+                self.tile_list_file = os.path.abspath(val)
             elif arg == 'geom_file':
                 self.geom_file = os.path.abspath(val)
             elif arg == 'tile_dir':
@@ -268,7 +270,8 @@ class Config(BaseConfig):
         gs_config = copy.deepcopy(self.gs_config[0])
 
         for i, input_type in enumerate(input_types):
-            input_obj = balinput.build_bal_input(input_type, gs_config, indx=i)
+            tname = self.curr_tilename
+            input_obj = balinput.build_bal_input(input_type, gs_config, indx=i, tilename=tname)
             self.input_types[input_type] = input_obj
             self.inj_types[input_type] = input_obj.inj_type
             self.input_indx[input_type] = i
@@ -329,8 +332,8 @@ class Config(BaseConfig):
 
         return
 
-    def set_tile_num(self, i):
-        self.tile_num = i
+    def set_curr_tilename(self, tilename):
+        self.curr_tilename = tilename
 
         return
 
