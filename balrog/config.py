@@ -14,7 +14,7 @@ import injector
 import balinput
 import tile as Tile
 
-# import pudb
+import pudb
 
 #-------------------------------------------------------------------------------
 # Config class and related functions
@@ -219,7 +219,8 @@ class Config(BaseConfig):
         '''
 
         self.geom = fitsio.read(self.geom_file)
-        self.tile_names = self.geom['TILENAME']
+        tile_names = self.geom['TILENAME']
+        self.tile_names = np.array([tile_name.strip() for tile_name in tile_names])
 
         # Unique area bounds from DES coadd tile geometry file
         uramin, uramax = self.geom['URAMIN'], self.geom['URAMAX']
