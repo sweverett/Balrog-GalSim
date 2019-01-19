@@ -400,10 +400,6 @@ class ngmixCatalog(object):
         else:
             gsp = None
 
-        # NOTE: Used to iterate over all desired bands here, but this feature has
-        # been removed as it is not useful and led to the possiblity of unintended bugs
-        # for band in self.bands:
-
         # Grab current band flux
         if self.de_redden is True:
             flux_colname = cp + '_flux_deredden'
