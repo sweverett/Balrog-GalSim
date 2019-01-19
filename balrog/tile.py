@@ -726,13 +726,12 @@ class Tile(object):
 
                 else:
                     # Use list format
-                    k = self.input_indx['gals']
-                    self.bal_config[i]['image']['image_pos']['items'][k].update({
+                    self.bal_config[i]['image']['image_pos']['items'][indx].update({
                         'type' : 'XY',
                         'x' : { 'type' : 'List', 'items' : [0] },
                         'y' : { 'type' : 'List', 'items' : [0] }
                     })
-                    self.bal_config[i]['gal']['items'][k] = {
+                    self.bal_config[i]['gal']['items'][indx] = {
                         'type' : 'Gaussian',
                         'sigma' : 1,
                         'flux' : 0.0 # GalSim will run, but no effective image added
