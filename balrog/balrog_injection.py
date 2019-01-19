@@ -93,7 +93,10 @@ def RunBalrog():
     # Now loop over all tiles slated for injection:
     for i, tile in enumerate(tiles):
         config.reset_gs_config()
-        config.set_tile_num(i)
+        config.set_curr_tilename(tile.tile_name)
+        for inpt in config.input_types.values():
+            # Sets up tile-specific input catalogs, if needed
+            inpt.update_tile(tile)
 
         # Can simulate many injection realizations per tile
         for real in config.realizations:

@@ -889,7 +889,10 @@ def create_tiles(config):
     Create list of `Tile` objects given input args and configuration file.
     '''
 
-    tile_list = load_tile_list(config.tile_list_file, vb=config.vb)
+    if config.tile_list is None:
+        tile_list = load_tile_list(config.tile_list_file, vb=config.vb)
+    else:
+        tile_list = config.tile_list
 
     # Will keep a list of desired tiles
     tiles = []

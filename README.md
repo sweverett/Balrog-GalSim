@@ -10,7 +10,7 @@ Coming soon!
 
 ## Installation
 
-The only non-standard Balrog dependency is [GalSim](https://github.com/GalSim-developers/GalSim). While it's a non-trivial install, the [installation wiki found here](https://github.com/GalSim-developers/GalSim/blob/master/INSTALL.md) outlines the steps in great detail.
+The only non-standard Balrog dependency is [GalSim](https://github.com/GalSim-developers/GalSim). While it's a non-trivial install, the [installation wiki found here](https://github.com/GalSim-developers/GalSim/blob/master/INSTALL.md) outlines the steps in great detail. (edit - Galsim 2.0+ can now be installed with pip/conda!)
 
 Once GalSim is installed, simply clone this repo:
 
@@ -120,15 +120,15 @@ The global balrog config file is very similar to yaml config files used for GalS
 However, note that a Balrog config will **not** run successfully if called by the `galsim` executable; it only houses the global simulation variables while the individual chip injections parameters are set during the `balrog_injection.py` script. Each tile produces its own complete multi-output yaml config file that is sent to `galsim` at the end of processing.
 
 There are a few config inputs specific to the `image` field of Balrog configs that are worth highlighting here:
-* `n_galaxies`: The total number of galaxies to be injected per DES tile **per realization**.
-* `gal_density`: The injected Balrog galaxy density in the tile field **per realization**.
+* `n_objects`: The total number of objects to be injected per DES tile **per realization**.
+* `object_density`: The injected object density in the tile field **per realization**.
 * `n_realizations`: The number of injection realizations used to reach the desired galaxy count or density.
 
-Two things to note: (1) **Only one** of `n_galaxies` or `gal_density` is allowed as an input; not both! (2) Either input should give the desired count or density **per realization**!. An older version of the code had this set to the desired final count/desnity, but this was counter-intuitive for users.
+Two things to note: (1) **Only one** of `n_objects` or `object_density` is allowed as an input; not both! (2) Either input should give the desired count or density **per realization**!. An older version of the code had this set to the desired final count/desnity, but this was counter-intuitive for users.
 
 ## Input Catalogs
 
-(more later - for now, ngmix catalogs. Gauss, MOF, or CM)
+(more later - for now, `ngmix_catalog`, `meds_catalog`, `des_star_catalog`. See `balinput.py` and `balobject.py`)
 
 (Fits file containing input objects to be injected into chip images. For now only ngmix catalogs are supported (gauss, cm, or mof photometry), but the code is designed to allow other input types in future including galaxy postage stamps. Some of the standard GalSim inputs may also work, but arent' currently supported.)
 
