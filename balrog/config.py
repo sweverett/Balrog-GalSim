@@ -8,6 +8,7 @@ from astropy.io import fits
 import warnings
 
 # Balrog files
+import tile as Tile
 import filters
 import grid
 import injector
@@ -50,7 +51,7 @@ class Config(BaseConfig):
         self.args = args
         self.config_dir = args.config_dir
         self.geom_file = args.geom_file
-        self.tile_list = args.tile_list
+        self.tile_list_file = args.tile_list
         self.tile_dir = args.tile_dir
         self.psf_dir = args.psf_dir
         self.output_dir = args.output_dir
@@ -64,7 +65,7 @@ class Config(BaseConfig):
         self.config_dir = os.path.abspath(self.config_dir)
 
         # Keeps track of current tile number
-        self.tile_lsit = Tile.load_tile_list(self.tile_list_file)
+        self.tile_list = Tile.load_tile_list(self.tile_list_file)
         self.set_tile_num(self.tile_list[0])
 
         self._read_gs_config()
