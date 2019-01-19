@@ -234,7 +234,7 @@ class ngmixCatalog(object):
 
         # Might need more in future...
         # TODO: Make this consistent with whatever Brian decides!
-        req_colnames = [cp+'_flux_redden']
+        req_colnames = [cp+'_flux_deredden']
 
         for colname in req_colnames:
             if colname not in self.catalog.dtype.names:
@@ -408,7 +408,7 @@ class ngmixCatalog(object):
         for band in self.bands:
             # Grab current band flux
             if self.de_redden is True:
-                flux_colname = cp + '_flux_redden'
+                flux_colname = cp + '_flux_deredden'
             else:
                 flux_colname = cp + '_flux'
 
