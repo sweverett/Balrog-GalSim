@@ -8,6 +8,7 @@ from astropy.io import fits
 import warnings
 
 # Balrog files
+import tile as Tile
 import filters
 import grid
 import injector

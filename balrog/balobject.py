@@ -282,6 +282,9 @@ class BalInjectionCatalog(object):
 
         return
 
+    def update_colnames(self, truth_cat, realization):
+        pass
+
     def setup_chip_config(self, config, bal_config, chip, chip_indx):
         # Many injection types will requite nothing special in setup
         pass
@@ -307,6 +310,22 @@ class DESInjectionCatalog(BalInjectionCatalog):
         })
 
         return
+
+    def build_single_chip_config(self, config, bal_config, chip, chip_indx):
+        bal_config[chip_indx]['gal'].update({
+            'band' : chip.band
+        })
+
+    def build_multi_chip_config(self, config, bal_config, chip, chip_indx, input_indx):
+        bal_config[chip_indx]['gal']['items'][input_indx].update({
+            'band' : chip.band
+        })
+
+        return
+
+    def update_colnames(self, truth_cat, inj_cat):
+        # TODO: Fix all columns affected by reddening!
+        pass
 
 class NGMIXInjectionCatalog(DESInjectionCatalog):
     def generate_objects(self, config, realization, mixed_grid=None):
@@ -342,6 +361,8 @@ class MEDSInjectionCatalog(DESInjectionCatalog):
         return
 
     def build_single_chip_config(self, config, bal_config, chip, chip_indx):
+        super(MEDSInjectionCatalog, self).build_single_chip_config(config, bal_config, chip,
+                                                                   chip_indx)
         # Only use meds/psf files for needed band
         b = config.bindx[chip.band]
         meds_file = [bal_config[0]['input'][self.input_type]['meds_files'][b]]
@@ -358,6 +379,8 @@ class MEDSInjectionCatalog(DESInjectionCatalog):
         return
 
     def build_multi_chip_config(self, config, bal_config, chip, chip_indx, input_indx):
+        super(MEDSInjectionCatalog, self).build_multi_chip_config(config, bal_config, chip,
+                                                                  chip_indx)
         # Only use meds/psf files for needed band
         b = config.bindx[chip.band]
         meds_file = [bal_config[0]['input']['items'][input_indx]['meds_files'][b]]
@@ -460,6 +483,10 @@ class DESStarInjectionCatalog(DESInjectionCatalog):
         #     super(DESStarInjectionCatalog, self).write_new_positions(truth_cat, realization)
 
         return
+
+    def update_colnames(self, truth_cat, inj_cat):
+        # TODO: Fix all columns affected by reddening! (probably different than ngmix/MEDS)
+        pass
 
 class COSMOSInjectionCatalog(BalInjectionCatalog):
     def setup_chip_config(self, config, bal_config, chip, chip_indx):

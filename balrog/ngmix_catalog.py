@@ -66,7 +66,7 @@ class ngmixCatalog(object):
     _valid_catalog_types = ['gauss','cm','mof']
 
     # Only these color bands are currently supported for an ngmix catalog
-    _valid_band_types = ['g','r','i','z']
+    _valid_band_types = 'griz'
 
     # Dictionary of color band flux to array index in ngmix catalogs
     _band_index = {'g' : 0, 'r' : 1, 'i' : 2, 'z' : 3}
@@ -123,9 +123,6 @@ class ngmixCatalog(object):
             bands = bands.replace(" ", "")
             # More useful as a list of individual bands
             bands_list = list(bands)
-            if len(bands_list) > 1:
-                warnings.warn('WARNING: Passed more than one band - injections will contain ' + \
-                              'flux from multiple bands!')
             if set(bands_list).issubset(self._valid_band_types):
                 self.bands = bands_list
             else:
@@ -234,7 +231,7 @@ class ngmixCatalog(object):
 
         # Might need more in future...
         # TODO: Make this consistent with whatever Brian decides!
-        req_colnames = [cp+'_flux_redden']
+        req_colnames = [cp+'_flux_deredden']
 
         for colname in req_colnames:
             if colname not in self.catalog.dtype.names:
@@ -313,7 +310,7 @@ class ngmixCatalog(object):
 
     #----------------------------------------------------------------------------------------------
 
-    def makeGalaxies(self, index=None, n_random=None, rng=None, gsparams=None):
+    def makeGalaxies(self, band, index=None, n_random=None, rng=None, gsparams=None):
         """
         Construct GSObjects from a list of galaxies in the ngmix catalog specified by `index`
         (or a randomly generated one). This is done using Erin's code.
@@ -332,6 +329,9 @@ class ngmixCatalog(object):
         @param gsparams         An optional GSParams argument.  See the docstring for GSParams for
                                 details. [default: None]
         """
+
+        if band not in self._valid_band_types:
+            raise ValueError('Band {} is not a valid band type for an ngmix catalog!'.format(band))
 
         # Make rng if needed
         if index is None:
@@ -355,15 +355,13 @@ class ngmixCatalog(object):
         else:
             indices = [index]
 
-        # print('\nIndices = {}'.format(indices))
-
         # Now convert ngmix galaxy to GSObject, with details dependent on type
-        # TODO: Should we add a more general scheme for ngmix types?
+        # QSTN: Should we add a more general scheme for ngmix types?
 
         galaxies = []
 
         for index in indices:
-            gal = self.ngmix2gs(index, gsparams)
+            gal = self.ngmix2gs(index, band, gsparams)
             galaxies.append(gal)
 
         # Store the orig_index as gal.index
@@ -378,7 +376,7 @@ class ngmixCatalog(object):
 
     #----------------------------------------------------------------------------------------------
 
-    def ngmix2gs(self, index, gsparams=None):
+    def ngmix2gs(self, index, band, gsparams=None):
         """
         This function handles the conversion of a ngmix galaxy to a GS object. The required
         conversion is different for each ngmix catalog type.
@@ -392,11 +390,9 @@ class ngmixCatalog(object):
         # Grab galaxy shape and size (identical in all bands)
         T = self.catalog[cp+'_T'][index]
         g1, g2 = self.catalog[cp+'_g'][index]
-        # We don't want to put these galaxies at their original locations!
+        # We don't want to put these galaxies at their original locations, but could
+        # grab them like this:
         # c1, c2 = self.catalog[cp+'_c'][index]
-
-        # List of individual band GSObjects
-        gsobjects = []
 
         # Convert from dict to actual GsParams object
         if gsparams is not None:
@@ -404,40 +400,31 @@ class ngmixCatalog(object):
         else:
             gsp = None
 
-        # Iterate over all desired bands
-        for band in self.bands:
-            # Grab current band flux
-            if self.de_redden is True:
-                flux_colname = cp + '_flux_redden'
-            else:
-                flux_colname = cp + '_flux'
+        # Grab current band flux
+        if self.de_redden is True:
+            flux_colname = cp + '_flux_deredden'
+        else:
+            flux_colname = cp + '_flux'
 
-            flux = self.catalog[flux_colname][index][self._band_index[band]]
+        flux = self.catalog[flux_colname][index][self._band_index[band]]
 
-            # Gaussian-Mixture parameters are in the format of:
-            # gm_pars = [centroid1, centroid2, g1, g2, T, flux]
-            # (this is identical to ngmix catalogs, except that flux is a vector
-            # of fluxes in all color bands)
-            gm_pars = [0.0, 0.0, g1, g2, T, flux]
+        # Gaussian-Mixture parameters are in the format of:
+        # gm_pars = [centroid1, centroid2, g1, g2, T, flux]
+        # (this is identical to ngmix catalogs, except that flux is a vector
+        # of fluxes in all color bands)
+        gm_pars = [0.0, 0.0, g1, g2, T, flux]
 
-            # Build the appropriate Gaussian mixture for a cm-model
-            fracdev = self.catalog[cp+'_fracdev'][index]
-            TdByTe = self.catalog[cp+'_TdByTe'][index]
-            gm = ngmix.gmix.GMixCM(fracdev, TdByTe, gm_pars)
+        # Build the appropriate Gaussian mixture for a cm-model
+        fracdev = self.catalog[cp+'_fracdev'][index]
+        TdByTe = self.catalog[cp+'_TdByTe'][index]
+        gm = ngmix.gmix.GMixCM(fracdev, TdByTe, gm_pars)
 
-            # The majority of the conversion will be handled by `ngmix.gmix.py`
-            gal = gm.make_galsim_object(gsparams=gsp)
+        # The majority of the conversion will be handled by `ngmix.gmix.py`
+        gs_gal = gm.make_galsim_object(gsparams=gsp)
 
-            # NOTE: Can add any model-specific requirements in future if needed
-            # if ct == 'mof':
-            #     ...
-
-            # Add galaxy in given band to list
-            gsobjects.append(gal)
-
-        # TODO: This feature should be removed! See Issue #60
-        # NOTE: If multiple bands were passed, the fluxes are simply added together.
-        gs_gal = galsim.Add(gsobjects)
+        # NOTE: Can add any model-specific requirements in future if needed
+        # if ct == 'mof':
+        #     gal = ...
 
         return gs_gal
 
@@ -519,10 +506,9 @@ class ngmixCatalog(object):
 
     # Since makeGalaxies is a function, not a class, it needs to use an unconventional location
     # for defining certain config parameters.
-    makeGalaxies._req_params = {}
-    makeGalaxies._opt_params = { "index" : int,
-                               "n_random": int
-                             }
+    makeGalaxies._req_params = {'band': str}
+    makeGalaxies._opt_params = {'index' : int,
+                                'n_random': int}
     makeGalaxies._single_params = []
     makeGalaxies._takes_rng = True
 
@@ -580,6 +566,9 @@ def BuildNgmixGalaxy(config, base, ignore, gsparams, logger):
     kwargs, safe = galsim.config.GetAllParams(config, base, req=req, opt=opt, single=single,
                                               ignore=ignore)
 
+    # Guaranteed to be present as it is in _req_params
+    band = kwargs['band']
+
     # Convert gsparams from a dict to an actual GSParams object
     if gsparams:
         kwargs['gsparams'] = galsim.GSParams(**gsparams)
@@ -609,12 +598,12 @@ def BuildNgmixGalaxy(config, base, ignore, gsparams, logger):
 
     kwargs['ngmix_catalog'] = ngmix_cat
 
-    # NB: This uses a static method of ngmixCatalog to save memory. Not needed for the moment, but
+    # NOTE: This uses a static method of ngmixCatalog to save memory. Not needed for the moment, but
     # worth looking into when trying to save resources for large Balrog runs
     # ngmix_gal = ngmix_cat._makeSingleGalaxy(**kwargs)
 
     # Create GSObject galaxies from the ngmix catalog
-    ngmix_gal = ngmix_cat.makeGalaxies(index=index,gsparams=gsparams)
+    ngmix_gal = ngmix_cat.makeGalaxies(band, index=index, gsparams=gsparams)
 
     # The second item is "safe", a boolean that declares whether the returned value is
     # safe to save and use again for later objects (which is not the case for ngmixGalaxies).

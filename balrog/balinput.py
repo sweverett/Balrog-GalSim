@@ -35,9 +35,10 @@ class BalInput(object):
         except KeyError:
             self.data_version= None
 
-        # Not all inputs will have corresponding mag zeropoints or needs band info
+        # Not all inputs will have certain quantities
         self.input_zp = None
         self.needs_band = False
+        self.is_de_reddened = False
 
         # ...
 
@@ -118,6 +119,12 @@ class DESInputCatalog(InputCatalog):
             self.input_zp = 30.0
 
         self.needs_band = True
+
+        try:
+            self.is_de_reddened = self.gsconfig['input'][input_type]['de_redden']
+        except:
+            # Default is already set to False
+            pass
 
         # This avoids a printed warning, and sets up the input correctly
         # as no bands are passed in bal_config
