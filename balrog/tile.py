@@ -11,6 +11,7 @@ from copy import deepcopy
 import warnings
 import subprocess
 import datetime
+import time
 
 # Balrog files
 from chip import Chip
@@ -237,6 +238,15 @@ class Tile(object):
         except KeyError:
             self.bal_config[0]['image'] = {'nproc':config.nproc}
 
+        self._set_seed()
+
+        return
+
+    def _set_seed(self):
+        if 'random_seed' not in self.bal_config[0]['image']:
+            # Current time in microseconds
+            self.bal_config[0]['image']['random_seed'] = int(time.time()*1e6)
+
         return
 
     def _load_zeropoints(self, config, s_begin=0, s_end=4):
@@ -447,6 +457,8 @@ class Tile(object):
         except KeyError:
             self.bal_config[0]['image'] = {'nproc':config.nproc}
 
+        self._set_seed()
+
         return
 
     def set_bal_config_name(self, config):
@@ -504,7 +516,7 @@ class Tile(object):
             chip_file = chip.filename
             self.bal_config[i]['image'] = {
                 'initial_image' : chip_file,
-                'wcs' : { 'file_name' : chip_file },
+                'wcs' : { 'file_name' : chip_file }
             }
 
             # The field `nobjects` will be set to the sum of each injection type contained
