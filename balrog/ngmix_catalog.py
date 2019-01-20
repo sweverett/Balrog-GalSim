@@ -46,7 +46,7 @@ class ngmixCatalog(object):
     @param snr_max         The upper allowed bound for snr. Unlikely to be used very often, but
                            included for completeness.
     @param t_frac          The cutoff used for object size (T) / object size error (T_err). All
-                           objects below this cutoff will be removed. (Default: `t_frac=0.5`).
+                           objects below this cutoff will be removed. (Default: 0).
     @param _nobjects_only  This is only passed if GalSim wants to know how many input objects will
                            be used without processing the whole input catalog.
     """
@@ -170,9 +170,7 @@ class ngmixCatalog(object):
                 raise ValueError("The allowed size/size_err fraction `t_frac` must be positive!")
             self.t_frac = t_frac
         else:
-            # Default of t_frac = 0.5, but warn user that some objects will be removed.
-            warnings.warn("No t_frac cutoff was chosen; removing objects with `T/T_err` < 0.5.")
-            self.t_frac = 0.5
+            self.t_frac = 0.0
 
         if version is not None:
             if not isinstance(version, basestring):
