@@ -490,6 +490,7 @@ class Tile(object):
         assert len(inj_indx) == len(inj_pos_im)
         chip.set_nobjects(len(inj_pos_im), inj_type)
 
+
         # Skip chips with no injections, except for a few special cases
         if (len(inj_indx) == 0) and (config.inj_objs_only['value'] is False):
             if config.vb > 1:
@@ -673,6 +674,13 @@ class Tile(object):
                 }
             })
 
+            if config.rotate_objs is True:
+                inj_rot = inj_cat.rotate[real][in_chip]
+                assert len(inj_indx) == len(inj_rot)
+                self.bal_config[i]['gal'].update({
+                    'rotate' : inj_rot.tolist()
+                })
+
             # Any extra fields to be set for a given input are added here
             inj_cat.build_single_chip_config(config, self.bal_config, chip, i)
 
@@ -696,6 +704,13 @@ class Tile(object):
                     'items' : indices
                 }
             })
+
+            if config.rotate_objs is True:
+                inj_rot = inj_cat.rotate[real][in_chip]
+                assert len(inj_indx) == len(inj_rot)
+                self.bal_config[i]['gal']['items'][indx].update({
+                    'rotate' : inj_rot.tolist()
+                })
 
             # Set object positions
             x, y = inj_pos_im[:,0].tolist(), inj_pos_im[:,1].tolist()

@@ -1,6 +1,8 @@
 import numpy as np
+import galsim
 import galsim.config.input as gsinput
 import os
+import copy
 
 # Balrog files
 import mathutil as util
@@ -59,6 +61,7 @@ class BalInjectionCatalog(object):
             # Can't guarantee count consistency per real, so use dicts
             self.pos = {}
             self.indx = {}
+            self.rotate = {}
             self.nobjects= {}
 
             input_type = self.input_type
@@ -83,6 +86,7 @@ class BalInjectionCatalog(object):
 
                 elif pstype in bg._valid_grid_types:
                     grid_kwargs = self._build_grid_kwargs(pstype, ps)
+                    gtype = pstype
 
                     tile_grid = grid._build_grid(gtype, **grid_kwargs)
                     self.pos[real] = tile_grid.pos
@@ -158,6 +162,13 @@ class BalInjectionCatalog(object):
                 # Generate object indices (in input catalog)
                 indices = np.random.choice(xrange(input_nobjects), size=inj_nobjs)
                 self.indx[real] = indices
+
+                # Generate object rotation angles, if desired
+                if config.rotate_objs is True:
+                    rot = util.sample_uniform(0., 360., self.nobjects[real])
+                    self.rotate[real] = np.array([str(r) + ' deg' for r in rot])
+                else:
+                    self.rotate[real] = None
 
                 # NOTE: This is where we could initialize the injection cat if needed
                 # self.cat[real] = config.input_cats[inj_type][indices]
@@ -245,19 +256,19 @@ class BalInjectionCatalog(object):
                 # Need to find original index of catalog
                 gs_config = copy.deepcopy(config.gs_config[0])
                 # Add dummy band index (band doesn't matter)
-                gs_config['input'][input_type].update({'bands':'g'})
+                gs_config['input'][self.input_type].update({'bands':'griz'})
                 galsim.config.ProcessInput(gs_config)
-                cat_proxy = gs_config['input_objs'][input_type][0]
+                cat_proxy = gs_config['input_objs'][self.input_type][0]
                 cat = cat_proxy.getCatalog()
                 # Specific catalog structures can then generate indices from
                 # the proxy catalog
-                return cat
+                return cat, orig_indx
 
             else:
-                raise TypeError('Can only set a global object index in the ' +
+                raise TypeError('Can only set a global object index in the '
                                 'config if it is an integer!')
         except KeyError:
-            return None
+            return None, None
 
     def get_truth_outfile(self, base_outfile, real):
         truth_fname = '{}_{}_balrog_truth_cat_{}.fits'.format(self.tile_name, real, self.inj_type)
@@ -334,10 +345,10 @@ class NGMIXInjectionCatalog(DESInjectionCatalog):
                                                                          mixed_grid=mixed_grid)
 
         # NOTE: See `_check_for_single_obj_indx()` for why we sometimes do this for testing
-        single_obj_cat = self._check_for_single_obj_indx(config)
+        single_obj_cat, orig_indx = self._check_for_single_obj_indx(config)
         if single_obj_cat is not None:
             # Specific to ngmix_catalog structure:
-            indx = int(np.where(cat['id']==orig_indx)[0])
+            indx = int(np.where(single_obj_cat['id']==orig_indx)[0])
             self.indx[realization] = indx * np.ones(self.nobjects[realization], dtype='int16')
             self.single_obj_injection = True
 
@@ -350,11 +361,11 @@ class MEDSInjectionCatalog(DESInjectionCatalog):
                                                                         mixed_grid=mixed_grid)
 
         # NOTE: See `_check_for_single_obj_indx()` for why we sometimes do this for testing
-        single_obj_cat = self._check_for_single_obj_indx(config)
+        single_obj_cat, orig_indx = self._check_for_single_obj_indx(config)
         if single_obj_cat is not None:
             # Specific to meds_catalog structure:
-            b = cat_proxy.getBands()[0] # ID's consistent between bands
-            indx = int(np.where(cat[b]['id']==orig_indx)[0])
+            b = single_obj_cat.keys()[0] # ID's consistent between bands
+            indx = int(np.where(single_obj_cat[b]['id']==orig_indx)[0])
             self.indx[realization] = indx * np.ones(self.nobjects[realization], dtype='int16')
             self.single_obj_injection = True
 

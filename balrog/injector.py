@@ -34,7 +34,7 @@ class BalrogImageBuilder(AddOnImageBuilder):
         extra_ignore = ignore + ['tile_list', 'geom_file', 'tile_dir', 'config_dir', 'psf_dir',
                                  'version', 'run_name', 'bands', 'n_objects', 'n_realizations',
                                  'object_density', 'inj_objs_only', 'pos_sampling', 'realizations',
-                                 'extinct_objs']
+                                 'extinct_objs', 'rotate_objs']
 
         # There are additionally the keywords `N_{inj_type}` that we want to ignore
         for key in config:
@@ -249,6 +249,25 @@ def parse_bal_image_inputs(config, base):
         #       Current metadata should provide enough info for now.
         config['run_name'] = None
 
+    # Process input 'rotate_objs'
+    # NOTE: Just the one for now, but could expand in future
+    # (e.g. rotate all by 45 degrees)
+    valid_rot_types = ['Random']
+    try:
+        rotate = config['rotate_objs']
+        if isinstance(rotate, basestring):
+            if rotate not in valid_rot_types:
+                raise ValueError('`{}` is not a valid rotation type! '.format(rotate) +
+                                 'For now, only {} are valid.'.format(valid_rot_types))
+            # TODO: Only temporary; can change once we add more rotation types
+            config['rotate_objs'] = True
+        elif not isinstance(rotate, bool):
+            raise ValueError('The input `rotate_objs` must be a string or bool!')
+    except KeyError:
+        # TODO: Maybe come up with sensible default run name?
+        #       Current metadata should provide enough info for now.
+        config['rotate_objs'] = False
+
     # Process input 'extinct_objs'
     try:
         ext = config['extinct_objs']
@@ -392,23 +411,23 @@ def parse_bal_image_inputs(config, base):
                     else:
                         raise TypeError('grid offset of type {} is invalid!'.format(type(val)))
 
-            if 'type' in ps.keys():
-                if (ps['type'] in valid_grid_types) and ('grid_spacing' not in ps.keys()):
-                    print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
-                    config['pos_sampling']['grid_spacing'] = default_gs
-                # Same type for all inputs
-                _parse_pos_sampling_dict(ps)
-                ps_temp = config['pos_sampling']
-                config['pos_sampling'] = {inpt : ps_temp for inpt in input_list}
+        if 'type' in ps.keys():
+            if (ps['type'] in valid_grid_types) and ('grid_spacing' not in ps.keys()):
+                print('No grid spacing passed; using default of {} arcsecs'.format(default_gs))
+                config['pos_sampling']['grid_spacing'] = default_gs
+            # Same type for all inputs
+            _parse_pos_sampling_dict(ps)
+            ps_temp = config['pos_sampling']
+            config['pos_sampling'] = {inpt : ps_temp for inpt in input_list}
 
-            else:
-                for inpt in input_list:
-                    if (ps[inpt]['type'] in valid_grid_types) \
-                    and ('grid_spacing' not in ps[inpt].keys()):
-                        print('No grid spacing passed; using default of '
-                        '{} arcsecs'.format(default_gs))
-                        config['pos_sampling'][inpt]['grid_spacing'] = default_gs
-                    _parse_pos_sampling_dict(ps[inpt])
+        else:
+            for inpt in input_list:
+                if (ps[inpt]['type'] in valid_grid_types) \
+                and ('grid_spacing' not in ps[inpt].keys()):
+                    print('No grid spacing passed; using default of '
+                    '{} arcsecs'.format(default_gs))
+                    config['pos_sampling'][inpt]['grid_spacing'] = default_gs
+                _parse_pos_sampling_dict(ps[inpt])
 
     # Must have *exactly* one of `n_objects` or `object_density` for each input, unless using a grid
     for inpt in input_list:

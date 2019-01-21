@@ -144,6 +144,7 @@ class Config(BaseConfig):
         self.extinct_objs = im['extinct_objs']
         self.inj_objs_only = im['inj_objs_only']
         self.pos_sampling = im['pos_sampling']
+        self.rotate_objs = im['rotate_objs']
 
         self.bindx = dict(zip(self.bands, range(len(self.bands))))
 
