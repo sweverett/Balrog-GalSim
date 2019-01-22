@@ -7,7 +7,7 @@ import grid
 import config as Config
 
 # Can use for debugging
-import pudb
+# import pudb
 
 ## Class for injecting simulated galaxies into pre-existing images.
 
@@ -434,7 +434,6 @@ def parse_bal_image_inputs(config, base):
 
     # Must have *exactly* one of `n_objects` or `object_density` for each input, unless using a grid
     for inpt in input_list:
-        pudb.set_trace()
         if (config['n_objects'][inpt] is not None) and (config['object_density'][inpt] is not None):
             raise ValueError('Only one of `n_objects` or `object_density` is allowed for '
                              'input {}, not both!'.format(inpt))
