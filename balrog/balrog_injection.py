@@ -113,7 +113,7 @@ def RunBalrog():
                     for inpt in config.input_types:
                         tile.add_gs_injection(config, chip, inpt, real)
 
-                    if (config.inj_objs_only['value'] is False) and (chip.Ngals + chip.Nstars) == 0:
+                    if (config.inj_objs_only['value'] is False) and np.sum(chip.nobjects.values()) == 0:
                         # Don't want to skip image for a blank run; need to blank out the image!
                         # NOTE: The first check isn't actually required, as a dummy injection is
                         # added for 'inj_objs_only'=True cases that have no injections. This is
