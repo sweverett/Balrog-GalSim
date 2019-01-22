@@ -32,6 +32,7 @@ class BaseConfig(object):
 
     # TODO: Allow Piff when available!
     _supported_psf_types = ['DES_PSFEx']#, 'Piff'}
+    _no_pixel_psfs = ['DES_PSFEx']#, 'Piff'}
     _psf_extensions = {'DES_PSFEx' : 'psfexcat.psf'}#, 'Piff' : 'something.piff'}
 
     _non_inj_input_types = ['power_spectrum', 'nfw_halo', 'des_psfex', '_get']
@@ -102,8 +103,9 @@ class Config(BaseConfig):
             # Keep track of config length, just to be sure
             self.gs_config_len = 1
 
-        # Make a copy of the config dict as it exists now.
         self.orig_gs_config = copy.deepcopy(self.gs_config)
+
+        self._check_psf()
 
         # Process Balrog-specific params
         self._read_balrog_gs_config()
@@ -111,6 +113,30 @@ class Config(BaseConfig):
         # Keep track of whether gs_config has been modified
         self.gs_config_modified = False
 
+        return
+
+    def _check_psf(self):
+        '''
+        This could be much more complex, but for now we just check to see if `no_pixel`
+        is correctly set.
+        '''
+
+        try:
+            psf_type = self.gs_config[0]['psf']['type']
+        except KeyError:
+            raise KeyError('For now, must set a PSF type in {}'.format(self._supported_psf_types))
+
+        if psf_type not in self._supported_psf_types:
+            raise KeyError('{} is not yet a supported PSF type!'.format(psf_type))
+        if psf_type in self._no_pixel_psfs:
+            try:
+                draw_method = self.gs_config[0]['stamp']['draw_method'].strip()
+                if draw_method != 'no_pixel':
+                    raise KeyError('PSF type {} requires '.format(psf_type) +
+                                        '`stamp:draw_method` to be set to `no_pixel`!')
+            except KeyError:
+                raise KeyError('PSF type {} requires '.format(psf_type) +
+                                    '`stamp:draw_method` to be set to `no_pixel`!')
         return
 
     def _read_balrog_gs_config(self):
