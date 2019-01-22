@@ -731,10 +731,7 @@ class Tile(object):
             # add a dummy injection if 'inj_objs_only' is true. This is to ensure that the
             # background is correctly set in `injector.py` during the GalSim call, even
             # for chips with no injections.
-            if chip.total_n_objects == 0:
-                # This edge case should have only happened for 'inj_objs_only'
-                assert config.inj_objs_only['value'] is True
-
+            if (chip.total_n_objects == 0) and (config.inj_objs_only['value'] is True):
                 # Use current inj object for dummy
                 chip.set_nobjects(1, inj_type)
                 self.bal_config[i]['image'].update({'N_{}'.format(inj_type) : 1})
