@@ -190,9 +190,9 @@ class BalInjectionCatalog(object):
             r = ps['rotate']
             if (isinstance(r, str)) and (r.lower() == 'random'):
                 if gtype == 'RectGrid':
-                    self.grid_rot_angle = np.rand.uniform(0., np.pi/2.)
+                    self.grid_rot_angle = np.random.uniform(0., np.pi/2.)
                 elif gtype == 'HexGrid':
-                    self.grid_rot_angle = np.rand.uniform(0., np.pi/3.)
+                    self.grid_rot_angle = np.random.uniform(0., np.pi/3.)
             else:
                 unit = ps['angle_unit']
                 if unit == 'deg':
@@ -214,8 +214,8 @@ class BalInjectionCatalog(object):
         try:
             o = ps['offset']
             if (isinstance(o, str)) and (o.lower() == 'random'):
-                self.grid_offset = [np.rand.uniform(-gs/2., gs/2.),
-                                    np.rand.uniform(-gs/2., gs/2.)]
+                self.grid_offset = [np.random.uniform(-gs/2., gs/2.),
+                                    np.random.uniform(-gs/2., gs/2.)]
             else:
                 if isinstance(o, list):
                     self.grid_offset = list(o)
@@ -228,7 +228,8 @@ class BalInjectionCatalog(object):
         try:
             self.angle_unit = ps['angle_unit']
         except KeyError:
-            self.angle_unit = None
+            # Default in radians
+            self.angle_unit = 'rad'
 
         # Creates the grid given tile parameters and calculates the
         # image / world positions for each object

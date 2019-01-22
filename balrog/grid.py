@@ -59,10 +59,11 @@ class Grid(BaseGrid):
 
     def rotate_grid(self, theta, offset=None, angle_unit='rad'):
 
-        if angle_unit == 'rad': pass
-        elif angle_unit == 'deg': theta = np.deg2rad(theta)
-        else: raise ValueError('`angle_unit` can only be `deg` or `rad`! ' +
-                               'Passed unit of {}'.format(angle_unit))
+        if angle_unit == 'deg':
+            theta = np.deg2rad(theta)
+        elif angle_unit != 'rad':
+            raise ValueError('`angle_unit` can only be `deg` or `rad`! ' +
+                                  'Passed unit of {}'.format(angle_unit))
 
         if not offset: offset = [0., 0.]
 
@@ -287,6 +288,7 @@ class MixedGrid(BaseGrid):
             n = int(round(self.inj_frac[inj_type] * N))
             self.nobjects[inj_type] = n
 
+            # TODO: Current state; this is apparently broken!
             i = np.random.choice(indx, n, replace=False)
             self.indx[inj_type] = i
             self.pos[inj_type] = self.grid.pos[i]

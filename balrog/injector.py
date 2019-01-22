@@ -1,5 +1,6 @@
 import galsim
 import logging
+import numpy as np
 
 # Balrog files
 import grid
@@ -136,7 +137,7 @@ def parse_bal_image_inputs(config, base):
         try:
             n_reals = config['n_realizations']
             if isinstance(n_reals, int):
-                if n_reals < len(self.realizations):
+                if n_reals < len(config['realizations']):
                     raise ValueError('`n_realizations` cannot be smaller than len(realizations).')
                 if n_reals < 1:
                     raise ValueError('`n_realizations` must be a positive integer!')
@@ -144,7 +145,7 @@ def parse_bal_image_inputs(config, base):
                 raise TypeError('The value `n_realizations` must be an int!')
         except KeyError:
             # In this case, assume that n_realizations=len(realizations)
-            config['n_realizations'] = len(self.realizations)
+            config['n_realizations'] = len(config['realizations'])
     except KeyError:
         try:
             n_reals = config['n_realizations']
@@ -398,8 +399,9 @@ def parse_bal_image_inputs(config, base):
                                                     'only can pass `deg` or `rad`.')
                     except KeyError:
                         # Default of rad
-                        if (val<0.0) or (val>2*np.pi):
-                            raise ValueError('rotate value of {} rad is invalid!'.format(val))
+                        if isinstance(val, (int, float)):
+                            if (val<0.0) or (val>2*np.pi):
+                                raise ValueError('rotate value of {} rad is invalid!'.format(val))
 
                 if key == 'offset':
                     if isinstance(val, str):
