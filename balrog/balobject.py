@@ -449,6 +449,10 @@ class DESStarInjectionCatalog(DESInjectionCatalog):
         For now (Y3), the star catalogs (including positions) are pre-computed. So we just
         need to declare some variables for future use.
         '''
+
+        # TODO: This has not been checked since the move to generalized inputs, although
+        # not currently in use
+
         inp_type = self.input_type
 
         if self.data_version == 'y3v02':
