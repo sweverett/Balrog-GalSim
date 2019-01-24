@@ -285,6 +285,9 @@ class MixedGrid(BaseGrid):
         N = len(self.grid.pos)
         Ninj = self.N_inj_types
 
+        if N==0:
+            raise ValueError('The constructed grid has zero objects to assign!')
+
         indx = np.arange(N)
 
         icount = 0
