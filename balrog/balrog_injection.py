@@ -132,7 +132,7 @@ def RunBalrog():
             if vb: print('Writing Balrog config...')
             tile.write_bal_config()
             if vb: print('Running GalSim for tile...')
-            rc = tile.run_galsim(vb=vb)
+            rc = tile.run_galsim(tile.tile_name, real, vb=vb)
             if rc != 0:
                 raise Exception('\nYou shall not pass! GalSim failed to complete successfully.')
             if vb: print('Copying extra image planes...')

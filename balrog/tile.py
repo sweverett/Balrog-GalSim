@@ -496,7 +496,7 @@ class Tile(object):
             if config.vb > 1:
                 print('No objects of type {} were passed on injection '.format(inj_type) +
                 'to chip {}. Skipping injection.'.format(chip.name))
-                return
+            return
 
         # If this is the first injection for the chip, then set up new entry in bal_config
         if chip.types_injected == 0:
@@ -770,7 +770,7 @@ class Tile(object):
         self.bal_config.append({})
         self.bal_config_len += 1
 
-    def run_galsim(self, vb=0):
+    def run_galsim(self, tilename, real, vb=0):
         '''
         Run full GalSim executable of the modified gs_config. Will inject all Balrog
         galaxies contained in a given tile for a given realization in all chips in
@@ -781,7 +781,9 @@ class Tile(object):
         if self.has_injections is False:
             # NOTE: Can't run galsim executable (besides being a waste of time) as
             # the base layer yaml config won't be valid without extra additions.
-            return
+            print('NO SIM WARNING: No chips were added to the simulation config file, '
+                  'so ignoring simulation for tile {}; realization {}'.format(tilename, real))
+            return 0
 
         # A new GalSim config file for Balrog injections has been created and all simulations
         # can now be run simultaneously using all GalSim machinery
