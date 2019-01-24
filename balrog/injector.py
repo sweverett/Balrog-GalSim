@@ -1,5 +1,6 @@
 import galsim
 import logging
+import os
 import numpy as np
 
 # Balrog files
@@ -7,7 +8,7 @@ import grid
 import config as Config
 
 # Can use for debugging
-# import pudb
+import pudb
 
 ## Class for injecting simulated galaxies into pre-existing images.
 
@@ -444,3 +445,55 @@ def parse_bal_image_inputs(config, base):
                                  'input {} if not injecting on a grid!'.format(inpt))
 
     return config
+
+# --------------------------------------------------------------------------------------------------
+# We need a custom stamp type to allow us to skip runtime errors due to unreasonably large fft
+# grid sizes.
+
+class BalrogStampBuilder(galsim.config.StampBuilder):
+    def draw(self, prof, image, method, offset, config, base, logger):
+        """Draw the profile on the postage stamp image.
+
+        @param prof         The profile to draw.
+        @param image        The image onto which to draw the profile (which may be None).
+        @param method       The method to use in drawImage.
+        @param offset       The offset to apply when drawing.
+        @param config       The configuration dict for the stamp field.
+        @param base         The base configuration dict.
+        @param logger       If given, a logger object to log progress.
+
+        @returns the resulting image
+        """
+        logger = galsim.config.LoggerWrapper(logger)
+
+        try:
+            image = super(BalrogStampBuilder, self).draw(prof, image, method, offset, config,
+                                                         base, logger)
+        except galsim.errors.GalSimFFTSizeError as e:
+            # print('ID = {}'.format(base[]))
+            init_im = os.path.basename(base['image']['initial_image'])
+            logger.warning('FFT WARNING: Skipping object {} '.format(base['obj_num']) +
+                           'in chip {}\nas it had the following FFT error:\n'.format(init_im) +
+                           '\"'+str(e)+'\"')
+        return image
+
+    def reject(self, config, base, prof, psf, image, logger):
+        """Check to see if this object should be rejected.
+
+        @param config       The configuration dict for the stamp field.
+        @param base         The base configuration dict.
+        @param prof         The profile that was drawn.
+        @param psf          The psf that was used to build the profile.
+        @param image        The postage stamp image.  No noise is on it yet at this point.
+        @param logger       If given, a logger object to log progress.
+
+        @returns whether to reject this object
+        """
+        # The default implementation checks for reject, min_flux_frac, min_snr, and max_snr.
+        # If you want to keep those checks in addition to something new, you can just run
+        # the base class version first.
+        reject = super(self.__class__,self).reject(config, base, prof, psf, image, logger)
+        # TODO: Add any additional rejection checks...
+        return reject
+
+galsim.config.stamp.RegisterStampType('Balrog', BalrogStampBuilder())
