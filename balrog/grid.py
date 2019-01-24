@@ -11,9 +11,10 @@
 # 5/2/18
 #####################################################################
 
+import math
 import numpy as np
 import matplotlib.pyplot as plt
-# import pudb
+import pudb
 
 # The following base class is useful for accessing allowed parameter values
 # without constructing a full config
@@ -282,14 +283,25 @@ class MixedGrid(BaseGrid):
         self._check_inj_frac(final=True)
 
         N = len(self.grid.pos)
+        Ninj = self.N_inj_types
+
         indx = np.arange(N)
 
+        icount = 0
         for inj_type, inj_frac in self.inj_frac.items():
-            n = int(round(self.inj_frac[inj_type] * N))
-            self.nobjects[inj_type] = n
+            icount += 1
+            # Always rounds down
+            n = int(self.inj_frac[inj_type] * N)
+            if icount < Ninj:
+                nobjs = n
+            else:
+                # Grab remaining items
+                nobjs = len(indx)
+                assert n <= nobjs <= n+Ninj
 
-            # TODO: Current state; this is apparently broken!
-            i = np.random.choice(indx, n, replace=False)
+            self.nobjects[inj_type] = nobjs
+
+            i = np.random.choice(indx, nobjs, replace=False)
             self.indx[inj_type] = i
             self.pos[inj_type] = self.grid.pos[i]
 
