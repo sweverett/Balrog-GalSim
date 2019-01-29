@@ -312,9 +312,12 @@ class Tile(object):
         # NOTE: In the future, we may want to generalize this to a list of extinction
         # factors for all relevant chips. For now, making tile-wide corrections.
         if config.ext_factors is not None:
-            self.ext_factors = config.ext_factors[self.tile_name]
+            self.ext_factors = config.ext_factors['flux'][self.tile_name]
+            # Currently only used for truth tables
+            self.ext_factors_mag = config.ext_factors['mag'][self.tile_name]
         else:
             self.ext_factors = None
+            self.ext_factors_mag = None
 
         return
 
@@ -835,6 +838,7 @@ class Tile(object):
 
                     # Fill primary HDU with simulation metadata
                     # hdr = fits.Header()
+                    # TODO: Add ext_fact and ext_mag !
                     hdr = {}
                     hdr['run_name'] = config.run_name
                     hdr['config_file'] = config.args.config_file
@@ -853,6 +857,10 @@ class Tile(object):
                     hdr['curr_real'] = self.curr_real
                     hdr['data_version'] = config.data_version
                     hdr['inj_type'] = inj_type
+
+                    if self.ext_factors is not None:
+                        hdr['EXTFACT'] = str(self.ext_factors)
+                        hdr['EXTMAG']  = str(self.ext_factors_mag)
 
                     truth_table[0].write_keys(hdr)
 
