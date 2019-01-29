@@ -1,4 +1,5 @@
 import galsim
+import galsim.config.stamp as stamp
 import logging
 import os
 import numpy as np
@@ -280,6 +281,7 @@ def parse_bal_image_inputs(config, base):
         config['extinct_objs'] = False
 
     # Process input 'inj_objs_only'. This is used to test Balrog injections on blank images
+    bc = Config.BaseConfig()
     try:
         inj_objs_only = config['inj_objs_only']
         if type(inj_objs_only) is bool:
@@ -290,7 +292,7 @@ def parse_bal_image_inputs(config, base):
             inj_objs_only = dict(inj_objs_only)
             ioo = {}
             keys = ['value', 'noise']
-            valid_noise = ['CCD', 'BKG', 'BKG+CCD', 'BKG+RN', 'BKG+SKY', 'None', None]
+            valid_noise = bc._valid_noise_types
 
             if 'noise' not in inj_objs_only:
                 # Default is no noise
@@ -313,7 +315,6 @@ def parse_bal_image_inputs(config, base):
     # Process input 'pos_sampling'
     # TODO: Clean up after testing!
     bg = grid.BaseGrid()
-    bc = Config.BaseConfig()
     valid_pos_sampling = bc._valid_pos_sampling
     valid_grid_types = bg._valid_grid_types
     valid_mixed_types = bg._valid_mixed_types
@@ -451,6 +452,20 @@ def parse_bal_image_inputs(config, base):
 # grid sizes.
 
 class BalrogStampBuilder(galsim.config.StampBuilder):
+    # def setup(self, config, base, xsize, ysize, ignore, logger):
+    #     # Need to process field `max_stamp_size`
+    #     # if 'max_stamp_size' in config:
+    #     #     self.max_samp_size = galsim.config.ParseValue(config,'xsize',base,int)[0]
+    #     #     if self.max_samp_size <= 0:
+    #     #         raise ValueError('`max_stamp_size` must be positive!')
+    #     # else:
+    #     #     self.max_samp_size = None
+    #     # ignore = ignore + ['max_stamp_size']
+
+    #     super(BalrogStampBuilder, self).setup(config, base, xsize, ysize, ignore, logger)
+
+    #     return
+
     def draw(self, prof, image, method, offset, config, base, logger):
         """Draw the profile on the postage stamp image.
 
@@ -465,10 +480,38 @@ class BalrogStampBuilder(galsim.config.StampBuilder):
         @returns the resulting image
         """
         logger = galsim.config.LoggerWrapper(logger)
+        # logger.warning('\nimage is: {}\n'.format(image))
+        # logger.warning('\nconfig is: {}\n'.format(config))
 
+        if prof is None:
+            return image
+
+        # TODO: Doing tests relating to setting a maximum stamp size
+        # N = prof.getGoodImageSize(0.27)
+        # Nmax = self.max_grid_size
+        # Nmax = 256
+        # logger.warning('\nprof.getGoodImageSize(1) is: {}'.format(N))
+
+        # B = prof._get_new_bounds(image, None, None, None)
+        # bim = prof._setup_image(image, None, None, None, None, None)
+        # logger.warning('Base image is: {}'.format(bim))
         try:
+            # if N <= Nmax:
+            #     logger.warning('Good stamp')
+            #     image = stamp.DrawBasic(prof, image, method, offset, config, base, logger)
+            # else:
+            #     logger.warning('Bad stamp')
+            #     nx, ny = Nmax, Nmax
+            #     kwargs = {'nx':nx, 'ny':ny}
+            #     image = stamp.DrawBasic(prof, image, method, offset, config, base, logger, **kwargs)
+
+            # # TODO: Current state; check if bounds are too large, and if so redo
+            # # if image...:
+            # #     pass
+            # logger.warning('Bounds are: {}\n'.format(image.bounds))
             image = super(BalrogStampBuilder, self).draw(prof, image, method, offset, config,
                                                          base, logger)
+
         except galsim.errors.GalSimFFTSizeError as e:
             # print('ID = {}'.format(base[]))
             init_im = os.path.basename(base['image']['initial_image'])
