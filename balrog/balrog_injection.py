@@ -20,17 +20,12 @@ import fileio as io
 
 #-------------------------------------------------------------------------------
 # Important todo's:
-# TODO: Change `pos_sampling` to be *per*-input!
-# TODO: Clean up evals in add_gs_injection()!
 # TODO: Check pixel origin for transformations!
 
 # Some extra todo's:
 # TODO: Have code automatically check fitsio vs astropy
-# TODO: More general geometry file inputs
 # TODO: Add check for python path!
-# TODO: Make a log system!
-# TODO: Add a single seed for each tile w/r/t noise realizations
-# TODO: Multi-line print statements are a bit bugged
+# TODO: Fix some bugged multi-line print statements
 
 # Questions:
 # None curently

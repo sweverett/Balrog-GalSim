@@ -38,6 +38,8 @@ class BaseConfig(object):
     _non_inj_input_types = ['power_spectrum', 'nfw_halo', 'des_psfex', '_get']
 
     _valid_pos_sampling = ['uniform', 'sahar', 'RectGrid', 'HexGrid', 'MixedGrid']
+    _valid_noise_types = ['CCD', 'BKG', 'BKG+CCD', 'BKG+RN', 'BKG+SKY', 'None', None]
+    _chip_noise_types = ['CCD', 'BKG+CCD', 'BKG+RN', 'BKG+SKY']
 
     # NOTE: only used for background subtracted runs
     _valid_background_types = ['BKG', 'BKG+CCD', 'BKG+RN', 'BKG+SKY']
@@ -261,19 +263,24 @@ class Config(BaseConfig):
         # NOTE: In the future, we may want to generalize this to a different file.
         # For now, easiest to place this in the geometry file.
 
+        self.ext_factors = {}
+
         # For now, file assumed to have structure of ['g','r','i','z']
         file_bindx = dict(zip('griz', range(4)))
 
         # NOTE: Can also grab EXTMAG, GALLONG, GALLAT, and MEANEBV for more complex
         # extinction methods
         try:
-            ext_factors = np.array([self.geom['EXTFACT'][:, file_bindx[b]]
+            ext_flux = np.array([self.geom['EXTFACT'][:, file_bindx[b]]
+                                                 for b in self.bands])
+            ext_mags = np.array([self.geom['EXTMAG'][:, file_bindx[b]]
                                                  for b in self.bands])
         except KeyError:
-            raise AttributeError('Column `EXTFACT` required in geometry file for setting '
-                                 'extinction factors!')
+            raise AttributeError('Columns `EXTFACT` and `EXTMAG` required in geometry file '
+                                 'for setting extinction factors!')
 
-        self.ext_factors = dict(zip(self.geom['TILENAME'], ext_factors.T))
+        self.ext_factors['flux'] = dict(zip(self.geom['TILENAME'], ext_flux.T))
+        self.ext_factors['mag']  = dict(zip(self.geom['TILENAME'], ext_mags.T))
 
         return
 

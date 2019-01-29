@@ -6,6 +6,9 @@ from astropy.io import fits
 import fitsio
 import warnings
 
+# Balrog files
+import config as Config
+
 # import pudb
 
 #-------------------------------------------------------------------------------
@@ -26,6 +29,7 @@ class Chip(object):
         self.band = band
         self.bindx = tile.bindx[band]
         self.zeropoint = zeropoint
+        self.noise_model = tile.noise_model
 
         # Will be set later
         self.nobjects = {}
@@ -154,12 +158,22 @@ class Chip(object):
         If desired, grab noise values from the chip header.
         '''
 
-        if config.data_version == 'y3v02':
-            hdr = fitsio.read_header(self.filename)
-            self.sky_var = [hdr['SKYVARA'], hdr['SKYVARB']]
-            self.sky_sigma = hdr['SKYSIGMA']
-            self.gain = [hdr['GAINA'], hdr['GAINB']]
-            self.read_noise = [hdr['RDNOISEA'], hdr['RDNOISEB']]
+        nm = self.noise_model
+        bc = Config.BaseConfig()
+        if (nm is not None) and (nm != 'None'):
+            if nm in bc._chip_noise_types:
+                hdr = fits.getheader(self.filename, ext=0)
+                self.sky_var = [hdr['SKYVARA'], hdr['SKYVARB']]
+                self.sky_sigma = hdr['SKYSIGMA']
+                self.gain = [hdr['GAINA'], hdr['GAINB']]
+                self.read_noise = [hdr['RDNOISEA'], hdr['RDNOISEB']]
+            # else:
+            #     ...
+        else:
+            self.sky_var = None
+            self.sky_sigma = None
+            self.gain = None
+            self.read_noise = None
 
         return
 
