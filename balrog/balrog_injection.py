@@ -103,7 +103,7 @@ def RunBalrog():
             for band in bands:
                 for chip in tile.chips[band]:
                     # Reset injection counter
-                    chip.types_injected = 0
+                    chip.reset_config()
 
                     for inpt in config.input_types:
                         tile.add_gs_injection(config, chip, inpt, real)

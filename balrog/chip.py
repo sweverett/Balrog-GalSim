@@ -40,6 +40,7 @@ class Chip(object):
         # to bal_config by add_gs_injection()
         self.types_injected = 0
         self.N_inj_types = len(config.inj_types)
+        self.setup_config = False
 
         self._set_name(config)
         self._set_psf(config)
@@ -162,6 +163,8 @@ class Chip(object):
         bc = Config.BaseConfig()
         if (nm is not None) and (nm != 'None'):
             if nm in bc._chip_noise_types:
+                # NOTE: This will fail when using older versions of fitsio!
+                # See issue here: https://github.com/esheldon/fitsio/issues/130
                 hdr = fits.getheader(self.filename, ext=0)
                 self.sky_var = [hdr['SKYVARA'], hdr['SKYVARB']]
                 self.sky_sigma = hdr['SKYSIGMA']
@@ -238,6 +241,12 @@ class Chip(object):
     def set_nobjects(self, Nobjs, inj_type):
         self.nobjects[inj_type] = Nobjs
         self.total_n_objects += Nobjs
+
+        return
+
+    def reset_config(self):
+        self.types_injected = 0
+        self.setup_config = False
 
         return
 

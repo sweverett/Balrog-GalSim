@@ -493,28 +493,32 @@ class Tile(object):
         assert len(inj_indx) == len(inj_pos_im)
         chip.set_nobjects(len(inj_pos_im), inj_type)
 
+        Ninput = len(self.input_types)
+        Ninject = len(inj_indx)
 
         # Skip chips with no injections, except for a few special cases
         if (len(inj_indx) == 0) and (config.inj_objs_only['value'] is False):
             if config.vb > 1:
                 print('No objects of type {} were passed on injection '.format(inj_type) +
                 'to chip {}. Skipping injection.'.format(chip.name))
+            chip.types_injected += 1
+            if (Ninput==chip.types_injected) and (np.sum(chip.nobjects.values())>0):
+                self._final_config_check(config, chip, Ninput, inj_type)
+
             return
 
         # If this is the first injection for the chip, then set up new entry in bal_config
-        if chip.types_injected == 0:
+        if chip.setup_config is False:
             self.add_bal_config_entry()
 
         # Injection index
         i = self.bal_config_len - 1
-
-        Ninput = len(self.input_types)
-        Ninject = len(inj_indx)
+        # i = self.bal_config_len - 1
 
         #-----------------------------------------------------------------------------------------------
         # Now set up common config entries if chip's first injection
 
-        if chip.types_injected == 0:
+        if chip.setup_config is False:
 
             # Setup 'image' field
             chip_file = chip.filename
@@ -590,17 +594,6 @@ class Tile(object):
                                                 chip.name)
             self.bal_config[i]['output'] = {'file_name' : out_file}
 
-            # NOTE: Some input types require the field `bands` to be set, and so will fail
-            # if we do not set it for this chip injection (even though it is never used
-            # for zero injections)
-            for inj, ninj in chip.nobjects.items():
-                if (ninj == 0) and (inj_cat.needs_band is True):
-                    try:
-                        # Need the inverse map of {input_type : inj_type}
-                        inpt = {v:k for k, v in self.inj_types.iteritems()}[inj]
-                        self.bal_config[i]['input'].update({inpt : {'bands' : chip.band}})
-                    except KeyError: pass
-
             # If multiple input types, add list setup
             if len(self.input_types) > 1:
                 list_structure_gal = deepcopy(self.bal_config[0]['gal'])
@@ -641,6 +634,8 @@ class Tile(object):
 
                 # Clean up entries
                 for j in range(Ninput): self.bal_config[i]['image']['image_pos']['items'][j] = {}
+
+            chip.setup_config = True
 
         #-----------------------------------------------------------------------------------------------
         # Set common entries independent of list structure
@@ -730,42 +725,76 @@ class Tile(object):
 
         # A few final checks...
         if Ninput == chip.types_injected:
-            # NOTE: If all injections have been completed but 'nobjects' is still 0, then
-            # add a dummy injection if 'inj_objs_only' is true. This is to ensure that the
-            # background is correctly set in `injector.py` during the GalSim call, even
-            # for chips with no injections.
-            if (chip.total_n_objects == 0) and (config.inj_objs_only['value'] is True):
-                # Use current inj object for dummy
-                chip.set_nobjects(1, inj_type)
-                self.bal_config[i]['image'].update({'N_{}'.format(inj_type) : 1})
-
-                if Ninput == 1:
-                    self.bal_config[i]['image']['image_pos'].update({
-                        'type' : 'XY',
-                        'x' : { 'type' : 'List', 'items' : [0] },
-                        'y' : { 'type' : 'List', 'items' : [0] }
-                    })
-                    self.bal_config[i]['gal'] = {
-                        'type' : 'Gaussian',
-                        'sigma' : 1,
-                        'flux' : 0.0 # GalSim will run, but no effective image added
-                    }
-
-                else:
-                    # Use list format
-                    self.bal_config[i]['image']['image_pos']['items'][indx].update({
-                        'type' : 'XY',
-                        'x' : { 'type' : 'List', 'items' : [0] },
-                        'y' : { 'type' : 'List', 'items' : [0] }
-                    })
-                    self.bal_config[i]['gal']['items'][indx] = {
-                        'type' : 'Gaussian',
-                        'sigma' : 1,
-                        'flux' : 0.0 # GalSim will run, but no effective image added
-                    }
+            self._final_config_check(config, chip, Ninput, inj_type)
 
         if self.has_injections is False:
             self.has_injections = True
+
+        return
+
+    def _final_config_check(self, config, chip, Ninput, inj_type):
+        # NOTE: Some input types require the field `bands` to be set, and so will fail
+        # if we do not set it for this chip injection (even though it is never used
+        # for zero injections)
+
+        # Injection index
+        i = self.bal_config_len - 1
+
+        for inj, ninj in chip.nobjects.items():
+            input_type = {v:k for k, v in self.inj_types.iteritems()}[inj]
+            inj_cat = self.inj_cats[input_type]
+            if (ninj == 0) and (inj_cat.needs_band is True):
+                # Need the inverse map of {input_type : inj_type}
+
+                inj_cat.setup_chip_config(config, self.bal_config, chip, i)
+
+                if Ninput == 1:
+                    inj_cat.build_single_chip_config(config, self.bal_config, chip, i)
+                else:
+                    # Object index
+                    indx = self.input_indx[input_type]
+                    inj_cat.build_multi_chip_config(config, self.bal_config, chip, i, indx)
+                    # self.bal_config[i]['input'].update({inpt : {'bands' : chip.band}})
+                # try:
+                # except KeyError: pass
+
+        # NOTE: If all injections have been completed but 'nobjects' is still 0, then
+        # add a dummy injection if 'inj_objs_only' is true. This is to ensure that the
+        # background is correctly set in `injector.py` during the GalSim call, even
+        # for chips with no injections.
+        if (chip.total_n_objects == 0) and (config.inj_objs_only['value'] is True):
+            # Use current inj object for dummy
+            chip.set_nobjects(1, inj_type)
+
+            input_type = {v:k for k, v in self.inj_types.iteritems()}[inj]
+            # Object index
+            indx = self.input_indx[input_type]
+            self.bal_config[i]['image'].update({'N_{}'.format(inj_type) : 1})
+
+            if Ninput == 1:
+                self.bal_config[i]['image']['image_pos'].update({
+                    'type' : 'XY',
+                    'x' : { 'type' : 'List', 'items' : [0] },
+                    'y' : { 'type' : 'List', 'items' : [0] }
+                })
+                self.bal_config[i]['gal'] = {
+                    'type' : 'Gaussian',
+                    'sigma' : 1,
+                    'flux' : 0.0 # GalSim will run, but no effective image added
+                }
+
+            else:
+                # Use list format
+                self.bal_config[i]['image']['image_pos']['items'][indx].update({
+                    'type' : 'XY',
+                    'x' : { 'type' : 'List', 'items' : [0] },
+                    'y' : { 'type' : 'List', 'items' : [0] }
+                })
+                self.bal_config[i]['gal']['items'][indx] = {
+                    'type' : 'Gaussian',
+                    'sigma' : 1,
+                    'flux' : 0.0 # GalSim will run, but no effective image added
+                }
 
         return
 
