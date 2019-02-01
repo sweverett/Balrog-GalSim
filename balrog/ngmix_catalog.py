@@ -138,7 +138,7 @@ class ngmixCatalog(object):
                 raise ValueError("The signal-to-noise ratio `snr` must be positive!")
             self.snr_min = snr_min
         else:
-            self.snr_min = 0.0
+            self.snr_min = None
 
         if snr_max is not None:
             if snr_max < 0.0:
@@ -150,16 +150,12 @@ class ngmixCatalog(object):
             self.snr_max = None
 
         if t_min is not None:
-            if t_min < 0.0:
-                raise ValueError("The object size cutoff `t_min` must be positive!".format())
             self.t_min = t_min
         else:
-            self.t_min = 0.0
+            self.t_min = None
 
         if t_max is not None:
-            if t_max < 0.0:
-                raise ValueError("The object size cutoff `t_max` must be positive!".format())
-            elif t_min and (t_min > t_max):
+            if (t_min is not None) and (t_min > t_max):
                 raise ValueError("`t_max` must be greater than `t_min`!")
             self.t_max = t_max
         else:
@@ -170,7 +166,7 @@ class ngmixCatalog(object):
                 raise ValueError("The allowed size/size_err fraction `t_frac` must be positive!")
             self.t_frac = t_frac
         else:
-            self.t_frac = 0.0
+            self.t_frac = None
 
         if version is not None:
             if not isinstance(version, basestring):
@@ -245,15 +241,17 @@ class ngmixCatalog(object):
 
         # General flags
         self.flags = self.catalog['flags']
-        self.obj_flags = self.catalog['obj_flags']
+
+        # TODO: Look at these in more detail!
+        #self.obj_flags = self.catalog['obj_flags']
 
         # ngmix catalog-specific flags
-        self.ngmix_flags = self.catalog[self.col_prefix+'_flags']
+        #self.ngmix_flags = self.catalog[self.col_prefix+'_flags']
 
         # TODO: Check for additional flags
-        if self.cat_type == 'mof':
-            # mof has additional flags
-            self.mof_flags = self.catalog[self.col_prefix+'_mof_flags']
+        # if self.cat_type == 'mof':
+        #     # mof has additional flags
+        #     self.mof_flags = self.catalog[self.col_prefix+'_mof_flags']
 
         return
 
@@ -271,25 +269,29 @@ class ngmixCatalog(object):
 
         # For now, remove objects with any flags present
         mask[self.flags != 0] = False
-        mask[self.obj_flags !=0] = False
-        mask[self.ngmix_flags !=0] = False
+        # TODO: We probably want to remove these!
+        # mask[self.obj_flags !=0] = False
+        # mask[self.ngmix_flags !=0] = False
         # Extra flags for 'mof' catalogs
-        if self.cat_type == 'mof':
-            mask[self.mof_flags != 0] = False
+        # if self.cat_type == 'mof':
+        #     mask[self.mof_flags != 0] = False
 
         # Remove any object with `|T/T_err|` < t_frac
         # (have to do absolute value as T can be negative)
-        T_fraction = self.catalog[cp+'_T'] / self.catalog[cp+'_T_err']
-        mask[abs(T_fraction) < self.t_frac ] = False
+        if self.t_frac is not None:
+            T_fraction = self.catalog[cp+'_T'] / self.catalog[cp+'_T_err']
+            mask[abs(T_fraction) < self.t_frac ] = False
 
         # Remove objects with snr_min < S/N < snr_max
-        mask[self.catalog[cp+'_s2n_r'] < self.snr_min] = False
-        if self.snr_max:
+        if self.snr_min is not None:
+            mask[self.catalog[cp+'_s2n_r'] < self.snr_min] = False
+        if self.snr_max is not None:
             mask[self.catalog[cp+'_s2n_r'] > self.snr_max] = False
 
         # Remove objects with size T outside of desired bounds
-        mask[self.catalog[cp+'_T'] < self.t_min] = False
-        if self.t_max:
+        if self.t_min is not None:
+            mask[self.catalog[cp+'_T'] < self.t_min] = False
+        if self.t_max is not None:
             mask[self.catalog[cp+'_T'] > self.t_max] = False
 
         self.mask = mask
