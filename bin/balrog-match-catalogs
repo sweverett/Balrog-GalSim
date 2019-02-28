@@ -1,0 +1,107 @@
+#!/usr/bin/env python
+"""
+Match Balrog catalogs and save matched catalogs,
+along with detection and extinction information
+"""
+
+from argparse import ArgumentParser
+import match
+import os
+
+parser=ArgumentParser()
+
+parser.add_argument(
+    'base',
+    type=str,
+    help='Base directory where tile directories are located'
+)
+parser.add_argument(
+    '--conf',
+    default='y3v02',
+    type=str,
+    help='MEDS configuration used'
+)
+parser.add_argument(
+    '--real',
+    default=0,
+    type=int,
+    help='band to download',
+)
+parser.add_argument(
+    '--tile_list',
+    default=None,
+    type=list,
+    help='List of tiles to stack (if not all)'
+)
+parser.add_argument(
+    '--inj_type',
+    default='gals',
+    type=str,
+    help='Injection type to match between catalogs (gals, stars, or both)'
+)
+parser.add_argument(
+    '--match_radius',
+    default=1.0,
+    type=float,
+    help='Match radius in arcsec'
+)
+parser.add_argument(
+    '--outdir',
+    default=None,
+    type=str,
+    help='Output location for stacked catalogs'
+)
+# TODO: Implement!
+parser.add_argument(
+    '--clean',
+    action='store_true',
+    help=('Remove all existing matched catalogs in base'),
+)
+
+def main():
+    args = parser.parse_args()
+
+    if args.clean is True:
+        # Clean out existing matched catalogs
+        # ...
+        pass
+
+    if args.outdir is None:
+        outdir = os.getcwd()
+    else:
+        if not os.path.isdir(os.path.abspath(args.outdir)):
+            raise ValueError('{} is not an existing directory!')
+        outdir = args.outdir
+
+    # NOTE: Can pass lots of more parameters here. Use outside of script if desired.
+    print('Matching catalogs...')
+    matched_cats = match.MatchedCatalogs(args.base,
+                                         meds_conf=args.conf,
+                                         real=args.real,
+                                         tile_list=args.tile_list,
+                                         inj_type=args.inj_type,
+                                         match_radius=args.match_radius/3600.0)
+
+    # Write out a concatonated true & meas matched catalog
+    print('Writing combined stack...')
+    matched_cats.write_combined_stack(outdir=outdir)
+
+    # Write out detection truth stack
+    print('Writing detection truth stack...')
+    matched_cats.write_truth_det_stack(outdir=outdir)
+
+    # To grab full truth catalog (detected or not), use the following:
+    # full_truth_stack = matched_cats.get_full_true_stack()
+
+    # To grab the matched truth & measured catalogs individually (matched by row),
+    # use the following:
+    # true_stack, meas_stack = matched_cats.get_matched_stack()
+
+    # A few more examples:
+
+    # matched_cats.write_stacks() # All (with matched cats separate)
+
+    # matched_cats.write_full_truth_stack() # Individually
+
+if __name__=="__main__":
+    main()
