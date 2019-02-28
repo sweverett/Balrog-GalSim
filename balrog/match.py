@@ -23,7 +23,8 @@ import pudb
 class MatchedCatalogs(object):
 
     # TODO: Add stars into all of this!
-    def __init__(self, basedir, meds_conf='y3v02', real=0, tile_list=None, inj_type='gals', **kwargs):
+    def __init__(self, basedir, meds_conf='y3v02', real=0, tile_list=None, inj_type='gals',
+                 vb=False, **kwargs):
         if not isinstance(basedir, str):
             raise TypeError('basedir must be a string!')
         if not os.path.isdir(basedir):
@@ -63,6 +64,10 @@ class MatchedCatalogs(object):
         else:
             raise ValueError('Must pass inj_type as `gals` or `stars`!')
 
+        if not isinstance(vb, bool):
+            raise TypeError('vb must be a bool!')
+        self.vb = vb
+
         self.true_stack = None
         self.meas_stack = None
         self.full_true_stack = None
@@ -96,6 +101,9 @@ class MatchedCatalogs(object):
         real = self.real
         self.nobjects = 0
         for tile in tiles:
+            if self.vb:
+                print 'Matching tile {}'.format(tile)
+
             tdir = os.path.join(self.basedir, tile)
             self.tiledir[tile] = tdir
             true_name = '{}_{}_balrog_truth_cat_{}.fits'.format(tile, real, self.inj_type)

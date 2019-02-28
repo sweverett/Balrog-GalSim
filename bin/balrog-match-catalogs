@@ -51,6 +51,12 @@ parser.add_argument(
     type=str,
     help='Output location for stacked catalogs'
 )
+parser.add_argument(
+    '--verbose',
+    action='store_true',
+    default=False,
+    help='Set to print out more information'
+)
 # TODO: Implement!
 parser.add_argument(
     '--clean',
@@ -60,6 +66,7 @@ parser.add_argument(
 
 def main():
     args = parser.parse_args()
+    vb = args.verbose
 
     if args.clean is True:
         # Clean out existing matched catalogs
@@ -70,24 +77,29 @@ def main():
         outdir = os.getcwd()
     else:
         if not os.path.isdir(os.path.abspath(args.outdir)):
-            raise ValueError('{} is not an existing directory!')
+            raise ValueError('{} is not an existing directory!'.format(args.outdir))
         outdir = args.outdir
 
+    if vb:
+        print('Matching catalogs...')
+
     # NOTE: Can pass lots of more parameters here. Use outside of script if desired.
-    print('Matching catalogs...')
     matched_cats = match.MatchedCatalogs(args.base,
                                          meds_conf=args.conf,
                                          real=args.real,
                                          tile_list=args.tile_list,
                                          inj_type=args.inj_type,
-                                         match_radius=args.match_radius/3600.0)
+                                         match_radius=args.match_radius/3600.0,
+                                         vb=vb)
 
     # Write out a concatonated true & meas matched catalog
-    print('Writing combined stack...')
+    if vb:
+        print('Writing combined stack...')
     matched_cats.write_combined_stack(outdir=outdir)
 
     # Write out detection truth stack
-    print('Writing detection truth stack...')
+    if vb:
+        print('Writing detection truth stack...')
     matched_cats.write_truth_det_stack(outdir=outdir)
 
     # To grab full truth catalog (detected or not), use the following:
