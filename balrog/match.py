@@ -253,7 +253,7 @@ class MatchedCatalogs(object):
         return
 
     def write_combined_stack(self, outdir=None, outfile='balrog_matched_catalog.fits',
-                             cache=False, clobber=False):
+                             use_cache=False, clobber=False, table_format='fits'):
         if self._has_matched is False:
             true_stack, meas_stack = self.get_matched_stack()
             if self.vb:
@@ -293,7 +293,7 @@ class MatchedCatalogs(object):
             if self.vb is True:
                 print('Writing tile {} ({} of {})'.format(tile, i, Nt))
 
-            outfile = os.path.join(outdir, outbase + '{}_{}.fits'.format(tile, outbase))
+            outfile = os.path.join(outdir, '{}_{}.fits'.format(tile, outbase))
             if os.path.exists(outfile) and (clobber is True):
                 os.remove(outfile)
 
