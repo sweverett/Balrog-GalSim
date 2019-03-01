@@ -115,7 +115,12 @@ class MatchedCatalogs(object):
             meas_file = os.path.join(tdir, meas_name)
 
             kwargs['tilename'] = tile
-            self.cats[tile] = MatchedCatalog(true_file, meas_file, **kwargs)
+            try:
+                self.cats[tile] = MatchedCatalog(true_file, meas_file, **kwargs)
+            except IOError as e:
+                print('Following IO error occured:\n{}\nSkipping tile.'.format(e))
+                continue
+
             assert len(self.cats[tile].meas) == len(self.cats[tile].true)
             self.nobjects += len(self.cats[tile].meas)
 
