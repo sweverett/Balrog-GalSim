@@ -52,6 +52,18 @@ parser.add_argument(
     help='Output location for stacked catalogs'
 )
 parser.add_argument(
+    '--clobber',
+    action='store_true',
+    default=False,
+    help='Use to overwrite existing match files'
+)
+parser.add_argument(
+    '--cache',
+    action='store_true',
+    default=False,
+    help='Cache individual tile matches before stacking'
+)
+parser.add_argument(
     '--verbose',
     action='store_true',
     default=False,
@@ -92,15 +104,26 @@ def main():
                                          match_radius=args.match_radius/3600.0,
                                          vb=vb)
 
+    if args.cache:
+        # Write out individual matched catalogs
+        if vb:
+            print('Writing combined catalogs...')
+
+        cat_outdir = os.path.join(outdir, 'matched_catalogs')
+        if not os.path.exists(cat_outdir):
+            os.mkdir(cat_outdir)
+
+        matched_cats.write_combined_cats(outdir=cat_outdir, clobber=args.clobber)
+
     # Write out a concatonated true & meas matched catalog
     if vb:
         print('Writing combined stack...')
-    matched_cats.write_combined_stack(outdir=outdir)
+    matched_cats.write_combined_stack(outdir=outdir, cache=args.cache, clobber=args.clobber)
 
     # Write out detection truth stack
     if vb:
         print('Writing detection truth stack...')
-    matched_cats.write_truth_det_stack(outdir=outdir)
+    matched_cats.write_truth_det_stack(outdir=outdir, clobber=args.clobber)
 
     # To grab full truth catalog (detected or not), use the following:
     # full_truth_stack = matched_cats.get_full_true_stack()

@@ -100,9 +100,12 @@ class MatchedCatalogs(object):
 
         real = self.real
         self.nobjects = 0
+        Nt = len(tiles)
+        k = 0
         for tile in tiles:
+            k += 1
             if self.vb:
-                print 'Matching tile {}'.format(tile)
+                print('Matching tile {} ({} of {})'.format(tile, k, Nt))
 
             tdir = os.path.join(self.basedir, tile)
             self.tiledir[tile] = tdir
@@ -111,12 +114,13 @@ class MatchedCatalogs(object):
             true_file = os.path.join(tdir, true_name)
             meas_file = os.path.join(tdir, meas_name)
 
+            kwargs['tilename'] = tile
             self.cats[tile] = MatchedCatalog(true_file, meas_file, **kwargs)
             assert len(self.cats[tile].meas) == len(self.cats[tile].true)
             self.nobjects += len(self.cats[tile].meas)
 
         self.ntiles += len(tiles)
-        self.tiles.append(tiles)
+        self.tiles += tiles
 
         return
 
@@ -145,16 +149,20 @@ class MatchedCatalogs(object):
         true_stack = None
         meas_stack = None
 
+        k = 0
+        Nt = len(self.tiles)
         for tile, cat in self.cats.items():
+            k += 1
+            if self.vb:
+                print('Stacking tile {} ({} of {})'.format(tile, k, Nt))
+
             if matched_stack is None:
                 true_stack = cat.true
                 meas_stack = cat.meas
                 matched_stack = True
             else:
                 true_stack = vstack([true_stack, cat.true])
-                meas = cat.meas
-                meas['separation'] = cat.dist
-                meas_stack = vstack([meas_stack, meas])
+                meas_stack = vstack([meas_stack, cat.meas])
 
         self.true_stack = true_stack
         self.meas_stack = meas_stack
@@ -163,13 +171,13 @@ class MatchedCatalogs(object):
 
         return true_stack, meas_stack
 
-    def write_stacks(self, outdir=None):
-        write_full_truth_stack(outdir=outdir)
-        write_matched_stacks(outdir=outdir)
+    def write_stacks(self, outdir=None, clobber=False):
+        write_full_truth_stack(outdir=outdir, clobber=clobber)
+        write_matched_stacks(outdir=outdir, clobber=clobber)
 
         return
 
-    def _write_truth_base(self, outfile, outdir):
+    def _write_truth_base(self, outfile, outdir, clobber=False):
         if self.full_true_stack is None:
             stack = self.get_full_true_stack()
         else:
@@ -180,13 +188,13 @@ class MatchedCatalogs(object):
             outdir = self.basedir
         outfile = os.path.join(outdir, outfile)
 
-        if os.path.exists(outfile):
+        if os.path.exists(outfile) and (clobber is True):
             os.remove(outfile)
 
         return stack, outfile
 
-    def write_full_truth_stack(self, outfile='full_truth_stack.fits', outdir=None):
-        stack, outfile = self._write_truth_base(outfile=outfile, outdir=outdir)
+    def write_full_truth_stack(self, outfile='full_truth_stack.fits', outdir=None, clobber=False):
+        stack, outfile = self._write_truth_base(outfile=outfile, outdir=outdir, clobber=clobber)
 
         stack.write(outfile)
 
@@ -194,13 +202,14 @@ class MatchedCatalogs(object):
 
         return
 
-    def write_truth_det_stack(self, outfile='truth_det_stack.fits', outdir=None):
-        stack, outfile = self._write_truth_base(outfile=outfile, outdir=outdir)
+    def write_truth_det_stack(self, outfile='truth_det_stack.fits', outdir=None, clobber=False):
+        stack, outfile = self._write_truth_base(outfile=outfile, outdir=outdir, clobber=clobber)
 
         # Detection stack only needs limited information
         det_stack = Table()
         det_stack['id'] = stack['id']
-        det_stack['id_number'] = stack['number'] # 'number' is a reserved name in DB
+        det_stack['inj_tilename'] = stack['inj_tilename']
+        det_stack['tile_number'] = stack['number'] # 'number' is a reserved name in DB
         det_stack['ra'] = stack['ra']
         det_stack['dec'] = stack['dec']
         det_stack['detected'] = stack['detected']
@@ -211,7 +220,7 @@ class MatchedCatalogs(object):
 
         return
 
-    def write_matched_stacks(self, outfile_base=None, outdir=None):
+    def write_matched_stacks(self, outfile_base=None, outdir=None, clobber=False):
         if self.meas_stack is not None:
             true_stack, meas_stack = self.get_matched_stack()
         else:
@@ -229,7 +238,7 @@ class MatchedCatalogs(object):
         for outfile, stack in outfiles.items():
             outfile = os.path.join(outdir, outfile_base, outfile)
 
-            if os.path.exists(outfile):
+            if os.path.exists(outfile) and (clobber is True):
                 os.remove(outfile)
 
             stack.write(outfile)
@@ -238,13 +247,60 @@ class MatchedCatalogs(object):
 
         return
 
-    def write_combined_stack(self, outdir=None, outfile='balrog_matched_catalog.fits'):
+    def write_combined_stack(self, outdir=None, outfile='balrog_matched_catalog.fits',
+                             cache=False, clobber=False):
         if self._has_matched is False:
             true_stack, meas_stack = self.get_matched_stack()
+            if self.vb:
+                print('Combined stack built')
         else:
             # Don't re-stack unless specifically asked to do so
             true_stack, meas_stack = self.true_stack, self.meas_stack
+            if self.vb:
+                print('Loaded combined stack')
 
+        self.combined_stack = self._merge_matches(true_stack, meas_stack)
+
+        if outdir is None:
+            outdir = self.basedir
+
+        outfile = os.path.join(outdir, outfile)
+
+        if os.path.exists(outfile) and (clobber is True):
+            os.remove(outfile)
+
+        if self.vb:
+            print('Combined stack writing...')
+        self.combined_stack.write(outfile)
+
+        # TODO: Add some metadata information to PHU!
+
+        return
+
+    def write_combined_cats(self, outdir=None, outbase='balrog_matched_cat', clobber=False):
+        if outdir is None:
+            outdir = self.basedir
+
+        Nt = len(self.tiles)
+        i = 0
+        for tile, cat in self.cats.items():
+            i += 1
+            if self.vb is True:
+                print('Writing tile {} ({} of {})'.format(tile, i, Nt))
+
+            outfile = os.path.join(outdir, outbase + '{}_{}.fits'.format(tile, outbase))
+            if os.path.exists(outfile) and (clobber is True):
+                os.remove(outfile)
+
+            true_stack = cat.true
+            meas_stack = cat.meas
+            combined_stack = self._merge_matches(true_stack, meas_stack)
+
+            combined_stack.write(outfile)
+
+        return
+
+    def _merge_matches(self, true_stack, meas_stack):
         # Add column prefixes (avoids table copying)
         for col in true_stack.colnames:
             true_stack.rename_column(col, 'true_'+col)
@@ -253,10 +309,10 @@ class MatchedCatalogs(object):
                 continue
             meas_stack.rename_column(col, 'meas_'+col)
 
-        self.combined_stack = hstack([true_stack, meas_stack],
-                                      join_type='exact',
-                                      table_names=['true', 'meas'],
-                                      uniq_col_name='{table_name}_{col_name}')
+        combined_stack = hstack([true_stack, meas_stack],
+                                join_type='exact',
+                                table_names=['true', 'meas'],
+                                uniq_col_name='{table_name}_{col_name}')
 
         # Remove column prefixes (avoids table copying)
         for col in true_stack.colnames:
@@ -268,19 +324,7 @@ class MatchedCatalogs(object):
             clist = col.split('_')[1:]
             meas_stack.rename_column(col, '_'.join(clist))
 
-        if outdir is None:
-            outdir = self.basedir
-
-        outfile = os.path.join(outdir, outfile)
-
-        if os.path.exists(outfile):
-            os.remove(outfile)
-
-        self.combined_stack.write(outfile)
-
-        # TODO: Add some metadata information to PHU!
-
-        return
+        return combined_stack
 
     # TODO: make single function that handles any MatchedCatalog plot func
     # def ...
@@ -384,7 +428,7 @@ class MatchedCatalog(object):
 
     def __init__(self, true_file, meas_file, prefix='cm_', ratag='ra', dectag='dec',
                  match_radius=1.0/3600, depth=14, de_reddened=False, ext_flux=None,
-                 ext_mag=None):
+                 ext_mag=None, tilename=None):
 
         self.true_file = true_file
         self.meas_file = meas_file
@@ -416,6 +460,9 @@ class MatchedCatalog(object):
             assert ext_flux is not None
             self.ext_mag = ext_mag
 
+        # For when the matches are entirely contained in a tile
+        self.tilename = tilename
+
         self._match()
 
         return
@@ -427,7 +474,12 @@ class MatchedCatalog(object):
                                               radius=self.match_radius)
         self.true = true_cat[id_t]
         self.meas = meas_cat[id_m]
+        self.meas['separation'] = dist
         self.dist = dist
+
+        if self.tilename is not None:
+            tilenames = np.array(len(dist) * [self.tilename])
+            self.meas['tilename'] = tilenames
 
         assert len(self.true) == len(self.meas)
 
@@ -436,6 +488,13 @@ class MatchedCatalog(object):
         col = Column(name='detected', data=np.zeros(len(self.true_cat)), dtype=int)
         self.true_cat.add_column(col)
         self.true_cat['detected'][id_t] = 1
+
+        if self.tilename is not None:
+            L = len(self.true_cat)
+            tilenames = np.array(L * [self.tilename])
+            col = Column(name='inj_tilename', data=np.zeros(L), dtype=str)
+            self.true_cat.add_column(col)
+            self.true_cat['inj_tilename'] = tilenames
 
         self._make_cuts()
 
