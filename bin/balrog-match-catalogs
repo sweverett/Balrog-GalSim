@@ -41,7 +41,7 @@ parser.add_argument(
 )
 parser.add_argument(
     '--match_radius',
-    default=1.0,
+    default=0.5,
     type=float,
     help='Match radius in arcsec'
 )
@@ -115,15 +115,15 @@ def main():
 
         matched_cats.write_combined_cats(outdir=cat_outdir, clobber=args.clobber)
 
-    # Write out a concatonated true & meas matched catalog
-    if vb:
-        print('Writing combined stack...')
-    matched_cats.write_combined_stack(outdir=outdir, cache=args.cache, clobber=args.clobber)
-
     # Write out detection truth stack
     if vb:
         print('Writing detection truth stack...')
     matched_cats.write_truth_det_stack(outdir=outdir, clobber=args.clobber)
+
+    # Write out a concatonated true & meas matched catalog
+    if vb:
+        print('Writing combined stack...')
+    matched_cats.write_combined_stack(outdir=outdir, cache=args.cache, clobber=args.clobber)
 
     # To grab full truth catalog (detected or not), use the following:
     # full_truth_stack = matched_cats.get_full_true_stack()

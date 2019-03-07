@@ -17,7 +17,7 @@ import esutil.htm as htm
 rc = matplotlib.rcParams.update({'font.size': 20})
 plt.style.use('seaborn')
 
-import pudb
+# import pudb
 
 # TODO: When constructing MatchedCatalogs, grab the extinction factors, etc. from the truth catalogs!
 class MatchedCatalogs(object):
@@ -115,6 +115,7 @@ class MatchedCatalogs(object):
             meas_file = os.path.join(tdir, meas_name)
 
             kwargs['tilename'] = tile
+            kwargs['real'] = real
             try:
                 self.cats[tile] = MatchedCatalog(true_file, meas_file, **kwargs)
             except IOError as e:
@@ -135,11 +136,16 @@ class MatchedCatalogs(object):
 
         full_true_stack = None
 
+        k = 0
+        Nt = len(self.tiles)
         for tile, cat in self.cats.items():
+            k += 1
+            if self.vb:
+                print('Stacking det tile {} ({} of {})'.format(tile, k, Nt))
             if full_true_stack is None:
-                full_true_stack = cat.true_cat
+                full_true_stack = cat.det_cat
             else:
-                full_true_stack = vstack([full_true_stack, cat.true_cat])
+                full_true_stack = vstack([full_true_stack, cat.det_cat])
 
         self.full_true_stack = full_true_stack
 
@@ -159,7 +165,7 @@ class MatchedCatalogs(object):
         for tile, cat in self.cats.items():
             k += 1
             if self.vb:
-                print('Stacking tile {} ({} of {})'.format(tile, k, Nt))
+                print('Stacking matched tile {} ({} of {})'.format(tile, k, Nt))
 
             if matched_stack is None:
                 true_stack = cat.true
@@ -212,9 +218,10 @@ class MatchedCatalogs(object):
 
         # Detection stack only needs limited information
         det_stack = Table()
-        det_stack['id'] = stack['id']
-        det_stack['inj_tilename'] = stack['inj_tilename']
-        det_stack['tile_number'] = stack['number'] # 'number' is a reserved name in DB
+        det_stack['bal_id'] = stack['bal_id']
+        det_stack['true_id'] = stack['id']
+        det_stack['meas_tilename'] = stack['meas_tilename']
+        det_stack['true_number'] = stack['number'] # 'number' is a reserved name in DB
         det_stack['ra'] = stack['ra']
         det_stack['dec'] = stack['dec']
         det_stack['detected'] = stack['detected']
@@ -253,7 +260,7 @@ class MatchedCatalogs(object):
         return
 
     def write_combined_stack(self, outdir=None, outfile='balrog_matched_catalog.fits',
-                             use_cache=False, clobber=False, table_format='fits'):
+                             cache=False, clobber=False, table_format='fits'):
         if self._has_matched is False:
             true_stack, meas_stack = self.get_matched_stack()
             if self.vb:
@@ -306,11 +313,15 @@ class MatchedCatalogs(object):
         return
 
     def _merge_matches(self, true_stack, meas_stack):
+        skip_cols = ['separation', 'bal_id']
+
         # Add column prefixes (avoids table copying)
         for col in true_stack.colnames:
+            if col in skip_cols:
+                continue
             true_stack.rename_column(col, 'true_'+col)
         for col in meas_stack.colnames:
-            if col == 'separation':
+            if col in skip_cols:
                 continue
             meas_stack.rename_column(col, 'meas_'+col)
 
@@ -321,10 +332,12 @@ class MatchedCatalogs(object):
 
         # Remove column prefixes (avoids table copying)
         for col in true_stack.colnames:
+            if col in skip_cols:
+                continue
             clist = col.split('_')[1:]
             true_stack.rename_column(col, '_'.join(clist))
         for col in meas_stack.colnames:
-            if col == 'separation':
+            if col in skip_cols:
                 continue
             clist = col.split('_')[1:]
             meas_stack.rename_column(col, '_'.join(clist))
@@ -433,7 +446,7 @@ class MatchedCatalog(object):
 
     def __init__(self, true_file, meas_file, prefix='cm_', ratag='ra', dectag='dec',
                  match_radius=1.0/3600, depth=14, de_reddened=False, ext_flux=None,
-                 ext_mag=None, tilename=None):
+                 ext_mag=None, tilename=None, real=None, make_cuts=False):
 
         self.true_file = true_file
         self.meas_file = meas_file
@@ -466,7 +479,17 @@ class MatchedCatalog(object):
             self.ext_mag = ext_mag
 
         # For when the matches are entirely contained in a tile
+        if (tilename is not None) and (not isinstance(tilename, str)):
+            raise TypeError('tilename must be a string!')
         self.tilename = tilename
+
+        if (real is not None) and (not isinstance(real, int)):
+            raise TypeError('real must be an int!')
+        self.real = real
+
+        if not isinstance(make_cuts, bool):
+            raise TypeError('make_cuts must be a bool!')
+        self.make_cuts = make_cuts
 
         self._match()
 
@@ -489,25 +512,28 @@ class MatchedCatalog(object):
         assert len(self.true) == len(self.meas)
 
         # Need for detection efficiency plots
-        self.true_cat = true_cat
-        col = Column(name='detected', data=np.zeros(len(self.true_cat)), dtype=int)
-        self.true_cat.add_column(col)
-        self.true_cat['detected'][id_t] = 1
+        self.det_cat = true_cat
+        col = Column(name='detected', data=np.zeros(len(self.det_cat)), dtype=int)
+        self.det_cat.add_column(col)
+        self.det_cat['detected'][id_t] = 1
 
         if self.tilename is not None:
-            L = len(self.true_cat)
+            L = len(self.det_cat)
             tilenames = np.array(L * [self.tilename])
-            col = Column(name='inj_tilename', data=np.zeros(L), dtype=str)
-            self.true_cat.add_column(col)
-            self.true_cat['inj_tilename'] = tilenames
+            col = Column(name='meas_tilename', data=np.zeros(L), dtype=str)
+            self.det_cat.add_column(col)
+            self.det_cat['meas_tilename'] = tilenames
 
-        self._make_cuts()
+        if self.make_cuts is True:
+            self._make_cuts()
 
         return
 
     def _load_cats(self):
         true_cat = Table(fits.getdata(self.true_file, ext=1))
         meas_cat = Table(fits.getdata(self.meas_file, ext=1))
+
+        self._assign_bal_id(true_cat)
 
         return true_cat, meas_cat
 
@@ -518,13 +544,37 @@ class MatchedCatalog(object):
 
         # Don't want to count these in efficiency plots
         ids = self.true['id'][bad]
-        true_cat_ids = np.where(self.true_cat['id'] in ids)
-        self.true_cat['detected'][true_cat_ids] = -1
+        det_cat_ids = np.where(self.det_cat['id'] in ids)
+        self.det_cat['detected'][det_cat_ids] = -1
 
 #         cuts = np.ones(len(self.meas['flags']), ctype=bool)
         self.true = self.true[cuts]
         self.meas = self.meas[cuts]
         self.dist = self.dist[cuts]
+
+        return
+
+    def _assign_bal_id(self, true_cat):
+        if self.tilename is not None:
+            # base = self.tilename + '-'
+            base = self.tilename.replace('DES','')
+            # Replace +/- with 1/0
+            base = base.replace('+', '1').replace('-', '0')
+        else:
+            base = ''
+
+        if self.real is not None:
+            #real = str(self.real) + '-'
+            real = str(self.real)
+        else:
+            real = ''
+
+        # bal_id = [int(base + real + str(i)) for i in range(len(true_cat))]
+        bal_id = [int(str(1) + real + base + str(i)) for i in range(len(true_cat))]
+        # bal_id = [int(real + base + str(meas_cat['id'][i])) for i in range(len(meas_cat))]
+
+        # Save to self.true as it's also needed in det stack
+        true_cat['bal_id'] = bal_id
 
         return
 
