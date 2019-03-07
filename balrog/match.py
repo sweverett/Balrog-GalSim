@@ -271,7 +271,7 @@ class MatchedCatalogs(object):
             if self.vb:
                 print('Loaded combined stack')
 
-        self.combined_stack = self._merge_matches(true_stack, meas_stack)
+        combined_stack = self._merge_matches(true_stack, meas_stack)
 
         if outdir is None:
             outdir = self.basedir
@@ -283,7 +283,7 @@ class MatchedCatalogs(object):
 
         if self.vb:
             print('Combined stack writing...')
-        self.combined_stack.write(outfile)
+        combined_stack.write(outfile)
 
         # TODO: Add some metadata information to PHU!
 
