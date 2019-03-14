@@ -539,6 +539,7 @@ class MatchedCatalog(object):
 
     def _match(self):
         true_cat, meas_cat = self._load_cats()
+        h = htm.HTM(self.depth)
         self.matcher = htm.Matcher(depth=self.depth, ra=true_cat[self.ratag], dec=true_cat[self.dectag])
         id_m, id_t, dist = self.matcher.match(ra=meas_cat[self.ratag], dec=meas_cat[self.dectag],
                                               radius=self.match_radius)
