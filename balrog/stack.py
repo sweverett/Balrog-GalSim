@@ -17,7 +17,7 @@ from glob import glob
 import esutil.htm as htm
 plt.style.use('seaborn')
 
-import pudb
+# import pudb
 
 class BalrogMatchedCatalog(object):
 

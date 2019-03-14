@@ -17,7 +17,7 @@ import esutil.htm as htm
 rc = matplotlib.rcParams.update({'font.size': 20})
 plt.style.use('seaborn')
 
-import pudb
+# import pudb
 
 # TODO: When constructing MatchedCatalogs, grab the extinction factors, etc. from the truth catalogs!
 class MatchedCatalogs(object):
