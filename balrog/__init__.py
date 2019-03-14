@@ -15,3 +15,4 @@ from . import input_cosmos_chromatic
 from . import cosmos_chromatic_stamp
 from . import filters
 from . import match
+from . import stack

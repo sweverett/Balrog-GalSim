@@ -51,6 +51,18 @@ parser.add_argument(
     type=str,
     help='Output location for stacked catalogs'
 )
+# parser.add_argument(
+#     '--ext_file',
+#     default=None,
+#     type=str,
+#     help='Location of extinction info file (to calculate dereddened quantities)'
+# )
+parser.add_argument(
+    '--save_mags',
+    action='store_true',
+    default=False,
+    help='Use to save truth mags to detection catalog'
+)
 parser.add_argument(
     '--clobber',
     action='store_true',
@@ -63,6 +75,18 @@ parser.add_argument(
     default=False,
     help='Cache individual tile matches before stacking'
 )
+parser.add_argument(
+    '--det_only',
+    action='store_true',
+    default=False,
+    help='Set to only write out the detection catalog'
+)
+# parser.add_argument(
+#     '--no_deredden',
+#     action='store_false',
+#     default=True,
+#     help='Set to *not* calculate dereddened quantities for det catalog'
+# )
 parser.add_argument(
     '--verbose',
     action='store_true',
@@ -92,6 +116,14 @@ def main():
             raise ValueError('{} is not an existing directory!'.format(args.outdir))
         outdir = args.outdir
 
+    # if args.ext_file is not None:
+    #     ef = os.path.abspath(os.path.expanduser(args.ext_file))
+    #     if not os.path.exists(ef):
+    #         raise IOError('Passed extinction file {} does not exist!'.format(ef))
+    #     # Need to save `true_cm_mag` in det catalog to compute dereddened quantities
+    # ext_file = ef
+    save_mags = args.save_mags
+
     if vb:
         print('Matching catalogs...')
 
@@ -109,21 +141,38 @@ def main():
         if vb:
             print('Writing combined catalogs...')
 
+        outdirs = []
         cat_outdir = os.path.join(outdir, 'matched_catalogs')
-        if not os.path.exists(cat_outdir):
-            os.mkdir(cat_outdir)
+        outdirs.append(cat_outdir)
 
-        matched_cats.write_combined_cats(outdir=cat_outdir, clobber=args.clobber)
+        if not args.det_only:
+            det_outdir = os.path.join(outdir, 'det_catalogs')
+            outdirs.append(det_outdirs)
+
+        for d in outdirs:
+            if not os.path.exists(d):
+                os.mkdir(d)
+
+        matched_cats.write_det_cats(outdir=det_outdir, clobber=args.clobber)
+
+        if not args.det_only:
+            matched_cats.write_combined_cats(outdir=cat_outdir, clobber=args.clobber)
 
     # Write out detection truth stack
     if vb:
         print('Writing detection truth stack...')
-    matched_cats.write_truth_det_stack(outdir=outdir, clobber=args.clobber)
+    det_outfile = matched_cats.write_truth_det_stack(outdir=outdir, clobber=args.clobber, save_mags=save_mags)
 
-    # Write out a concatonated true & meas matched catalog
-    if vb:
-        print('Writing combined stack...')
-    matched_cats.write_combined_stack(outdir=outdir, cache=args.cache, clobber=args.clobber)
+    # if ext_file:
+    #     if vb:
+    #         print('Calculating dereddened magnitudes...')
+    #     calc_dereddened_mags(det_outfile, ext_file)
+
+    if not args.det_only:
+        # Write out a concatonated true & meas matched catalog
+        if vb:
+            print('Writing combined stack...')
+        matched_cats.write_combined_stack(outdir=outdir, cache=args.cache, clobber=args.clobber)
 
     # To grab full truth catalog (detected or not), use the following:
     # full_truth_stack = matched_cats.get_full_true_stack()

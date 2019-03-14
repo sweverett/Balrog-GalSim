@@ -17,7 +17,7 @@ import esutil.htm as htm
 rc = matplotlib.rcParams.update({'font.size': 20})
 plt.style.use('seaborn')
 
-# import pudb
+import pudb
 
 # TODO: When constructing MatchedCatalogs, grab the extinction factors, etc. from the truth catalogs!
 class MatchedCatalogs(object):
@@ -134,53 +134,60 @@ class MatchedCatalogs(object):
         if self.full_true_stack is not None:
             return self.full_true_stack
 
-        full_true_stack = None
-
         k = 0
         Nt = len(self.tiles)
+        cats = []
         for tile, cat in self.cats.items():
             k += 1
             if self.vb:
                 print('Stacking det tile {} ({} of {})'.format(tile, k, Nt))
-            if full_true_stack is None:
-                full_true_stack = cat.det_cat
-            else:
-                full_true_stack = vstack([full_true_stack, cat.det_cat])
+            # if full_true_stack is None:
+            #     full_true_stack = cat.det_cat
+            # else:
+            #     full_true_stack = vstack([full_true_stack, cat.det_cat])
+            cats.append(cat.det_cat)
 
-        self.full_true_stack = full_true_stack
+        if self.vb:
+            print('Stacking all...')
+        self.full_true_stack = vstack(cats)
 
-        return full_true_stack
+        return self.full_true_stack
 
     def get_matched_stack(self):
 
         if self._has_matched is True:
             return self.true_stack, self.meas_stack
 
-        matched_stack = None
         true_stack = None
         meas_stack = None
 
         k = 0
         Nt = len(self.tiles)
+        true_cats = []
+        meas_cats = []
         for tile, cat in self.cats.items():
             k += 1
             if self.vb:
                 print('Stacking matched tile {} ({} of {})'.format(tile, k, Nt))
 
-            if matched_stack is None:
-                true_stack = cat.true
-                meas_stack = cat.meas
-                matched_stack = True
-            else:
-                true_stack = vstack([true_stack, cat.true])
-                meas_stack = vstack([meas_stack, cat.meas])
+            true_cats.append(cat.true)
+            meas_cats.append(cat.meas)
+            # if matched_stack is None:
+            #     true_stack = cat.true
+            #     meas_stack = cat.meas
+            #     matched_stack = True
+            # else:
+            #     true_stack = vstack([true_stack, cat.true])
+            #     meas_stack = vstack([meas_stack, cat.meas])
 
-        self.true_stack = true_stack
-        self.meas_stack = meas_stack
+        if self.vb:
+            print('Stacking all...')
+        self.true_stack = vstack(true_cats)
+        self.meas_stack = vstack(meas_cats)
 
         self._has_matched = True
 
-        return true_stack, meas_stack
+        return self.true_stack, self.meas_stack
 
     def write_stacks(self, outdir=None, clobber=False):
         write_full_truth_stack(outdir=outdir, clobber=clobber)
@@ -213,24 +220,28 @@ class MatchedCatalogs(object):
 
         return
 
-    def write_truth_det_stack(self, outfile='truth_det_stack.fits', outdir=None, clobber=False):
+    def write_truth_det_stack(self, outfile='truth_det_stack.fits', outdir=None, clobber=False,
+                              save_mags=False):
         stack, outfile = self._write_truth_base(outfile=outfile, outdir=outdir, clobber=clobber)
 
         # Detection stack only needs limited information
         det_stack = Table()
         det_stack['bal_id'] = stack['bal_id']
         det_stack['true_id'] = stack['id']
+        det_stack['true_tilename'] = stack['tilename']
         det_stack['meas_tilename'] = stack['meas_tilename']
         det_stack['true_number'] = stack['number'] # 'number' is a reserved name in DB
-        det_stack['ra'] = stack['ra']
-        det_stack['dec'] = stack['dec']
+        det_stack['true_ra'] = stack['ra']
+        det_stack['true_dec'] = stack['dec']
+        if save_mags is True:
+            det_stack['true_cm_mag_deredden'] = stack['cm_mag_deredden']
         det_stack['detected'] = stack['detected']
 
         det_stack.write(outfile)
 
         # TODO: Add some metadata information to PHU!
 
-        return
+        return outfile
 
     def write_matched_stacks(self, outfile_base=None, outdir=None, clobber=False):
         if self.meas_stack is not None:
@@ -309,6 +320,37 @@ class MatchedCatalogs(object):
             combined_stack = self._merge_matches(true_stack, meas_stack)
 
             combined_stack.write(outfile)
+
+        return
+
+    def write_det_cats(self, outdir=None, outbase='balrog_det_cat', clobber=False):
+        pudb.set_trace()
+        if outdir is None:
+            outdir = self.basedir
+
+        Nt = len(self.tiles)
+        i = 0
+        for tile, cat in self.cats.items():
+            i += 1
+            if self.vb is True:
+                print('Writing det tile {} ({} of {})'.format(tile, i, Nt))
+
+            outfile = os.path.join(outdir, '{}_{}.fits'.format(tile, outbase))
+            if os.path.exists(outfile) and (clobber is True):
+                os.remove(outfile)
+
+            det = cat.det_cat
+            # Detection stack only needs limited information
+            det_cat= Table()
+            det_cat['bal_id'] = det['bal_id']
+            det_cat['true_id'] = det['id']
+            det_cat['meas_tilename'] = det['meas_tilename']
+            det_cat['true_number'] = det['number'] # 'number' is a reserved name in DB
+            det_cat['ra'] = det['ra']
+            det_cat['dec'] = det['dec']
+            det_cat['detected'] = det['detected']
+
+            det_cat.write(outfile)
 
         return
 
