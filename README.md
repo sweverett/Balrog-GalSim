@@ -1,3 +1,5 @@
+(NB: Balrog-GalSim has undergone some large updates recently and this RM is no longer fully up to date - apologies! Until this happens, please email Spencer Everett at sweveret@ucsc.edu if you have any questions or encounter any problems.)
+
 # Balrog-GalSim
 
 Balrog is an image simulation tool for making randoms and characterizing systematics by embedding fake objects into real imaging to accurately characterize measurement biases. This is an extension of the work done by [Suchyta et al.](https://arxiv.org/abs/1507.08336) for science verification data of the Dark Energy Survey (DES). Check out the original repo [here](https://github.com/emhuff/Balrog).
