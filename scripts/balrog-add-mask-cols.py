@@ -48,8 +48,8 @@ parser.add_argument(
 )
 
 def get_masks(mask_files, det_catalog, vb):
-    ra  = det_catalog['ra']
-    dec = det_catalog['dec']
+    ra  = det_catalog['true_ra']
+    dec = det_catalog['true_dec']
     assert len(ra) == len(dec)
 
     if vb:
@@ -95,7 +95,7 @@ def main():
     mask_files['foreground'] = os.path.abspath(os.path.join(basedir, args.foreground))
     mask_files['badregions'] = os.path.abspath(os.path.join(basedir, args.badregions))
 
-    cat = fitsio.read(catfile, columns=['ra', 'dec'], ext=1)
+    cat = fitsio.read(catfile, columns=['true_ra', 'true_dec'], ext=1)
 
     if vb:
         print('Grabbing masks...')
