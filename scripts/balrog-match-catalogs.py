@@ -51,12 +51,6 @@ parser.add_argument(
     type=str,
     help='Output location for stacked catalogs'
 )
-# parser.add_argument(
-#     '--ext_file',
-#     default=None,
-#     type=str,
-#     help='Location of extinction info file (to calculate dereddened quantities)'
-# )
 parser.add_argument(
     '--save_mags',
     action='store_true',
@@ -81,14 +75,8 @@ parser.add_argument(
     default=False,
     help='Set to only write out the detection catalog'
 )
-# parser.add_argument(
-#     '--no_deredden',
-#     action='store_false',
-#     default=True,
-#     help='Set to *not* calculate dereddened quantities for det catalog'
-# )
 parser.add_argument(
-    '--verbose',
+    '--vb',
     action='store_true',
     default=False,
     help='Set to print out more information'
@@ -102,7 +90,7 @@ parser.add_argument(
 
 def main():
     args = parser.parse_args()
-    vb = args.verbose
+    vb = args.vb
 
     if args.clean is True:
         # Clean out existing matched catalogs
