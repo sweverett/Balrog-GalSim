@@ -19,6 +19,8 @@ plt.style.use('seaborn')
 
 # import pudb
 
+#-------------------------------------------------------------------------------
+# Photometry catalogs
 # TODO: When constructing MatchedCatalogs, grab the extinction factors, etc. from the truth catalogs!
 class MatchedCatalogs(object):
 
@@ -235,6 +237,7 @@ class MatchedCatalogs(object):
         det_stack['true_dec'] = stack['dec']
         if save_mags is True:
             det_stack['true_cm_mag_deredden'] = stack['cm_mag_deredden']
+        det_stack['meas_id'] = stack['meas_id']
         det_stack['detected'] = stack['detected']
 
         det_stack.write(outfile)
@@ -324,7 +327,6 @@ class MatchedCatalogs(object):
         return
 
     def write_det_cats(self, outdir=None, outbase='balrog_det_cat', clobber=False):
-        pudb.set_trace()
         if outdir is None:
             outdir = self.basedir
 
@@ -348,6 +350,7 @@ class MatchedCatalogs(object):
             det_cat['true_number'] = det['number'] # 'number' is a reserved name in DB
             det_cat['ra'] = det['ra']
             det_cat['dec'] = det['dec']
+            det_stack['meas_id'] = stack['meas_id']
             det_cat['detected'] = det['detected']
 
             det_cat.write(outfile)
@@ -556,9 +559,12 @@ class MatchedCatalog(object):
 
         # Need for detection efficiency plots
         self.det_cat = true_cat
-        col = Column(name='detected', data=np.zeros(len(self.det_cat)), dtype=int)
-        self.det_cat.add_column(col)
+        dcol = Column(name='detected', data=np.zeros(len(self.det_cat)), dtype=int)
+        icol = Column(name='meas_id', data=-1.*np.ones(len(self.det_cat)), dtype=int)
+        self.det_cat.add_column(dcol)
+        self.det_cat.add_column(icol)
         self.det_cat['detected'][id_t] = 1
+        self.det_cat['meas_id'][id_t] = self.meas['id']
 
         if self.tilename is not None:
             L = len(self.det_cat)
@@ -756,8 +762,10 @@ class MatchedCatalog(object):
 #             if show is True:
             ax.axhline(med, ls=':', c='w', lw=3, label='Median={:.3f}'.format(med))
             cb = plt.colorbar(hb, ax=ax)
-            legend = plt.legend(bbox_to_anchor=(0.6, 0.925), bbox_transform=ax.transAxes)
-            plt.setp(legend.get_texts(), color='w')
+            # pudb.set_trace()
+            # legend = plt.legend(bbox_to_anchor=(0.6, 0.925), bbox_transform=ax.transAxes)
+            legend = plt.legend()
+            # plt.setp(legend.get_texts(), color='w')
             plt.xlabel('%s True %s-band %s' % (lx, band, qt) )
             plt.ylabel('Meas-True %s-band (%s-%s)' % (band, qm, qt) )
             if title: plt.suptitle(title)
@@ -830,3 +838,7 @@ class MatchedCatalog(object):
         kernel = stats.gaussian_kde(values)
         Z = np.reshape(kernel(positions).T, X.shape)
         return X, Y, Z
+
+
+#-------------------------------------------------------------------------------
+# Metacalibration catalogs
