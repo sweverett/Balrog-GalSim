@@ -1,8 +1,12 @@
 import numpy as np
 import fitsio
+from numba import njit
 from argparse import ArgumentParser
+from numpy.lib.recfunctions import merge_arrays, append_fields
 from glob import glob
 import os
+
+import pudb
 
 from mcal_to_h5 import mcal_to_h5
 
@@ -70,7 +74,12 @@ single_cols = ['id',
                'dec',
                'nimage_tot',
                'nimage_use',
-               'gauss_flux'
+               'psfrec_g',
+               'psfrec_T',
+               'mcal_gpsf',
+               'mcal_Tpsf',
+               'gauss_flux',
+               'gauss_flux_cov'
               ]
 
 shear_types = ['_1p',
@@ -85,9 +94,7 @@ shear_cols = ['mcal_g',
               'mcal_pars_cov',
               'mcal_T_r',
               'mcal_T_err',
-              'mcal_s2n_r',
-              'psfrec_g',
-              'mcal_gpsf',
+              'mcal_s2n_r'
              ]
 
 mcal_cols = single_cols + shear_cols + \
@@ -107,6 +114,24 @@ def write_stack(stack, outfile=None, clobber=False):
 
     fitsio.write(outfile, stack)
 
+    return
+
+@njit
+def numba_id_fill(bal_ids, meas_ids, cat_ids, cat_bal_id):
+    assert len(bal_ids) == len(meas_ids)
+    for i in range(len(bal_ids)):
+        bid, mid = bal_ids[i], meas_ids[i]
+        indx = np.where(mid == cat_ids)
+        assert len(indx) == 1
+        cat_bal_id[indx] = bid
+
+    return cat_bal_id
+
+@njit
+def numba_id_fill2(det_in_tile, cat, cat_bal_id, mid, bid):
+    indx = np.where(mid == cat['id'])
+    assert len(indx) == 1
+    cat_bal_id[indx] = bid
     return
 
 if __name__ == "__main__":
@@ -135,21 +160,24 @@ if __name__ == "__main__":
         print('Loading detection catalog cols...')
 
     det_filename = args.det_catalog
-    det_cols = ['bal_id', 'meas_tilename']
-    det_cat = fitsio.read(det_filename, cols=det_cols)
+    det_cols = ['bal_id', 'meas_id', 'meas_tilename']
+    det_cat = fitsio.read(det_filename, columns=det_cols)
 
-    if vb:
-        print('Recovering meas_id...')
+    # OLD: Only worked if meas_id was part of bal_id
+        # if vb:
+        #     print('Recovering meas_id...')
 
-    # bal_id is defined in the following way:
-    # bal_id = '1' + realization + tilename (w/o 'DES' and +/- mapped to 1/0) + meas_id
-    # As long as we stick to 10 realizations max (hah!), the following will work
+        # # bal_id is defined in the following way:
+        # # bal_id = '1' + realization + tilename (w/o 'DES' and +/- mapped to 1/0)
+        #            + truth_cat_index
+        # # As long as we stick to 10 realizations max (hah!), the following will work
 
-    # Doing this correctly with numpy is actually fairly complex, but this is still
-    # quick even with ~11 million rows
-    meas_id = np.array([i[11:] for i in det_cat['bal_id'].astype(str)])
-    print meas_id
-    print len(meas_id)
+        # # Doing this correctly with numpy is actually fairly complex, but this is still
+        # # quick even with ~11 million rows
+        # dt = [('meas_id', '>i8')]
+        # # meas_id = np.array([i[11:] for i in det_cat['bal_id'].astype(str)], dtype=dt)
+        # meas_id = np.array([int(i[11:]) for i in det_cat['bal_id'].astype(str)])
+        # det_cat = append_fields(det_cat, 'meas_id', meas_id, usemask=False)
 
     # Grab all tiles from base directory
     tilepaths = glob(basedir+'/*/')
@@ -176,7 +204,6 @@ if __name__ == "__main__":
         real = args.real
         size = 0
         nobjects = 0
-        iter_end = 0
         tiledir[(bands, nbrs)] = {}
         mcal_files[(bands, nbrs)] = {}
 
@@ -202,21 +229,38 @@ if __name__ == "__main__":
         # ----------------------------------------------
         k = 0
         stack = None
+        iter_end = 0
         for tile, mcal_file in mcal_files[(bands, nbrs)].items():
             k += 1
             if vb:
-                if k == 1:
-                    extra = ' (first tile will be slow)'
-                else:
-                    extra = ''
-                print('Loading tile {} ({} of {}){}'.format(tile, k, Nt, extra))
+                print('Loading tile {} ({} of {})'.format(tile, k, Nt))
+
+            # Grab detected meas_id's for balrog objects in this tile
+            det_in_tile = det_cat[det_cat['meas_tilename']==tile]
+            det_in_tile = det_in_tile[det_in_tile['meas_id']>0]
 
             try:
-                cat = fitsio.read(mcal_file, cols=mcal_cols)
-                lencat = len(cat)
+                cat = fitsio.read(mcal_file, columns=mcal_cols)
             except IOError as e:
                 print('Following IO error occured:\n{}\nSkipping tile.'.format(e))
                 continue
+
+            lencat = len(cat)
+            cat_bal_id = -1 * np.ones(lencat, dtype='i8')
+
+            bal_ids = det_in_tile['bal_id'].astype('i8')
+            meas_ids = det_in_tile['meas_id'].astype('i8')
+            cat_ids = cat['id'].astype('i8')
+            cat_bal_id = numba_id_fill(bal_ids, meas_ids, cat_ids, cat_bal_id)
+
+            # SLOW! Only use if numba isn't available
+            # for det_obj in det_in_tile:
+            #     bid, mid = det_obj['bal_id'], det_obj['meas_id']
+            #     indx = np.where(mid == cat['id'])
+            #     assert len(indx) == 1
+            #     cat_bal_id[indx] = bid
+
+            cat = append_fields(cat, 'bal_id', cat_bal_id, usemask=False)
 
             if stack is None:
                 dt = cat.dtype
@@ -226,6 +270,7 @@ if __name__ == "__main__":
             stack[iter_end:iter_end+lencat] = cat[:]
 
             nobjects += lencat
+            iter_end += lencat
 
         assert nobjects == size
 
