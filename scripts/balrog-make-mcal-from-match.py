@@ -6,7 +6,7 @@ from numpy.lib.recfunctions import merge_arrays, append_fields
 from glob import glob
 import os
 
-import pudb
+# import pudb
 
 from mcal_to_h5 import mcal_to_h5
 
@@ -33,6 +33,18 @@ parser.add_argument(
     default=None,
     type=str,
     help='Output location for stacked catalogs'
+)
+parser.add_argument(
+    '--save_det_only',
+    action='store_true',
+    default=False,
+    help='Only stack objects with a valid bal_id'
+)
+parser.add_argument(
+    '--use_numba',
+    action='store_true',
+    default=False,
+    help='Use numba functions when available'
 )
 parser.add_argument(
     '--real',
@@ -103,7 +115,7 @@ mcal_cols = single_cols + shear_cols + \
 # for col in mcal_cols:
 #     print col
 
-def write_stack(stack, outfile=None, clobber=False):
+def write_stack(stack, outfile=None, clobber=False, save_det_only=False):
     assert stack is not None
 
     if os.path.exists(outfile):
@@ -112,7 +124,14 @@ def write_stack(stack, outfile=None, clobber=False):
         else:
             raise OSError('{} already exists!'.format(outfile))
 
-    fitsio.write(outfile, stack)
+        pass
+
+    if save_det_only is True:
+        # Can't do this earlier, as we didn't yet have a mapping from
+        # bal_id to meas_id
+        fitsio.write(outfile, stack[stack['bal_id'] >= 0])
+    else:
+        fitsio.write(outfile, stack)
 
     return
 
@@ -143,6 +162,8 @@ if __name__ == "__main__":
     clobber = args.clobber
     basedir = args.basedir
     outdir = args.outdir
+    save_det_only = args.save_det_only
+    use_numba = args.use_numba
 
     if outdir is None:
         outdir = ''
@@ -251,14 +272,15 @@ if __name__ == "__main__":
             bal_ids = det_in_tile['bal_id'].astype('i8')
             meas_ids = det_in_tile['meas_id'].astype('i8')
             cat_ids = cat['id'].astype('i8')
-            cat_bal_id = numba_id_fill(bal_ids, meas_ids, cat_ids, cat_bal_id)
 
-            # SLOW! Only use if numba isn't available
-            # for det_obj in det_in_tile:
-            #     bid, mid = det_obj['bal_id'], det_obj['meas_id']
-            #     indx = np.where(mid == cat['id'])
-            #     assert len(indx) == 1
-            #     cat_bal_id[indx] = bid
+            if use_numba is True:
+                cat_bal_id = numba_id_fill(bal_ids, meas_ids, cat_ids, cat_bal_id)
+            else:
+                for det_obj in det_in_tile:
+                    bid, mid = det_obj['bal_id'], det_obj['meas_id']
+                    indx = np.where(mid == cat['id'])
+                    assert len(indx) == 1
+                    cat_bal_id[indx] = bid
 
             cat = append_fields(cat, 'bal_id', cat_bal_id, usemask=False)
 
@@ -277,11 +299,12 @@ if __name__ == "__main__":
         if vb:
             print('Writing stacked catalog...')
         fits_outfile = h5_outfile.replace('.h5', '.fits')
-        write_stack(stack, outfile=fits_outfile, clobber=clobber)
+        write_stack(stack, outfile=fits_outfile, clobber=clobber,
+                    save_det_only=save_det_only)
 
         if vb:
             print('Converting stacked Mcal to hdf5...')
-        mcal_to_h5(fits_outfile, h5_outfile, bands, max_shape=max_shape, vb=vb)
+        mcal_to_h5(fits_outfile, h5_outfile, bands, balrog=True, max_shape=max_shape, vb=vb)
 
 #------------------------------------------------------------------------------------
 # Old code, possibly useful in future:
