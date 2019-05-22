@@ -30,7 +30,7 @@ mcal_vec4 = {'nimage_tot':'nimage_tot_',
             }
 mcal_vec4_ext = ['g','r','i','z']
 
-def mcal_to_h5(mcal_file, h5_filename, bands, max_shape=450000000, vb=False):
+def mcal_to_h5(mcal_file, h5_filename, bands, max_shape=450000000, balrog=False, vb=False):
 
     # Determine if using vec3 or vec4 (riz or griz)
     if bands == 'riz':
@@ -54,6 +54,13 @@ def mcal_to_h5(mcal_file, h5_filename, bands, max_shape=450000000, vb=False):
     # mask = np.searchsorted(gold,cat['id']) # Remove things that aren't in gold
     # cat = cat[ (mask>0) & (mask<len(gold)) ]
     lencat   = len(cat) # Get length after culling of cat array
+
+    if balrog is True:
+        # Save bal_id if it is a balrog catalog
+        if vb is True:
+            print('Writing balrog id...')
+        f.create_dataset( 'catalog/unsheared/bal_id', maxshape=(max_shape,), shape=(lencat,), dtype='i8', chunks=(1000000,) )
+        f['catalog/unsheared/bal_id'][iter_end:iter_end+lencat] = cat['bal_id']
 
     if vb is True:
         print('Writing unsheared cols...')
