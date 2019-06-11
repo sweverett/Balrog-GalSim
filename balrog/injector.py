@@ -20,12 +20,19 @@ class AddOnImageBuilder(galsim.config.image_scattered.ScatteredImageBuilder):
         ignore = ignore + ['initial_image']
         return super(AddOnImageBuilder, self).setup(config, base, image_num, obj_num, ignore, logger)
 
-    def buildImage(self, config, base, image_num, obj_num, logger):
-        im, cv = super(AddOnImageBuilder, self).buildImage(config, base, image_num, obj_num, logger)
+    def addNoise(self, image, config, base, image_num, obj_num, current_var, logger):
+        super(AddOnImageBuilder, self).addNoise(image, config, base, image_num, obj_num,
+                                                current_var, logger)
+
+        # NOTE: The natural place to put this would seem to be `buildImage()` (and that's where
+        # it was originally), but this will *not* work correctly if adding noise to individual
+        # stamps such as Poisson noise
+        # `addNoise()` is the final function called in the image builder so it must be added last.
         initial_image_name = galsim.config.ParseValue(config, 'initial_image', base, str)[0]
         initial_image = galsim.fits.read(initial_image_name)
-        im += initial_image
-        return im, cv
+        image += initial_image
+
+        return
 
 galsim.config.RegisterImageType('AddOn', AddOnImageBuilder())
 
@@ -66,44 +73,57 @@ class BalrogImageBuilder(AddOnImageBuilder):
 
         return full_xsize, full_ysize
 
-    def buildImage(self, config, base, image_num, obj_num, logger):
+    # NOTE: Used to be `buildImage()`, but addition of existing images is now done
+    # in `addNoise()` to ensure extra sky noise isn't added on existing image.
+    def addNoise(self, image, config, base, image_num, obj_num, current_var, logger):
+    # def buildImage(self, config, base, image_num, obj_num, logger):
         try:
             ioo = config['inj_objs_only']
             if (type(ioo) is bool) and (ioo is True):
-                return super(AddOnImageBuilder, self).buildImage(config,
-                                                                 base,
-                                                                 image_num,
-                                                                 obj_num,
-                                                                 logger)
+                return super(AddOnImageBuilder, self).addNoise(image,
+                                                               config,
+                                                               base,
+                                                               image_num,
+                                                               obj_num,
+                                                               current_var,
+                                                               logger)
             elif (isinstance(ioo, dict)) and (ioo['value'] is True):
                 # Still want to use existing image if changed to be BKG
                 if (ioo['noise']) and ('BKG' in ioo['noise']):
-                    return super(BalrogImageBuilder, self).buildImage(config,
-                                                                      base,
-                                                                      image_num,
-                                                                      obj_num,
-                                                                      logger)
+                    return super(BalrogImageBuilder, self).addNoise(image,
+                                                                    config,
+                                                                    base,
+                                                                    image_num,
+                                                                    obj_num,
+                                                                    current_var,
+                                                                    logger)
                 else:
-                    return super(AddOnImageBuilder, self).buildImage(config,
-                                                                     base,
-                                                                     image_num,
-                                                                     obj_num,
-                                                                     logger)
+                    return super(AddOnImageBuilder, self).addNoise(image,
+                                                                   config,
+                                                                   base,
+                                                                   image_num,
+                                                                   obj_num,
+                                                                   current_var,
+                                                                   logger)
             else:
                 # Default is to add on top of initial images
-                return super(BalrogImageBuilder, self).buildImage(config,
-                                                                  base,
-                                                                  image_num,
-                                                                  obj_num,
-                                                                  logger)
+                return super(BalrogImageBuilder, self).addNoise(image,
+                                                                config,
+                                                                base,
+                                                                image_num,
+                                                                obj_num,
+                                                                current_var,
+                                                                logger)
 
         except KeyError:
             # Default is to add on top of initial images
-            return super(BalrogImageBuilder, self).buildImage(config,
-                                                              base,
-                                                              image_num,
-                                                              obj_num,
-                                                              logger)
+            return super(BalrogImageBuilder, self).addNoise(image,
+                                                            config,
+                                                            base,
+                                                            image_num,
+                                                            obj_num,
+                                                            current_var,
+                                                            logger)
 
 galsim.config.RegisterImageType('Balrog', BalrogImageBuilder())
 
