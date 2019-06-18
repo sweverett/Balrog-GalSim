@@ -5,6 +5,9 @@ This script will create a file for upload containing the flattened data in the f
 Usage: python flatten_match_mof.py -d [mof_dir] -i [coaddid_dir] -o [out_dir]
 Author: Nacho Sevilla (nsevilla@gmail.com) with some code from Erin Sheldon
 '''
+
+import pudb
+
 import numpy as np
 from astropy.io import fits
 from astropy.table import Table, join
@@ -325,7 +328,7 @@ def merge(tilename, filelist, out_dir):
 
 def flatten(data_dir, filelist, out_dir, tilename):
 
-    for d,data_file in enumerate(filelist):
+    for fid,data_file in enumerate(filelist):
 
         print 'Flattening',data_file 
         data_hdu = fits.open(os.path.join(data_dir,data_file))
@@ -443,8 +446,8 @@ def flatten(data_dir, filelist, out_dir, tilename):
     	        cols.append(fits.Column(name='psf_mag_err_'+band+mofsofstr,format='D',array=psf_mag_err))
                 cols.append(fits.Column(name='cm_mag_err_'+band+mofsofstr,format='D',array=cm_mag_err))
 
-        if d == 0 and tilename != '':
-            cols.append(fits.Column(name='TILENAME',format='27A',array=tilename))
+        if fid == 0 and tilename != '':
+            cols.append(fits.Column(name='TILENAME',format='27A',array=data_tab.size*[tilename]))
         new_hdu = fits.BinTableHDU.from_columns(fits.ColDefs(cols))
         new_tbdata = new_hdu.data
         new_hdu = fits.BinTableHDU(data=new_tbdata)
