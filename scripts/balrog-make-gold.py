@@ -120,8 +120,11 @@ def main():
         cmd = 'python {} {}'.format(script_file, data_dir)
 
         if merged_subdir is not None:
-            sub_dir  = os.path.join(data_dir, merged_subdir)
-            cmd += ' --out_dir={}'.format(sub_dir)
+            out_dir  = os.path.join(data_dir, merged_subdir)
+            cmd += ' --out_dir={}'.format(out_dir)
+        else:
+            out_dir = data_dir
+
         if save_all is True:
             cmd += ' --save_all'
         if vb:
@@ -135,10 +138,7 @@ def main():
             print('Computing FLAGS_GOLD...')
 
         script_file = os.path.join(script_dir, gold_flags_filename)
-        merged_cat = '{}_merged.fits'.format(tile)
-
-        if merged_subdir is not None:
-            merged_cat = os.path.join(sub_dir, merged_cat)
+        merged_cat = os.path.join(out_dir, '{}_merged.fits'.format(tile))
 
         cmd = 'python {} {} '.format(script_file, merged_cat)
         if vb: cmd += ' --vb'
