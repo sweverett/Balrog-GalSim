@@ -1,33 +1,87 @@
 #!/usr/bin/env python
 '''
-flatten_match_mof.py
-This script will create a file for upload containing the flattened data in the files from the mof_dir directory (the MOF files) but only for those objects included in the corresponding id file in coaddid_dir.
-Usage: python flatten_match_mof.py -d [mof_dir] -i [coaddid_dir] -o [out_dir]
-Author: Nacho Sevilla (nsevilla@gmail.com) with some code from Erin Sheldon
-'''
+tile-flatten-merge.py
+This script will create a file for upload containing the flattened data in the files from
+the mof_dir directory (the MOF files) but only for those objects included in the corresponding
+id file in coaddid_dir.
+Usage: python tile-flatten-merge.py -d [mof_dir] -i [coaddid_dir] -o [out_dir]
 
-import pudb
+Author: Nacho Sevilla (nsevilla@gmail.com) with some code from Erin Sheldon
+Further edited by Spencer Everett to add some new features and make a less IO intensive version,
+as we do not need intermediate flattened files for Balrog
+Saw ~25% clock time improvement using `save_all=False`, as well as 60% less disk space
+'''
 
 import numpy as np
 from astropy.io import fits
 from astropy.table import Table, join
 import os
 import sys
-from optparse import OptionParser
+from argparse import ArgumentParser
+
+parser = ArgumentParser()
+
+parser.add_argument(
+    'data_dir',
+    type=str,
+    help='Directory where data is read from'
+    )
+parser.add_argument(
+    '--out_dir',
+    type=str,
+    default=None,
+    help='Directory where merged data is stored'
+    )
+parser.add_argument(
+    '--save_all',
+    action='store_true',
+    default=False,
+    help='Set to save all flattened files'
+    )
+parser.add_argument(
+    '--vb',
+    action='store_true',
+    default=False,
+    help='Set to print out more information'
+    )
 
 printout = False
 bands = ['g','r','i','z']
-onedim_cols = ['id','number','NUMBER','fofid','fof_id','coadd_run','flags','time_last_fit','box_size','bdf_flags','obj_flags','mask_frac','masked_frac','psf_T','psfrec_T','cm_flags','cm_T','cm_T_err','cm_T_s2n','cm_weight','cm_max_flags','cm_max_T','cm_max_T_err','cm_max_T_s2n','cm_s2n_w','cm_chi2per','cm_dof','cm_flags_r','cm_s2n_r','cm_T_r','cm_psf_T_r','cm_fracdev','cm_fracdev_noclip','cm_fracdec_err','cm_TdByTe','cm_TdByTe_noclip','cm_mof_flags','cm_mof_num_itr','fofind','ra','dec','bdf_nfev','bdf_s2n','bdf_T','bdf_T_err','bdf_T_ratio','bdf_fracdev','bdf_fracdev_err','flagstr']
-onedim_cols_addband = ['FLAGS','MAG_AUTO','X_IMAGE','Y_IMAGE','XWIN_IMAGE','YWIN_IMAGE','ERRAWIN_IMAGE','ERRBWIN_IMAGE','ERRTHETAWIN_IMAGE','ALPHAWIN_J2000','DELTAWIN_J2000','A_IMAGE','B_IMAGE','A_WORLD','B_WORLD','XMIN_IMAGE','XMAX_IMAGE','YMIN_IMAGE','YMAX_IMAGE','THETA_J2000','FLUX_RADIUS','IMAFLAGS_ISO','FLUX_AUTO','FLUXERR_AUTO','MAGERR_AUTO','KRON_RADIUS','BACKGROUND','THRESHOLD','FWHM_IMAGE','FWHM_WORLD']
+
+onedim_cols = ['id','number','NUMBER','fofid','fof_id','coadd_run','flags','time_last_fit',
+               'box_size','bdf_flags','obj_flags','mask_frac','masked_frac','psf_T','psfrec_T',
+               'cm_flags','cm_T','cm_T_err','cm_T_s2n','cm_weight','cm_max_flags','cm_max_T',
+               'cm_max_T_err','cm_max_T_s2n','cm_s2n_w','cm_chi2per','cm_dof','cm_flags_r',
+               'cm_s2n_r','cm_T_r','cm_psf_T_r','cm_fracdev','cm_fracdev_noclip','cm_fracdec_err',
+               'cm_TdByTe','cm_TdByTe_noclip','cm_mof_flags','cm_mof_num_itr','fofind','ra','dec',
+               'bdf_nfev','bdf_s2n','bdf_T','bdf_T_err','bdf_T_ratio','bdf_fracdev',
+               'bdf_fracdev_err','flagstr']
+
+onedim_cols_addband = ['FLAGS','MAG_AUTO','X_IMAGE','Y_IMAGE','XWIN_IMAGE','YWIN_IMAGE',
+                       'ERRAWIN_IMAGE','ERRBWIN_IMAGE','ERRTHETAWIN_IMAGE','ALPHAWIN_J2000',
+                       'DELTAWIN_J2000','A_IMAGE','B_IMAGE','A_WORLD','B_WORLD','XMIN_IMAGE',
+                       'XMAX_IMAGE','YMIN_IMAGE','YMAX_IMAGE','THETA_J2000','FLUX_RADIUS',
+                       'IMAFLAGS_ISO','FLUX_AUTO','FLUXERR_AUTO','MAGERR_AUTO','KRON_RADIUS',
+                       'BACKGROUND','THRESHOLD','FWHM_IMAGE','FWHM_WORLD']
+
 bidim_cols = ['cm_pars_cov','cm_max_pars_cov','cm_g_cov','bdf_g_cov','bdf_pars_cov']
-band_cols = ['nimage_tot','psf_flags','psf_flux','psf_flux_err','psf_flux_s2n','psf_flux_flags','psf_mag','nimage_use','cm_flux_cov','cm_flux','cm_flux_s2n','cm_mag','cm_logsb','cm_max_flux_cov','cm_max_flux','cm_max_flux_s2n','cm_max_mag','cm_max_logsb','bdf_flux','bdf_mag','bdf_flux_err']
-bidim_band_cols = ['cm_flux_cov','cm_max_flux_cov','cm_pars_cov','cm_max_pars_cov','cm_g_cov','bdf_flux_cov']
-multi_cols = ['psf_g','psfrec_g','cm_pars','cm_g','cm_max_pars', 'cm_mof_abs_diff','cm_mof_frac_diff','cm_mof_err_diff','bdf_pars','bdf_pars_err','bdf_g']
+
+band_cols = ['nimage_tot','psf_flags','psf_flux','psf_flux_err','psf_flux_s2n','psf_flux_flags',
+             'psf_mag','nimage_use','cm_flux_cov','cm_flux','cm_flux_s2n','cm_mag','cm_logsb',
+             'cm_max_flux_cov','cm_max_flux','cm_max_flux_s2n','cm_max_mag','cm_max_logsb',
+             'bdf_flux','bdf_mag','bdf_flux_err']
+
+bidim_band_cols = ['cm_flux_cov','cm_max_flux_cov','cm_pars_cov',
+                   'cm_max_pars_cov','cm_g_cov','bdf_flux_cov']
+
+multi_cols = ['psf_g','psfrec_g','cm_pars','cm_g','cm_max_pars', 'cm_mof_abs_diff',
+              'cm_mof_frac_diff','cm_mof_err_diff','bdf_pars','bdf_pars_err','bdf_g']
+
 multi_cols_add = ['FLUX_APER','FLUXERR_APER','MAG_APER','MAGERR_APER']
 
 def get_coldefs(descr, defs={}, bands=None, band_cols=None, bidim_cols=None):
     """
-    Convert a numpy descriptor to a set of oracle 
+    Convert a numpy descriptor to a set of oracle
     column definitions
 
     array columns are converted to name_{dim1}_{dim2}...{dimn}
@@ -69,16 +123,16 @@ def get_coldefs(descr, defs={}, bands=None, band_cols=None, bidim_cols=None):
                 names=get_band_arr_colnames(name,dims,bands,bidim_cols)
             else:
                 names=get_arr_colnames(name,dims)
-            
+
             for n in names:
                 defi=def_template % (ot)
                 alldefs.append( (n,defi,d[1]) )
-    #exit()
+
     return alldefs
 
 def get_arr_colnames(name, dims):
     """
-    Get db names for an array, naming 
+    Get db names for an array, naming
         name_{num1}_{num2}...
     """
     ndim=len(dims)
@@ -93,7 +147,7 @@ def get_arr_colnames(name, dims):
 
 def get_arr1_colnames(name, dims):
     """
-    Get db names for an array, naming 
+    Get db names for an array, naming
         name_{num}
     """
     names=[]
@@ -104,7 +158,7 @@ def get_arr1_colnames(name, dims):
 
 def get_arr2_colnames(name, dims):
     """
-    Get db names for an array, naming 
+    Get db names for an array, naming
         name_{num1}_{num2}
     """
     names=[]
@@ -116,7 +170,7 @@ def get_arr2_colnames(name, dims):
 
 def get_band_arr_colnames(name, dims, bands, bidim_cols):
     """
-    Get db names for an array, naming 
+    Get db names for an array, naming
         name_{num1}_{num2}...
     """
     ndim=len(dims)
@@ -133,7 +187,7 @@ def get_band_arr_colnames(name, dims, bands, bidim_cols):
 
 def get_band_arr1_colnames(name, dims, bands):
     """
-    Get db names for an array, naming 
+    Get db names for an array, naming
         name_{num}
     """
     names=[]
@@ -145,7 +199,7 @@ def get_band_arr1_colnames(name, dims, bands):
 
 def get_band_arr2_colnames(name, dims, bands):
     """
-    Get db names for an array, naming 
+    Get db names for an array, naming
         name_{num1}_{num2}
     """
     names=[]
@@ -181,7 +235,7 @@ def get_oracle_type(nt):
     return ot
 
 def get_fits_type(name):
-    if name == "id": 
+    if name == "id":
         format = 'K'
     elif name.lower() == "number":
         format = 'J'
@@ -303,40 +357,62 @@ def check_name(name,cols,prev,strip,printout=False):
         if col == name[0:len(name)-strip]:
             check = True
             colname = col
-            break        
+            break
+
     return (check,colname)
 
-def merge(tilename, filelist, out_dir):
+def merge(args, tilename, filelist):
+    data_dir = args.data_dir
+    out_dir = args.out_dir
+    save_all = args.save_all
+    Nfiles = len(filelist)
 
-    merged = Table()
+    #--------------------------------------------------------------------------------
+    # Nacho's original code: The below works if all files are saved out individually,
+    # but this is pretty IO intensive and Balrog doesn't need the intermediate files
+    if save_all is True:
+        flatten(data_dir, filelist, out_dir, tilename, save_all=True)
 
-    for f,fname in enumerate(filelist):
-        flatname = os.path.splitext(fname)[0]+'_flat.fits'
-        print 'Merging',flatname
-        if f == 0:
-            merged = Table.read(os.path.join(out_dir,flatname),format='fits')
-        else:
-            t = Table.read(os.path.join(out_dir,flatname),format='fits')
-            merged = join(t,merged,keys='NUMBER')
+        for f, fname in enumerate(filelist):
+            flatname = os.path.splitext(fname)[0]+'_flat.fits'
+            print 'Merging',flatname
+            if f == 0:
+                merged = Table.read(os.path.join(out_dir,flatname),format='fits')
+            else:
+                t = Table.read(os.path.join(out_dir,flatname),format='fits')
+                # merged = join(t,merged,keys='NUMBER') # Original
+                # There are multiple cols that are identical
+                # (NUMBER, RA, DEC, etc.), so I think it is best to use all
+                merged = join(t, merged)
+
+    #--------------------------------------------------------------------------------
+
+    # Can make merged table directly instead
+    else:
+        merged = flatten(data_dir, filelist, out_dir, tilename, save_all=False)
 
     if tilename == '':
-        merged.write(os.path.join(out_dir,'merged.fits'),format='fits',overwrite=True)
-        print 'Wrote',os.path.join(out_dir,'merged.fits')
+        newfile = os.path.join(out_dir, 'merged.fits')
+        merged.write(newfile, format='fits', overwrite=True)
+        print 'Wrote', os.path.join(out_dir, 'merged.fits')
     else:
-        merged.write(os.path.join(out_dir,tilename+'_merged.fits'),format='fits',overwrite=True)
-        print 'Wrote',os.path.join(out_dir,tilename+'_merged.fits')
+        newfile = os.path.join(out_dir, tilename+'_merged.fits')
+        merged.write(newfile, format='fits', overwrite=True)
+        print 'Wrote', os.path.join(out_dir, tilename+'_merged.fits')
 
-def flatten(data_dir, filelist, out_dir, tilename):
+    return
 
-    for fid,data_file in enumerate(filelist):
+def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
 
-        print 'Flattening',data_file 
+    for fid, data_file in enumerate(filelist):
+
+        print 'Flattening',data_file
         data_hdu = fits.open(os.path.join(data_dir,data_file))
         data_tab = data_hdu[1].data
 
         defs = {}
         descr = data_tab.view(np.ndarray).dtype.descr
-        alldefs = get_coldefs(descr,defs,bands,band_cols,bidim_band_cols) 
+        alldefs = get_coldefs(descr,defs,bands,band_cols,bidim_band_cols)
         names = [d[0] for d in alldefs]
         formats = [d[2] for d in alldefs]
         cols = []
@@ -352,12 +428,11 @@ def flatten(data_dir, filelist, out_dir, tilename):
 
         mofsofstr = ''
         if '-mof' in data_file:
-            mofsofstr = '_mof'
+            mofsofstr = 'MOF_'
         elif '-sof' in data_file:
-            mofsofstr = '_sof'
+            mofsofstr = 'SOF_'
         else:
             mofsofstr = ''
-           
 
         for i in xrange(len(names)):
             nm = names[i].split('_')[len(names[i].split('_'))-1]
@@ -376,16 +451,20 @@ def flatten(data_dir, filelist, out_dir, tilename):
             if i == 0:
                 n = 0
                 m = 0
-            if i > 0 and (prev_colname != colname or colname_band != prev_colname_band or colname_bidim != prev_colname_bidim or colname_bidim_band != prev_colname_bidim_band or colname_multi != prev_colname_multi):
+            if i > 0 and (prev_colname != colname or
+                          colname_band != prev_colname_band or
+                          colname_bidim != prev_colname_bidim or
+                          colname_bidim_band != prev_colname_bidim_band or
+                          colname_multi != prev_colname_multi):
                 n = 0
                 m = 0
                 k = k+1
             if check_band_cols == True:
-                cols.append(fits.Column(name=names[i]+mofsofstr,format=get_fits_type(names[i]),array=data_tab[colname_band][:,n]))
+                cols.append(fits.Column(name=mofsofstr+names[i].upper(),format=get_fits_type(names[i]),array=data_tab[colname_band][:,n]))
                 n = n + 1
                 prev_colname_band = colname_band
             elif check_bidim_cols == True:
-                cols.append(fits.Column(name=names[i]+mofsofstr,format=get_fits_type(names[i]),array=data_tab[colname_bidim][:,n,m]))
+                cols.append(fits.Column(name=mofsofstr+names[i].upper(),format=get_fits_type(names[i]),array=data_tab[colname_bidim][:,n,m]))
                 if n == len(data_tab[colname_bidim][0])-1:
                     n = 0
                     m = m + 1
@@ -393,7 +472,7 @@ def flatten(data_dir, filelist, out_dir, tilename):
                     n = n + 1
                 prev_colname_bidim = colname_bidim
             elif check_bidim_band_cols == True:
-                cols.append(fits.Column(name=names[i]+mofsofstr,format=get_fits_type(names[i]),array=data_tab[colname_bidim_band][:,n,m]))
+                cols.append(fits.Column(name=mofsofstr+names[i].upper(),format=get_fits_type(names[i]),array=data_tab[colname_bidim_band][:,n,m]))
                 if n == len(data_tab[colname_bidim_band][0])-1:
                     n = 0
                     m = m + 1
@@ -401,7 +480,7 @@ def flatten(data_dir, filelist, out_dir, tilename):
                     n = n + 1
                 prev_colname_bidim_band = colname_bidim_band
             elif check_multi_cols == True:
-                cols.append(fits.Column(name=names[i]+mofsofstr,format=get_fits_type(names[i]),array=data_tab[colname_multi][:,n]))
+                cols.append(fits.Column(name=mofsofstr+names[i].upper(),format=get_fits_type(names[i]),array=data_tab[colname_multi][:,n]))
                 if n == len(data_tab[colname_multi][0])-1:
                     n = 0
                 else:
@@ -412,7 +491,7 @@ def flatten(data_dir, filelist, out_dir, tilename):
                 fileband = data_file[idx-1:idx]
                 #print data_tab[colname_multi_add][:,n],n
                 #print names[i]+'_'+fileband.upper(),colname_multi_add
-                cols.append(fits.Column(name=names[i]+'_'+fileband.upper()+mofsofstr,format=get_fits_type(names[i]),array=data_tab[colname_multi_add][:,n]))
+                cols.append(fits.Column(name=mofsofstr+names[i].upper()+'_'+fileband.upper(),format=get_fits_type(names[i]),array=data_tab[colname_multi_add][:,n]))
                 if n == len(data_tab[colname_multi_add][0])-1:
                     n = 0
                 else:
@@ -421,19 +500,22 @@ def flatten(data_dir, filelist, out_dir, tilename):
             elif check_cols_add == True:
                 idx = data_file.find('_cat')
                 fileband = data_file[idx-1:idx]
-                newname = names[i]+'_'+fileband.upper()
-                cols.append(fits.Column(name=newname+mofsofstr,format=get_fits_type(names[i]),array=data_tab[names[i]]))
+                newname = names[i].upper()+'_'+fileband.upper()
+                cols.append(fits.Column(name=mofsofstr+newname,format=get_fits_type(names[i]),array=data_tab[names[i]]))
                 prev_colname_add = colname_add
             else:
                 if names[i] == "id":
-                    newname = "coadd_object_id"
-                    cols.append(fits.Column(name=newname,format=get_fits_type(names[i]),array=data_tab[names[i]]))
+                    newname = "COADD_OBJECT_ID"
                 elif names[i] == "number":
                     newname = "NUMBER"
-                    cols.append(fits.Column(name=newname,format=get_fits_type(names[i]),array=data_tab[names[i]]))
+                elif names[i] == "ra":
+                    newname = "RA"
+                elif names[i] == "dec":
+                    newname = "DEC"
                 else:
-                    newname = names[i]
-                    cols.append(fits.Column(name=newname+mofsofstr,format=get_fits_type(names[i]),array=data_tab[names[i]]))
+                    newname = mofsofstr+names[i].upper()
+
+                cols.append(fits.Column(name=newname,format=get_fits_type(names[i]),array=data_tab[names[i]]))
                 prev_colname = colname
 
         if "-mof" in data_file or "-sof" in data_file:
@@ -443,43 +525,53 @@ def flatten(data_dir, filelist, out_dir, tilename):
                 cm_mag_err = 1.0857362*np.sqrt(data_tab['cm_flux_cov'][:,b,b])/data_tab['cm_flux'][:,b]
                 cm_mag_err[cm_mag_err == 1.0857362] = -9999
                 cm_mag_err = [-9999 if np.isnan(x) else x for x in cm_mag_err]
-    	        cols.append(fits.Column(name='psf_mag_err_'+band+mofsofstr,format='D',array=psf_mag_err))
-                cols.append(fits.Column(name='cm_mag_err_'+band+mofsofstr,format='D',array=cm_mag_err))
+    	        cols.append(fits.Column(name=mofsofstr+'psf_mag_err_'+band,format='D',array=psf_mag_err))
+                cols.append(fits.Column(name=mofsofstr+'cm_mag_err_'+band,format='D',array=cm_mag_err))
 
         if fid == 0 and tilename != '':
             cols.append(fits.Column(name='TILENAME',format='27A',array=data_tab.size*[tilename]))
+
         new_hdu = fits.BinTableHDU.from_columns(fits.ColDefs(cols))
         new_tbdata = new_hdu.data
-        new_hdu = fits.BinTableHDU(data=new_tbdata)
-        out_file = os.path.join(out_dir,os.path.splitext(data_file)[0]+'_flat.fits')
-        print 'Wrote',out_file
-        new_hdu.writeto(out_file,clobber='True')
 
-    return 
+        # Original Nacho code
+        if save_all is True:
+            new_hdu = fits.BinTableHDU(data=new_tbdata)
+            out_file = os.path.join(out_dir,os.path.splitext(data_file)[0]+'_flat.fits')
+            new_hdu.writeto(out_file,clobber='True')
+            print 'Wrote',out_file
+
+        # Not saving individual files, less IO intensive:
+        else:
+            if fid == 0:
+                merged = Table(new_tbdata)
+            else:
+                merged = join(Table(new_tbdata), merged)
+            print 'Merged',data_file
+
+    if save_all is False:
+        return merged
 
 def main():
 
-    usage = "%prog [options]"
-    parser = OptionParser(usage=usage)
-    parser.add_option("-d","--datadir",dest="data_dir",help="Directory where data is read from",default='/home/nsevilla/y3_balrog/DES0231-3457/')
-    parser.add_option("-o","--outdir",dest="out_dir",help="Directory where data for upload will be stored",default='/home/nsevilla/y3_balrog/uploads/')
-
     # Parse command line
-    (options, args) = parser.parse_args()
+    args = parser.parse_args()
 
-    if not os.path.isdir(options.data_dir):
-        print 'Path with data not found at',options.data_dir
+    if not os.path.isdir(args.data_dir):
+        print 'Path with data not found at',args.data_dir
         sys.exit(1)
-    if not os.path.isdir(options.out_dir):
-        os.mkdir(options.out_dir)
 
-    print 'Reading data from',options.data_dir
-    print 'Writing files to upload to',options.out_dir
+    if args.out_dir is None:
+        args.out_dir = args.data_dir
+    if not os.path.isdir(args.out_dir):
+        os.mkdir(args.out_dir)
 
-    #get list of files
+    print 'Reading data from',args.data_dir
+    print 'Writing files to upload to',args.out_dir
+
     print 'Getting list of files...'
-    data_files = [f for f in os.listdir(options.data_dir) if os.path.isfile(os.path.join(options.data_dir, f))]
-    check_string = ['g_cat','r_cat','i_cat','z_cat','-mof','-sof']  
+    data_files = [f for f in os.listdir(args.data_dir) if os.path.isfile(os.path.join(args.data_dir, f))]
+    check_string = ['g_cat','r_cat','i_cat','z_cat','-mof','-sof']
 
     chk = 0
     select_files = []
@@ -498,15 +590,8 @@ def main():
         print 'Missing file of one of these types:',check_string
         sys.exit()
 
-    #if tilename != '':
-    #    print 'Processing tile',tilename
-
-    #build flattened catalogs
-    flatten(options.data_dir,select_files,options.out_dir,tilename)
-    #merge_files 
-    merge(tilename, select_files, options.out_dir)
-    #out_file = os.path.join(options.out_dir,mof_file[0:12]+'_mof_upload.fits')
-    #out_hdu.writeto(out_file,clobber='True') 
+    # New setup flattens during merge
+    merge(args, tilename, select_files)
 
 if __name__ == '__main__':
     sys.exit(main())
