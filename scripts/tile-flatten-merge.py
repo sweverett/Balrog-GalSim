@@ -384,7 +384,7 @@ def merge(args, tilename, filelist):
         for f, fname in enumerate(filelist):
             basename = os.path.basename(fname)
             flatname = os.path.splitext(basename)[0]+'_flat.fits'
-            print 'Merging',flatname
+            print('Merging {}'.format(flatname))
             if f == 0:
                 merged = Table.read(os.path.join(out_dir, flatname), format='fits')
             else:
@@ -415,7 +415,7 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
 
     for fid, data_file in enumerate(filelist):
 
-        print 'Flattening',data_file
+        print('Flattening {}'.format(os.path.basename(data_file)))
         # data_hdu = fits.open(os.path.join(data_dir,data_file))
         data_hdu = fits.open(data_file)
         data_tab = data_hdu[1].data
@@ -558,7 +558,7 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
                 merged = Table(new_tbdata)
             else:
                 merged = join(Table(new_tbdata), merged)
-            print 'Merged',data_file
+            print('Merged {}'.format(os.path.basename(data_file)))
 
     if save_all is False:
         return merged

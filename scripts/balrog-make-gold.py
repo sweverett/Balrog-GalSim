@@ -44,6 +44,12 @@ parser.add_argument(
     help='Set if you want an additional subdirectory for merged outputs'
     )
 parser.add_argument(
+    '--extra_basedir',
+    type=str,
+    default=None,
+    help='Extra basedir, if needed (e.g. for extracted SE cats at Fermi)'
+    )
+parser.add_argument(
     '--ngmix_extended_only',
     action='store_true',
     default=False,
@@ -90,6 +96,7 @@ def main():
     # script_dir = os.path.abspath(args.script_dir)
     script_dir = args.script_dir
     merged_subdir = args.merged_subdir
+    extra_basedir = args.extra_basedir
     save_all = args.save_all
     ngmix_only = args.ngmix_extended_only
     vb = args.vb
@@ -124,6 +131,10 @@ def main():
             cmd += ' --out_dir={}'.format(out_dir)
         else:
             out_dir = data_dir
+
+        if extra_basedir is not None:
+            extra_dir = os.path.join(extra_basedir, tile)
+            cmd += ' --extra_data_dir={}'.format(extra_dir)
 
         if save_all is True:
             cmd += ' --save_all'
