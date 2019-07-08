@@ -27,6 +27,14 @@ parser.add_argument(
     help='Directory where data is read from'
     )
 parser.add_argument(
+    '--extra_data_dir',
+    type=str,
+    default=None,
+    help='Sometimes an additional data directory is needed,'
+    ' e.g. for extracted SE cat files that can\'t be saved'
+    ' in the original data directory.'
+    )
+parser.add_argument(
     '--out_dir',
     type=str,
     default=None,
@@ -374,12 +382,13 @@ def merge(args, tilename, filelist):
         flatten(data_dir, filelist, out_dir, tilename, save_all=True)
 
         for f, fname in enumerate(filelist):
-            flatname = os.path.splitext(fname)[0]+'_flat.fits'
+            basename = os.path.basename(fname)
+            flatname = os.path.splitext(basename)[0]+'_flat.fits'
             print 'Merging',flatname
             if f == 0:
-                merged = Table.read(os.path.join(out_dir,flatname),format='fits')
+                merged = Table.read(os.path.join(out_dir, flatname), format='fits')
             else:
-                t = Table.read(os.path.join(out_dir,flatname),format='fits')
+                t = Table.read(os.path.join(out_dir, flatname), format='fits')
                 # merged = join(t,merged,keys='NUMBER') # Original
                 # There are multiple cols that are identical
                 # (NUMBER, RA, DEC, etc.), so I think it is best to use all
@@ -407,7 +416,8 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
     for fid, data_file in enumerate(filelist):
 
         print 'Flattening',data_file
-        data_hdu = fits.open(os.path.join(data_dir,data_file))
+        # data_hdu = fits.open(os.path.join(data_dir,data_file))
+        data_hdu = fits.open(data_file)
         data_tab = data_hdu[1].data
 
         defs = {}
@@ -537,7 +547,8 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
         # Original Nacho code
         if save_all is True:
             new_hdu = fits.BinTableHDU(data=new_tbdata)
-            out_file = os.path.join(out_dir,os.path.splitext(data_file)[0]+'_flat.fits')
+            basename = os.path.basename(data_file)
+            out_file = os.path.join(out_dir,os.path.splitext(basename)[0]+'_flat.fits')
             new_hdu.writeto(out_file,clobber='True')
             print 'Wrote',out_file
 
@@ -552,14 +563,18 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
     if save_all is False:
         return merged
 
+def get_files(data_dir):
+    if not os.path.isdir(data_dir):
+        print 'Path with data not found at',data_dir
+        sys.exit(1)
+
+    return [os.path.join(data_dir, f) for f in os.listdir(data_dir)
+            if os.path.isfile(os.path.join(data_dir, f))]
+
 def main():
 
     # Parse command line
     args = parser.parse_args()
-
-    if not os.path.isdir(args.data_dir):
-        print 'Path with data not found at',args.data_dir
-        sys.exit(1)
 
     if args.out_dir is None:
         args.out_dir = args.data_dir
@@ -570,7 +585,9 @@ def main():
     print 'Writing files to upload to',args.out_dir
 
     print 'Getting list of files...'
-    data_files = [f for f in os.listdir(args.data_dir) if os.path.isfile(os.path.join(args.data_dir, f))]
+    data_files = get_files(args.data_dir)
+    if args.extra_data_dir is not None:
+        data_files += get_files(args.extra_data_dir)
     check_string = ['g_cat','r_cat','i_cat','z_cat','-mof','-sof']
 
     chk = 0
@@ -582,13 +599,15 @@ def main():
                 idx = data_file.find('DES')
                 tilename = data_file[idx:idx+12]
             if check in data_file:
+                if '_flat' in data_file:
+                    continue
                 chk += 1
                 select_files.append(data_file)
-                print 'Appending',data_file
+                print 'Appending',os.path.basename(data_file)
                 break
     if chk != len(check_string):
         print 'Missing file of one of these types:',check_string
-        sys.exit()
+        sys.exit(1)
 
     # New setup flattens during merge
     merge(args, tilename, select_files)
