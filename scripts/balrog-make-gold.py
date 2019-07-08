@@ -38,6 +38,13 @@ parser.add_argument(
     help='Location of Balrog scripts'
     )
 parser.add_argument(
+    '--base_outdir',
+    type=str,
+    default=None,
+    help='Set if you want to save the merged catalogs somewhere '
+    'other than `basedir/{TILENAME}`'
+    )
+parser.add_argument(
     '--merged_subdir',
     type=str,
     default=None,
@@ -90,6 +97,12 @@ def run_cmd(cmd, vb):
 
     return
 
+def mk_dir(newdir):
+    if not os.path.exists(newdir):
+        os.mkdir(newdir)
+
+    return
+
 def main():
     args = parser.parse_args()
     basedir = args.basedir
@@ -97,6 +110,7 @@ def main():
     script_dir = args.script_dir
     merged_subdir = args.merged_subdir
     extra_basedir = args.extra_basedir
+    base_outdir = args.base_outdir
     save_all = args.save_all
     ngmix_only = args.ngmix_extended_only
     vb = args.vb
@@ -126,11 +140,20 @@ def main():
         data_dir = tilepath
         cmd = 'python {} {}'.format(script_file, data_dir)
 
+        if base_outdir is not None:
+            mk_dir(base_outdir)
+            # Need to add tile subdirectory
+            tile_dir = os.path.join(base_outdir, tile)
+            mk_dir(tile_dir)
+        else:
+            tile_dir = data_dir
+
         if merged_subdir is not None:
-            out_dir  = os.path.join(data_dir, merged_subdir)
+            out_dir = os.path.join(tile_dir, merged_subdir)
+            mk_dir(out_dir)
             cmd += ' --out_dir={}'.format(out_dir)
         else:
-            out_dir = data_dir
+            out_dir = tile_dir
 
         if extra_basedir is not None:
             extra_dir = os.path.join(extra_basedir, tile)
