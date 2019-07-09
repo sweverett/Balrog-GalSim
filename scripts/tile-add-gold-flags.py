@@ -43,8 +43,7 @@ def main():
     merged_file = args.merged_file
 
     if not os.path.isfile(merged_file):
-        print('{} not found!'.format(merged_file))
-        sys.exit(1)
+        raise OSError('{} not found!'.format(merged_file))
 
     skipflag = 0b0000000
     skipflag |= 0b100000

@@ -69,6 +69,12 @@ parser.add_argument(
     help='Set to save all flattened files'
     )
 parser.add_argument(
+    '--use_cached',
+    action='store_true',
+    default=False,
+    help='Set to skip any existing merged catalogs'
+    )
+parser.add_argument(
     '--vb',
     action='store_true',
     default=False,
@@ -88,7 +94,8 @@ def run_cmd(cmd, vb):
     process = subprocess.Popen(cmd_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     if vb is True:
-        for line in iter(process.stdout.readline, ''): print(line.replace('\n', ''))
+        for line in iter(process.stdout.readline, ''):
+            print(line.replace('\n', ''))
 
     streamdata = process.communicate()[0]
     rc = process.returncode
@@ -112,11 +119,15 @@ def main():
     extra_basedir = args.extra_basedir
     base_outdir = args.base_outdir
     save_all = args.save_all
+    use_cached = args.use_cached
     ngmix_only = args.ngmix_extended_only
     vb = args.vb
 
     if os.path.isdir(basedir) is not True:
         raise OSError('{} does not exist!'.format(basedir))
+
+    if base_outdir is not None:
+        mk_dir(base_outdir)
 
     # Grab all tiles from base directory
     tilepaths = glob(basedir+'/*/')
@@ -131,17 +142,9 @@ def main():
         k += 1
         print('Tile {} ({} out of {})'.format(tile, k, len(tiles)))
 
-        #--------------------------------------------------------------------------------
-        # Flatten & merge catalogs
-        if vb is True:
-            print('Flattening & merging...')
-
-        script_file = os.path.join(script_dir, flatten_merge_filename)
+        # Set and make any needed directories
         data_dir = tilepath
-        cmd = 'python {} {}'.format(script_file, data_dir)
-
         if base_outdir is not None:
-            mk_dir(base_outdir)
             # Need to add tile subdirectory
             tile_dir = os.path.join(base_outdir, tile)
             mk_dir(tile_dir)
@@ -151,14 +154,32 @@ def main():
         if merged_subdir is not None:
             out_dir = os.path.join(tile_dir, merged_subdir)
             mk_dir(out_dir)
-            cmd += ' --out_dir={}'.format(out_dir)
         else:
             out_dir = tile_dir
+
+        # TODO: For now, this assumes the existence of the file means that it
+        # completed in the previous run. That is not necessarily the case, as it may
+        # have finished flatten&merge but not the other steps. Should add these checks
+        # at another time
+        merged_cat = os.path.join(out_dir, '{}_merged.fits'.format(tile))
+        if (use_cached is True) and (os.path.isfile(merged_cat)):
+            if vb is True:
+                print('Merged catalog already exists for this tile; skipping.')
+            continue
+
+        #--------------------------------------------------------------------------------
+        # Flatten & merge catalogs
+        if vb is True:
+            print('Flattening & merging...')
+
+        script_file = os.path.join(script_dir, flatten_merge_filename)
+        cmd = 'python {} {}'.format(script_file, data_dir)
 
         if extra_basedir is not None:
             extra_dir = os.path.join(extra_basedir, tile)
             cmd += ' --extra_data_dir={}'.format(extra_dir)
-
+        if merged_subdir is not None:
+            cmd += ' --out_dir={}'.format(out_dir)
         if save_all is True:
             cmd += ' --save_all'
         if vb:
@@ -172,7 +193,6 @@ def main():
             print('Computing FLAGS_GOLD...')
 
         script_file = os.path.join(script_dir, gold_flags_filename)
-        merged_cat = os.path.join(out_dir, '{}_merged.fits'.format(tile))
 
         cmd = 'python {} {} '.format(script_file, merged_cat)
         if vb: cmd += ' --vb'

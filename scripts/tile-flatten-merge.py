@@ -14,10 +14,18 @@ Saw ~25% clock time improvement using `save_all=False`, as well as 60% less disk
 
 import numpy as np
 from astropy.io import fits
+import fitsio
 from astropy.table import Table, join
 import os
 import sys
 from argparse import ArgumentParser
+
+try:
+    # Python 2
+    xrange
+except NameError:
+    # Python 3
+    xrange = range
 
 parser = ArgumentParser()
 
@@ -350,7 +358,7 @@ def get_fits_type(name):
     elif name == 'fofind': 
         format = 'K'
     else:
-        print name,'not found'
+        print('{} not found'.format(name))
         sys.exit(1)
 
     return format
@@ -361,7 +369,7 @@ def check_name(name,cols,prev,strip,printout=False):
     colname = prev
     for enum,col in enumerate(cols):
         if printout:
-            print col,name[0:len(name)-strip]
+            print(col,name[0:len(name)-strip])
         if col == name[0:len(name)-strip]:
             check = True
             colname = col
@@ -403,11 +411,11 @@ def merge(args, tilename, filelist):
     if tilename == '':
         newfile = os.path.join(out_dir, 'merged.fits')
         merged.write(newfile, format='fits', overwrite=True)
-        print 'Wrote', os.path.join(out_dir, 'merged.fits')
+        print('Wrote {}'.format(os.path.join(out_dir, 'merged.fits')))
     else:
         newfile = os.path.join(out_dir, tilename+'_merged.fits')
         merged.write(newfile, format='fits', overwrite=True)
-        print 'Wrote', os.path.join(out_dir, tilename+'_merged.fits')
+        print('Wrote {}'.format(os.path.join(out_dir, tilename+'_merged.fits')))
 
     return
 
@@ -417,8 +425,11 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
 
         print('Flattening {}'.format(os.path.basename(data_file)))
         # data_hdu = fits.open(os.path.join(data_dir,data_file))
-        data_hdu = fits.open(data_file)
-        data_tab = data_hdu[1].data
+        # data_hdu = fits.open(data_file)
+        # data_tab = data_hdu[1].data
+
+        #fitsio version:
+        data_tab = fitsio.read(data_file)
 
         defs = {}
         descr = data_tab.view(np.ndarray).dtype.descr
@@ -448,7 +459,7 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
             nm = names[i].split('_')[len(names[i].split('_'))-1]
             strip = len(nm)
             if printout:
-                print 'Checking',names[i],strip
+                print('Checking {}, {}'.format(names[i],strip))
             check_cols,colname = check_name(names[i],onedim_cols,prev_colname,0)
             check_band_cols,colname_band = check_name(names[i],band_cols,prev_colname_band,strip+1)
             check_bidim_cols,colname_bidim = check_name(names[i],bidim_cols,prev_colname_bidim,strip+1)
@@ -457,7 +468,7 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
             check_cols_add,colname_add = check_name(names[i],onedim_cols_addband,prev_colname_add,0)
             check_multi_cols_add,colname_multi_add = check_name(names[i],multi_cols_add,prev_colname_multi_add,strip+1)
             if printout:
-                print check_cols,check_band_cols,check_bidim_cols,check_bidim_band_cols,check_multi_cols,check_cols_add,check_multi_cols_add
+                print(check_cols,check_band_cols,check_bidim_cols,check_bidim_band_cols,check_multi_cols,check_cols_add,check_multi_cols_add)
             if i == 0:
                 n = 0
                 m = 0
@@ -535,7 +546,7 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
                 cm_mag_err = 1.0857362*np.sqrt(data_tab['cm_flux_cov'][:,b,b])/data_tab['cm_flux'][:,b]
                 cm_mag_err[cm_mag_err == 1.0857362] = -9999
                 cm_mag_err = [-9999 if np.isnan(x) else x for x in cm_mag_err]
-    	        cols.append(fits.Column(name=mofsofstr+'psf_mag_err_'+band,format='D',array=psf_mag_err))
+                cols.append(fits.Column(name=mofsofstr+'psf_mag_err_'+band,format='D',array=psf_mag_err))
                 cols.append(fits.Column(name=mofsofstr+'cm_mag_err_'+band,format='D',array=cm_mag_err))
 
         if fid == 0 and tilename != '':
@@ -550,7 +561,7 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
             basename = os.path.basename(data_file)
             out_file = os.path.join(out_dir,os.path.splitext(basename)[0]+'_flat.fits')
             new_hdu.writeto(out_file,clobber='True')
-            print 'Wrote',out_file
+            print('Wrote {}'.format(out_file))
 
         # Not saving individual files, less IO intensive:
         else:
@@ -565,7 +576,7 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
 
 def get_files(data_dir):
     if not os.path.isdir(data_dir):
-        print 'Path with data not found at',data_dir
+        print('Path with data not found at {}'.format(data_dir))
         sys.exit(1)
 
     return [os.path.join(data_dir, f) for f in os.listdir(data_dir)
@@ -581,10 +592,10 @@ def main():
     if not os.path.isdir(args.out_dir):
         os.mkdir(args.out_dir)
 
-    print 'Reading data from',args.data_dir
-    print 'Writing files to upload to',args.out_dir
+    print('Reading data from {}'.format(args.data_dir))
+    print('Writing files to upload to {}'.format(args.out_dir))
 
-    print 'Getting list of files...'
+    print('Getting list of files...')
     data_files = get_files(args.data_dir)
     if args.extra_data_dir is not None:
         data_files += get_files(args.extra_data_dir)
@@ -603,10 +614,10 @@ def main():
                     continue
                 chk += 1
                 select_files.append(data_file)
-                print 'Appending',os.path.basename(data_file)
+                print('Appending {}'.format(os.path.basename(data_file)))
                 break
     if chk != len(check_string):
-        print 'Missing file of one of these types:',check_string
+        print('Missing file of one of these types: {}'.format(check_string))
         sys.exit(1)
 
     # New setup flattens during merge
