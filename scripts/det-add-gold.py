@@ -48,4 +48,4 @@ def main():
     return 0
 
 if __name__ is "__main__":
-    return sys.exit(main())
+    sys.exit(main())
