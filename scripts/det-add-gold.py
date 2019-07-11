@@ -43,7 +43,7 @@ def main():
     new_det_cat = join(det_cat, match_cat, join_type='left', keys='bal_id')
 
     outfile = det_file.replace('.fits', '_gadded.fits')
-    new_det_cat.write()
+    new_det_cat.write(outfile)
 
     return 0
 
