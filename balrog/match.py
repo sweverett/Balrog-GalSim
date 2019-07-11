@@ -146,6 +146,7 @@ class MatchedCatalogs(object):
                 continue
             except AssertionError as e:
                 print('Following assertion error occured:\n{}nSkipping tile.'.format(e))
+                continue
 
             assert len(self.cats[tile].meas) == len(self.cats[tile].true)
             self.nobjects += len(self.cats[tile].meas)
