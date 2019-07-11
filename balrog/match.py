@@ -1,7 +1,7 @@
 import fitsio
 from astropy.table import Table, Column, vstack, hstack, join
 from astropy.io import fits
-import corner
+#import corner
 import numpy as np
 from scipy.stats import norm
 import scipy.stats as stats
@@ -10,12 +10,10 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib
 
-import seaborn as sb
 import os
 from glob import glob
 import esutil.htm as htm
 rc = matplotlib.rcParams.update({'font.size': 20})
-plt.style.use('seaborn')
 
 #-------------------------------------------------------------------------------
 # Photometry catalogs
