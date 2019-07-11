@@ -343,8 +343,8 @@ class MatchedCatalogs(object):
         det_cat['true_id'] = cat['id']
         det_cat['meas_tilename'] = cat['meas_tilename']
         det_cat['true_number'] = cat['number'] # 'number' is a reserved name in DB
-        det_cat['ra'] = cat['ra']
-        det_cat['dec'] = cat['dec']
+        det_cat['true_ra'] = cat['ra']
+        det_cat['true_dec'] = cat['dec']
         det_cat['meas_id'] = cat['meas_id']
         det_cat['detected'] = cat['detected']
 
