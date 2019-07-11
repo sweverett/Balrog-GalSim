@@ -1,5 +1,5 @@
 import fitsio
-from astropy.table import Table, Column, vstack, hstack
+from astropy.table import Table, Column, vstack, hstack, join
 from astropy.io import fits
 import corner
 import numpy as np
@@ -17,16 +17,15 @@ import esutil.htm as htm
 rc = matplotlib.rcParams.update({'font.size': 20})
 plt.style.use('seaborn')
 
-# import pudb
-
 #-------------------------------------------------------------------------------
 # Photometry catalogs
 # TODO: When constructing MatchedCatalogs, grab the extinction factors, etc. from the truth catalogs!
 class MatchedCatalogs(object):
+    _extra_basename = 'TILENAME_merged.fits'
 
     # TODO: Add stars into all of this!
     def __init__(self, basedir, meds_conf='y3v02', real=0, tile_list=None, inj_type='gals',
-                 vb=False, **kwargs):
+                 ngmix_type='mof', vb=False, **kwargs):
         if not isinstance(basedir, str):
             raise TypeError('basedir must be a string!')
         if not os.path.isdir(basedir):
@@ -65,6 +64,11 @@ class MatchedCatalogs(object):
         # elif inj_type.lower() == 'both':
         else:
             raise ValueError('Must pass inj_type as `gals` or `stars`!')
+
+        if ngmix_type is not None:
+            if ngmix_type not in ['mof', 'sof']:
+                raise ValueError('`ngmix_type` must be mof or sof!')
+        self.ngmix_type = ngmix_type
 
         if not isinstance(vb, bool):
             raise TypeError('vb must be a bool!')
@@ -112,14 +116,31 @@ class MatchedCatalogs(object):
             tdir = os.path.join(self.basedir, tile)
             self.tiledir[tile] = tdir
             true_name = '{}_{}_balrog_truth_cat_{}.fits'.format(tile, real, self.inj_type)
-            meas_name = 'real_{}_{}-{}-mof.fits'.format(real, tile, self.meds_conf)
+            meas_name = 'real_{}_{}-{}-{}.fits'.format(real, tile, self.meds_conf, self.ngmix_type)
             true_file = os.path.join(tdir, true_name)
             meas_file = os.path.join(tdir, meas_name)
 
-            kwargs['tilename'] = tile
-            kwargs['real'] = real
+            # The kwargs for each tile will be a little different, and need to
+            # clean up a few
+            tile_kwargs = kwargs.copy()
+            del tile_kwargs['extra_base']
+            del tile_kwargs['extra_subdir']
+
+            if kwargs['extra_base'] is not None:
+                extra_tbase = os.path.join(kwargs['extra_base'], tile)
+                extra_filename = self._extra_basename.replace('TILENAME', tile)
+                if kwargs['extra_subdir'] is not None:
+                    extra_subdir = kwargs['extra_subdir']
+                else:
+                    extra_subdir = ''
+                tile_kwargs['extra_catfile'] = os.path.join(extra_tbase,
+                                                            extra_subdir,
+                                                            extra_filename)
+
+            tile_kwargs['tilename'] = tile
+            tile_kwargs['real'] = real
             try:
-                self.cats[tile] = MatchedCatalog(true_file, meas_file, **kwargs)
+                self.cats[tile] = MatchedCatalog(true_file, meas_file, **tile_kwargs)
             except IOError as e:
                 print('Following IO error occured:\n{}\nSkipping tile.'.format(e))
                 continue
@@ -227,19 +248,7 @@ class MatchedCatalogs(object):
         stack, outfile = self._write_truth_base(outfile=outfile, outdir=outdir, clobber=clobber)
 
         # Detection stack only needs limited information
-        det_stack = Table()
-        det_stack['bal_id'] = stack['bal_id']
-        det_stack['true_id'] = stack['id']
-        det_stack['true_tilename'] = stack['tilename']
-        det_stack['meas_tilename'] = stack['meas_tilename']
-        det_stack['true_number'] = stack['number'] # 'number' is a reserved name in DB
-        det_stack['true_ra'] = stack['ra']
-        det_stack['true_dec'] = stack['dec']
-        if save_mags is True:
-            det_stack['true_cm_mag_deredden'] = stack['cm_mag_deredden']
-        det_stack['meas_id'] = stack['meas_id']
-        det_stack['detected'] = stack['detected']
-
+        det_stack = self._setup_det_cat(stack)
         det_stack.write(outfile)
 
         # TODO: Add some metadata information to PHU!
@@ -326,6 +335,20 @@ class MatchedCatalogs(object):
 
         return
 
+    def _setup_det_cat(self, cat):
+        # Detection stack only needs limited information
+        det_cat= Table()
+        det_cat['bal_id'] = cat['bal_id']
+        det_cat['true_id'] = cat['id']
+        det_cat['meas_tilename'] = cat['meas_tilename']
+        det_cat['true_number'] = cat['number'] # 'number' is a reserved name in DB
+        det_cat['ra'] = cat['ra']
+        det_cat['dec'] = cat['dec']
+        det_cat['meas_id'] = cat['meas_id']
+        det_cat['detected'] = cat['detected']
+
+        return det_cat
+
     def write_det_cats(self, outdir=None, outbase='balrog_det_cat', clobber=False):
         if outdir is None:
             outdir = self.basedir
@@ -342,17 +365,7 @@ class MatchedCatalogs(object):
                 os.remove(outfile)
 
             det = cat.det_cat
-            # Detection stack only needs limited information
-            det_cat= Table()
-            det_cat['bal_id'] = det['bal_id']
-            det_cat['true_id'] = det['id']
-            det_cat['meas_tilename'] = det['meas_tilename']
-            det_cat['true_number'] = det['number'] # 'number' is a reserved name in DB
-            det_cat['ra'] = det['ra']
-            det_cat['dec'] = det['dec']
-            det_stack['meas_id'] = stack['meas_id']
-            det_cat['detected'] = det['detected']
-
+            det_cat = self._setup_det_cat(det)
             det_cat.write(outfile)
 
         return
@@ -489,9 +502,21 @@ class MatchedCatalogs(object):
 
 class MatchedCatalog(object):
 
+    # In principle we'd match gold catalogs directly. Until then, we may
+    # want to include certain value-added cols from Gold-like cats in the
+    # matched ngmix catalogs
+    _allowed_extra_cols = ['COADD_OBJECT_ID',
+                           'FLAGS_GOLD',
+                           'EXTENDED_CLASS_MOF',
+                           'EXTENDED_CLASS_SOF']
+
+    b_indx   = {'g':0, 'r':1, 'i':2,  'z':3}
+    cov_indx = {'g':0, 'r':5, 'i':10, 'z':15}
+
     def __init__(self, true_file, meas_file, prefix='cm_', ratag='ra', dectag='dec',
                  match_radius=1.0/3600, depth=14, de_reddened=False, ext_flux=None,
-                 ext_mag=None, tilename=None, real=None, make_cuts=False):
+                 ext_mag=None, tilename=None, real=None, make_cuts=False,
+                 extra_catfile=None):
 
         self.true_file = true_file
         self.meas_file = meas_file
@@ -501,8 +526,6 @@ class MatchedCatalog(object):
         self.match_radius = match_radius
         self.depth = depth
         self.de_reddened = de_reddened
-        self.b_indx = {'g':0, 'r':1, 'i':2, 'z':3}
-        self.cov_indx = {'g':0, 'r':5, 'i':10, 'z':15}
 
         p = prefix
         if self.de_reddened is True:
@@ -535,6 +558,11 @@ class MatchedCatalog(object):
         if not isinstance(make_cuts, bool):
             raise TypeError('make_cuts must be a bool!')
         self.make_cuts = make_cuts
+
+        if extra_catfile is not None:
+            if not isinstance(extra_catfile, str):
+                raise TypeError('extra_catfile must be a string!')
+        self.extra_catfile = extra_catfile
 
         self._match()
 
@@ -581,6 +609,16 @@ class MatchedCatalog(object):
     def _load_cats(self):
         true_cat = Table(fits.getdata(self.true_file, ext=1))
         meas_cat = Table(fits.getdata(self.meas_file, ext=1))
+
+        # Sometimes might want a few extra columns not in MOF/SOF
+        # (e.g. FLAGS_GOLD) appended to the matched catalog
+        if self.extra_catfile is not None:
+            extra_cat = Table(fitsio.read(self.extra_catfile,
+                                          columns=self._allowed_extra_cols))
+            assert len(meas_cat) == len(extra_cat)
+            # Need the ID colnames to match
+            extra_cat.rename_column('COADD_OBJECT_ID', 'id')
+            meas_cat = join(meas_cat, extra_cat, keys='id', join_type='left')
 
         self._assign_bal_id(true_cat)
 
@@ -634,13 +672,13 @@ class MatchedCatalog(object):
         qm = p + 'flux'
 
         for band in bands:
-            bi = self.b_indx[band]
-            ci = self.cov_indx[band]
+            bi = b_indx[band]
+            ci = cov_indx[band]
             true = self.true[qt][:,bi]
             meas = self.meas[qm][:,bi] / self.ext_flux[bi]
 
             diff = meas - true
-            err = np.sqrt(self.meas[qm+'_cov'][:,bi,bi])#self.cov_indx[band]])
+            err = np.sqrt(self.meas[qm+'_cov'][:,bi,bi])#cov_indx[band]])
             chi = diff / err
             cuts = np.where( (chi > xlim[0]) & (chi < xlim[1]) )
             plt.subplot(2, 2, bi+1)
@@ -675,7 +713,7 @@ class MatchedCatalog(object):
         qe = qm + '_cov'
 
         for band in bands:
-            bi = self.b_indx[band]
+            bi = b_indx[band]
             true = self.true[qt][:,bi]
             meas = self.meas[qm][:,bi] / self.ext_flux[bi]
             true_err = self.true[qe][:,bi,bi]
@@ -735,7 +773,7 @@ class MatchedCatalog(object):
             qt = p + val
 
         for band in bands:
-            bi = self.b_indx[band]
+            bi = b_indx[band]
             true = self.true[qt][:,bi]
 
             if val == 'flux':
@@ -762,7 +800,6 @@ class MatchedCatalog(object):
 #             if show is True:
             ax.axhline(med, ls=':', c='w', lw=3, label='Median={:.3f}'.format(med))
             cb = plt.colorbar(hb, ax=ax)
-            # pudb.set_trace()
             # legend = plt.legend(bbox_to_anchor=(0.6, 0.925), bbox_transform=ax.transAxes)
             legend = plt.legend()
             # plt.setp(legend.get_texts(), color='w')

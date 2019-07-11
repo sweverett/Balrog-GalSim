@@ -16,6 +16,12 @@ parser.add_argument(
     help='Base directory where tile directories are located'
 )
 parser.add_argument(
+    '--version',
+    default=None,
+    type=str,
+    help='Stack version'
+)
+parser.add_argument(
     '--conf',
     default='y3v02',
     type=str,
@@ -38,6 +44,25 @@ parser.add_argument(
     default='gals',
     type=str,
     help='Injection type to match between catalogs (gals, stars, or both)'
+)
+parser.add_argument(
+    '--ngmix_type',
+    default=None,
+    type=str,
+    help='ngmix type to match (mof or sof). Defaults to mof'
+)
+parser.add_argument(
+    '--gold_base',
+    default=None,
+    type=str,
+    help='Base directory of gold products '
+    'Use to add a few extra value-adds from the gold-like cats'
+)
+parser.add_argument(
+    '--gold_subdir',
+    default=None,
+    type=str,
+    help='Subdirectory of desired gold merged cat, if not in TILENAME'
 )
 parser.add_argument(
     '--match_radius',
@@ -88,6 +113,11 @@ parser.add_argument(
     help=('Remove all existing matched catalogs in base'),
 )
 
+def add_version(fname, version):
+    if version is not None:
+        fname = fname.replace('.fits', '_v{}.fits'.format(version))
+    return fname
+
 def main():
     args = parser.parse_args()
     vb = args.vb
@@ -101,8 +131,30 @@ def main():
         outdir = os.getcwd()
     else:
         if not os.path.isdir(os.path.abspath(args.outdir)):
-            raise ValueError('{} is not an existing directory!'.format(args.outdir))
+            os.mkdir(args.outdir)
         outdir = args.outdir
+
+    if args.inj_type in ['gals', 'both']:
+        if args.ngmix_type is not None:
+            if args.ngmix_type not in ['mof', 'sof']:
+                raise ValueError('ngmix_type can only be mof or sof!')
+        else:
+            # Default is mof
+            args.ngmix_type = 'mof'
+    else:
+        if args.ngmix_type is not None:
+            raise ValueError('Can\'t set an ngmix_type if matching star catalogs!')
+
+    if args.gold_base is not None:
+        if args.gold_base == 'base':
+            args.gold_base = args.base
+        else:
+            if not os.path.exists(args.gold_base):
+                raise OSError('{} does not exist!'.format(args.gold_base))
+
+    if args.gold_subdir is not None:
+        if args.gold_base is None:
+            raise ValueError('Can\'t set gold_subdir if gold_base isn\'t set!')
 
     # if args.ext_file is not None:
     #     ef = os.path.abspath(os.path.expanduser(args.ext_file))
@@ -121,7 +173,10 @@ def main():
                                          real=args.real,
                                          tile_list=args.tile_list,
                                          inj_type=args.inj_type,
+                                         ngmix_type=args.ngmix_type,
                                          match_radius=args.match_radius/3600.0,
+                                         extra_base=args.gold_base,
+                                         extra_subdir=args.gold_subdir,
                                          vb=vb)
 
     if args.cache:
@@ -144,12 +199,17 @@ def main():
         matched_cats.write_det_cats(outdir=det_outdir, clobber=args.clobber)
 
         if not args.det_only:
-            matched_cats.write_combined_cats(outdir=cat_outdir, clobber=args.clobber)
+            matched_cats.write_combined_cats(outdir=cat_outdir,
+                                             clobber=args.clobber)
 
     # Write out detection truth stack
     if vb:
         print('Writing detection truth stack...')
-    det_outfile = matched_cats.write_truth_det_stack(outdir=outdir, clobber=args.clobber, save_mags=save_mags)
+    det_outfile = add_version('balrog_truth_det_stack.fits', args.version)
+    det_outfile = matched_cats.write_truth_det_stack(outdir=outdir,
+                                                     clobber=args.clobber,
+                                                     save_mags=save_mags,
+                                                     outfile=det_outfile)
 
     # if ext_file:
     #     if vb:
@@ -160,6 +220,7 @@ def main():
         # Write out a concatonated true & meas matched catalog
         if vb:
             print('Writing combined stack...')
+        match_outfile = add_version('balrog_matched_catalog.fits', args.version)
         matched_cats.write_combined_stack(outdir=outdir, cache=args.cache, clobber=args.clobber)
 
     # To grab full truth catalog (detected or not), use the following:
