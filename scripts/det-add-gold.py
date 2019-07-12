@@ -38,10 +38,10 @@ def main():
     if vb is True:
         print('Loading catalogs...')
 
-    det_cat = Table(det_file)
+    det_cat = Table.read(det_file)
 
     # Can add more later
-    gold_cols = ['meas_FLAGS_GOLD', 'meas_EXTENDED_CLASS_MOF', 'meas_EXTENDED_CLASS_SOF']
+    gold_cols = ['bal_id', 'meas_FLAGS_GOLD', 'meas_EXTENDED_CLASS_MOF', 'meas_EXTENDED_CLASS_SOF']
     match_cat = Table(fitsio.read(match_file, columns=gold_cols))
 
     if vb is True:
