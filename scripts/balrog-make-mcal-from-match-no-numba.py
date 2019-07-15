@@ -1,5 +1,4 @@
 import numpy as np
-from numba import njit
 import fitsio
 from argparse import ArgumentParser
 from numpy.lib.recfunctions import merge_arrays, append_fields
@@ -39,12 +38,6 @@ parser.add_argument(
     action='store_true',
     default=False,
     help='Only stack objects with a valid bal_id'
-)
-parser.add_argument(
-    '--use_numba',
-    action='store_true',
-    default=False,
-    help='Use numba functions when available'
 )
 parser.add_argument(
     '--real',
@@ -132,24 +125,6 @@ def write_stack(stack, outfile=None, clobber=False, save_det_only=False):
 
     return
 
-@njit
-def numba_id_fill(bal_ids, meas_ids, cat_ids, cat_bal_id):
-    assert len(bal_ids) == len(meas_ids)
-    for i in range(len(bal_ids)):
-        bid, mid = bal_ids[i], meas_ids[i]
-        indx = np.where(mid == cat_ids)
-        assert len(indx) == 1
-        cat_bal_id[indx] = bid
-
-    return cat_bal_id
-
-@njit
-def numba_id_fill2(det_in_tile, cat, cat_bal_id, mid, bid):
-    indx = np.where(mid == cat['id'])
-    assert len(indx) == 1
-    cat_bal_id[indx] = bid
-    return
-
 if __name__ == "__main__":
     args = parser.parse_args()
     vb = args.vb
@@ -160,7 +135,6 @@ if __name__ == "__main__":
     basedir = args.basedir
     outdir = args.outdir
     save_det_only = args.save_det_only
-    use_numba = args.use_numba
 
     if outdir is None:
         outdir = ''
@@ -270,14 +244,11 @@ if __name__ == "__main__":
             meas_ids = det_in_tile['meas_id'].astype('i8')
             cat_ids = cat['id'].astype('i8')
 
-            if use_numba is True:
-                cat_bal_id = numba_id_fill(bal_ids, meas_ids, cat_ids, cat_bal_id)
-            else:
-                for det_obj in det_in_tile:
-                    bid, mid = det_obj['bal_id'], det_obj['meas_id']
-                    indx = np.where(mid == cat['id'])
-                    assert len(indx) == 1
-                    cat_bal_id[indx] = bid
+            for det_obj in det_in_tile:
+                bid, mid = det_obj['bal_id'], det_obj['meas_id']
+                indx = np.where(mid == cat['id'])
+                assert len(indx) == 1
+                cat_bal_id[indx] = bid
 
             cat = append_fields(cat, 'bal_id', cat_bal_id, usemask=False)
 
