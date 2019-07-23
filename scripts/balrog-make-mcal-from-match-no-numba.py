@@ -1,11 +1,10 @@
 import numpy as np
 import fitsio
+from astropy.table import Table, Column, join, vstack
 from argparse import ArgumentParser
 from numpy.lib.recfunctions import merge_arrays, append_fields
 from glob import glob
 import os
-
-# import pudb
 
 from mcal_to_h5 import mcal_to_h5
 
@@ -58,6 +57,19 @@ parser.add_argument(
     help='Maximum size of array'
     )
 parser.add_argument(
+    '--gold_base',
+    default=None,
+    type=str,
+    help='Base directory of gold products '
+    'Use to add a few extra value-adds from the gold-like cats'
+)
+parser.add_argument(
+    '--gold_subdir',
+    default=None,
+    type=str,
+    help='Subdirectory of desired gold merged cat, if not in TILENAME'
+)
+parser.add_argument(
     '--clobber',
     action='store_true',
     default=False,
@@ -105,6 +117,17 @@ shear_cols = ['mcal_g',
 mcal_cols = single_cols + shear_cols + \
             [col+shear for shear in shear_types for col in shear_cols]
 
+
+# In principle we'd match gold catalogs directly. Until then, we may
+# want to include certain value-added cols from Gold-like cats in the
+# matched ngmix catalogs
+_gold_basename = 'TILENAME_merged.fits'
+_gold_cols = ['COADD_OBJECT_ID',
+              'TILENAME',
+              'FLAGS_GOLD',
+              'EXTENDED_CLASS_MOF',
+              'EXTENDED_CLASS_SOF']
+
 def write_stack(stack, outfile=None, clobber=False, save_det_only=False):
     assert stack is not None
 
@@ -119,9 +142,11 @@ def write_stack(stack, outfile=None, clobber=False, save_det_only=False):
     if save_det_only is True:
         # Can't do this earlier, as we didn't yet have a mapping from
         # bal_id to meas_id
-        fitsio.write(outfile, stack[stack['bal_id'] >= 0])
+        # fitsio.write(outfile, stack[stack['bal_id'] >= 0])
+        stack[stack['bal_id'] >= 0].write(outfile, overwrite=clobber)
     else:
-        fitsio.write(outfile, stack)
+        # fitsio.write(outfile, stack)
+        stack.write(outfile, overwrite=clobber)
 
     return
 
@@ -135,6 +160,8 @@ if __name__ == "__main__":
     basedir = args.basedir
     outdir = args.outdir
     save_det_only = args.save_det_only
+    gold_base = args.gold_base
+    gold_subdir = args.gold_subdir
 
     if outdir is None:
         outdir = ''
@@ -146,6 +173,17 @@ if __name__ == "__main__":
         vers = ''
     else:
         vers = '_v' + args.version
+
+    if gold_base is not None:
+        if gold_base == 'base':
+            gold_base = basedir
+        else:
+            if not os.path.exists(gold_base):
+                raise OSError('{} does not exist!'.format(gold_base))
+
+    if gold_subdir is not None:
+        if gold_base is None:
+            raise ValueError('Can\'t set gold_subdir if gold_base isn\'t set!')
 
     # Grab needed truth info for Balrog matches
     if vb:
@@ -220,8 +258,9 @@ if __name__ == "__main__":
 
         # ----------------------------------------------
         k = 0
-        stack = None
-        iter_end = 0
+        # stack = None
+        # iter_end = 0
+        tile_cats = []
         for tile, mcal_file in mcal_files[(bands, nbrs)].items():
             k += 1
             if vb:
@@ -232,7 +271,7 @@ if __name__ == "__main__":
             det_in_tile = det_in_tile[det_in_tile['meas_id']>0]
 
             try:
-                cat = fitsio.read(mcal_file, columns=mcal_cols)
+                cat = Table(fitsio.read(mcal_file, columns=mcal_cols))
             except IOError as e:
                 print('Following IO error occured:\n{}\nSkipping tile.'.format(e))
                 continue
@@ -250,19 +289,47 @@ if __name__ == "__main__":
                 assert len(indx) == 1
                 cat_bal_id[indx] = bid
 
-            cat = append_fields(cat, 'bal_id', cat_bal_id, usemask=False)
+            # cat = append_fields(cat, 'bal_id', cat_bal_id, usemask=False)
+            cat.add_column(Column(cat_bal_id, name='bal_id'))
 
-            if stack is None:
-                dt = cat.dtype
-                # self.stack = Table(data=np.zeros(size, dtype=dt))
-                stack = np.zeros(size, dtype=dt)
+            # Add certain gold value-adds if desired
+            if gold_base is not None:
+                gold_tbase = os.path.join(gold_base, tile)
+                gold_filename = _gold_basename.replace('TILENAME', tile)
+                if gold_subdir is None:
+                    gold_subdir = ''
+                gold_catfile = os.path.join(gold_tbase,
+                                            gold_subdir,
+                                            gold_filename)
 
-            stack[iter_end:iter_end+lencat] = cat[:]
+                try:
+                    gold_cat = Table(fitsio.read(gold_catfile,
+                                                columns=_gold_cols))
+                except IOError as e:
+                    print('Following IO error occured:\n{}\nSkipping tile.'.format(e))
+                    continue
 
-            nobjects += lencat
-            iter_end += lencat
+                assert len(cat) == len(gold_cat)
+                # Need the ID colnames to match
+                gold_cat.rename_column('COADD_OBJECT_ID', 'id')
+                cat = join(cat, gold_cat, keys='id', join_type='left')
 
-        assert nobjects == size
+            tile_cats.append(cat)
+
+            # if stack is None:
+            #     dt = cat.dtype
+            #     stack = Table(np.full(size, -1, dtype=dt))
+
+            # stack[iter_end:iter_end+lencat] = cat[:]
+
+            # nobjects += lencat
+            # iter_end += lencat
+
+        if vb:
+            print('Stacking catalogs...')
+        stack = vstack(tile_cats, join_type='exact')
+
+        # assert nobjects == size
 
         if vb:
             print('Writing stacked catalog...')
