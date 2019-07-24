@@ -70,6 +70,12 @@ parser.add_argument(
     help='Subdirectory of desired gold merged cat, if not in TILENAME'
 )
 parser.add_argument(
+    '--cache',
+    action='store_true',
+    default=False,
+    help='Cache individual value-added mcals before stacking'
+)
+parser.add_argument(
     '--clobber',
     action='store_true',
     default=False,
@@ -168,6 +174,7 @@ if __name__ == "__main__":
     basedir = args.basedir
     outdir = args.outdir
     save_det_only = args.save_det_only
+    cache = args.cache
     gold_base = args.gold_base
     gold_subdir = args.gold_subdir
 
@@ -327,6 +334,18 @@ if __name__ == "__main__":
                 cat = join(cat, gold_cat, keys='id', join_type='left')
 
             tile_cats.append(cat)
+
+            if cache is True:
+                cache_dir = os.path.join(outdir, 'cache')
+                if not os.path.isdir(cache_dir):
+                    os.mkdir(cache_dir)
+
+                cache_filename = 'balrog_' + os.path.basename(mcal_file)
+                cache_file = os.path.join(cache_dir, cache_filename)
+
+                if vb is True:
+                    print('Writing cached file...')
+                cat.write(cache_file, overwrite=clobber)
 
             # if stack is None:
             #     dt = cat.dtype
