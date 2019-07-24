@@ -232,6 +232,22 @@ if __name__ == "__main__":
     # We need to create 4 catalog types: [griz, riz] x [nbr, no-nbr]
     mcal_types = ('griz', True), ('griz', False), ('riz', True), ('riz', False)
 
+
+    if cache is True:
+        cache_dir = os.path.join(outdir, 'cache')
+        if not os.path.isdir(cache_dir):
+            os.mkdir(cache_dir)
+
+        for mcal_type in mcal_types:
+            b, n = mcal_type[0], mcal_type[1]
+            if n is True:
+                nb = 'NB'
+            else:
+                nb = 'noNB'
+            type_dir = os.path.join(cache_dir, b+'_'+nb)
+            if not os.path.isdir(type_dir):
+                os.mkdir(type_dir)
+
     Nt = len(tiles)
     tiledir = {}
     mcal_files = {}
@@ -285,6 +301,13 @@ if __name__ == "__main__":
                 print('Tile {} is in blacklist, skipping tile'.format(tile))
                 continue
 
+            if cache is True:
+                if nbrs is True:
+                    nb = 'NB'
+                else:
+                    nb = 'noNB'
+                type_dir = os.path.join(cache_dir, bands+'_'+nb)
+
             # Grab detected meas_id's for balrog objects in this tile
             det_in_tile = det_cat[det_cat['meas_tilename']==tile]
             det_in_tile = det_in_tile[det_in_tile['meas_id']>0]
@@ -336,12 +359,8 @@ if __name__ == "__main__":
             tile_cats.append(cat)
 
             if cache is True:
-                cache_dir = os.path.join(outdir, 'cache')
-                if not os.path.isdir(cache_dir):
-                    os.mkdir(cache_dir)
-
                 cache_filename = 'balrog_' + os.path.basename(mcal_file)
-                cache_file = os.path.join(cache_dir, cache_filename)
+                cache_file = os.path.join(type_dir, cache_filename)
 
                 if vb is True:
                     print('Writing cached file...')
