@@ -215,7 +215,8 @@ if __name__ == "__main__":
                 if 'DES' in tilepath]
 
     # We need to create 4 catalog types: [griz, riz] x [nbr, no-nbr]
-    mcal_types = ('griz', True), ('griz', False), ('riz', True), ('riz', False)
+    #mcal_types = ('griz', True), ('griz', False), ('riz', True), ('riz', False)
+    mcal_types = ('griz', True), ('riz', True)
 
     Nt = len(tiles)
     tiledir = {}
