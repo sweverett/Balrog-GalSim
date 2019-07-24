@@ -128,6 +128,14 @@ _gold_cols = ['COADD_OBJECT_ID',
               'EXTENDED_CLASS_MOF',
               'EXTENDED_CLASS_SOF']
 
+# TODO: Move somewhere more central in the future
+_blacklisted_tiles = [
+    'DES0000-0333',
+    'DES0000-3706',
+    'DES0002-0207',
+    'DES0238-3457'
+]
+
 def write_stack(stack, outfile=None, clobber=False, save_det_only=False):
     assert stack is not None
 
@@ -232,7 +240,7 @@ if __name__ == "__main__":
         h5_outfile = os.path.join(outdir, h5_outfile)
 
         real = args.real
-        size = 0
+        # size = 0
         nobjects = 0
         tiledir[(bands, nbrs)] = {}
         mcal_files[(bands, nbrs)] = {}
@@ -249,12 +257,12 @@ if __name__ == "__main__":
             mcal_files[(bands, nbrs)][tile] = mcal_file
 
             # Need to know total number of objects for efficient memory stacking
-            try:
-                h = fitsio.read_header(mcal_file, ext=1)
-                size += h['NAXIS2']
+            # try:
+            #     h = fitsio.read_header(mcal_file, ext=1)
+            #     size += h['NAXIS2']
 
-            except IOError:
-                print('Error: file {} does not exist! Skipping tile.'.format(mcal_file))
+            # except IOError:
+            #     print('Error: file {} does not exist! Skipping tile.'.format(mcal_file))
 
         # ----------------------------------------------
         k = 0
@@ -265,6 +273,10 @@ if __name__ == "__main__":
             k += 1
             if vb:
                 print('Loading tile {} ({} of {})'.format(tile, k, Nt))
+
+            if tile in _blacklisted_tiles:
+                print('Tile {} is in blacklist, skipping tile'.format(tile))
+                continue
 
             # Grab detected meas_id's for balrog objects in this tile
             det_in_tile = det_cat[det_cat['meas_tilename']==tile]
