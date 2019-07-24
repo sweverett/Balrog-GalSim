@@ -70,6 +70,12 @@ parser.add_argument(
     help='Subdirectory of desired gold merged cat, if not in TILENAME'
 )
 parser.add_argument(
+    '--cache',
+    action='store_true',
+    default=False,
+    help='Cache individual value-added mcals before stacking'
+)
+parser.add_argument(
     '--clobber',
     action='store_true',
     default=False,
@@ -168,6 +174,7 @@ if __name__ == "__main__":
     basedir = args.basedir
     outdir = args.outdir
     save_det_only = args.save_det_only
+    cache = args.cache
     gold_base = args.gold_base
     gold_subdir = args.gold_subdir
 
@@ -226,6 +233,22 @@ if __name__ == "__main__":
     #mcal_types = ('griz', True), ('griz', False), ('riz', True), ('riz', False)
     mcal_types = ('griz', True), ('riz', True)
 
+
+    if cache is True:
+        cache_dir = os.path.join(outdir, 'cache')
+        if not os.path.isdir(cache_dir):
+            os.mkdir(cache_dir)
+
+        for mcal_type in mcal_types:
+            b, n = mcal_type[0], mcal_type[1]
+            if n is True:
+                nb = 'NB'
+            else:
+                nb = 'noNB'
+            type_dir = os.path.join(cache_dir, b+'_'+nb)
+            if not os.path.isdir(type_dir):
+                os.mkdir(type_dir)
+
     Nt = len(tiles)
     tiledir = {}
     mcal_files = {}
@@ -279,6 +302,13 @@ if __name__ == "__main__":
                 print('Tile {} is in blacklist, skipping tile'.format(tile))
                 continue
 
+            if cache is True:
+                if nbrs is True:
+                    nb = 'NB'
+                else:
+                    nb = 'noNB'
+                type_dir = os.path.join(cache_dir, bands+'_'+nb)
+
             # Grab detected meas_id's for balrog objects in this tile
             det_in_tile = det_cat[det_cat['meas_tilename']==tile]
             det_in_tile = det_in_tile[det_in_tile['meas_id']>0]
@@ -328,6 +358,14 @@ if __name__ == "__main__":
                 cat = join(cat, gold_cat, keys='id', join_type='left')
 
             tile_cats.append(cat)
+
+            if cache is True:
+                cache_filename = 'balrog_' + os.path.basename(mcal_file)
+                cache_file = os.path.join(type_dir, cache_filename)
+
+                if vb is True:
+                    print('Writing cached file...')
+                cat.write(cache_file, overwrite=clobber)
 
             # if stack is None:
             #     dt = cat.dtype
