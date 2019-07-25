@@ -153,6 +153,8 @@ def write_stack(stack, outfile=None, clobber=False, save_det_only=False):
 
         pass
 
+    import pudb
+    pudb.set_trace()
     if save_det_only is True:
         # Can't do this earlier, as we didn't yet have a mapping from
         # bal_id to meas_id
@@ -232,7 +234,6 @@ if __name__ == "__main__":
     # We need to create 4 catalog types: [griz, riz] x [nbr, no-nbr]
     mcal_types = ('griz', True), ('griz', False), ('riz', True), ('riz', False)
 
-
     if cache is True:
         cache_dir = os.path.join(outdir, 'cache')
         if not os.path.isdir(cache_dir):
@@ -263,12 +264,16 @@ if __name__ == "__main__":
         h5_outfile = os.path.join(outdir, h5_outfile)
 
         real = args.real
-        # size = 0
+        size = 0
         nobjects = 0
         tiledir[(bands, nbrs)] = {}
         mcal_files[(bands, nbrs)] = {}
 
         for tile in tiles:
+            if tile in _blacklisted_tiles:
+                print('Tile {} is in blacklist, skipping tile'.format(tile))
+                continue
+
             tdir = os.path.join(basedir, tile)
             tiledir[(bands, nbrs)][tile] = tdir
             if nbrs is True:
@@ -280,18 +285,18 @@ if __name__ == "__main__":
             mcal_files[(bands, nbrs)][tile] = mcal_file
 
             # Need to know total number of objects for efficient memory stacking
-            # try:
-            #     h = fitsio.read_header(mcal_file, ext=1)
-            #     size += h['NAXIS2']
+            try:
+                h = fitsio.read_header(mcal_file, ext=1)
+                size += h['NAXIS2']
 
-            # except IOError:
-            #     print('Error: file {} does not exist! Skipping tile.'.format(mcal_file))
+            except IOError:
+                print('Error: file {} does not exist! Skipping tile.'.format(mcal_file))
 
         # ----------------------------------------------
         k = 0
-        # stack = None
-        # iter_end = 0
-        tile_cats = []
+        stack = None
+        iter_end = 0
+        # tile_cats = []
         for tile, mcal_file in mcal_files[(bands, nbrs)].items():
             k += 1
             if vb:
@@ -356,7 +361,7 @@ if __name__ == "__main__":
                 gold_cat.rename_column('COADD_OBJECT_ID', 'id')
                 cat = join(cat, gold_cat, keys='id', join_type='left')
 
-            tile_cats.append(cat)
+            # tile_cats.append(cat)
 
             if cache is True:
                 cache_filename = 'balrog_' + os.path.basename(mcal_file)
@@ -366,20 +371,20 @@ if __name__ == "__main__":
                     print('Writing cached file...')
                 cat.write(cache_file, overwrite=clobber)
 
-            # if stack is None:
-            #     dt = cat.dtype
-            #     stack = Table(np.full(size, -1, dtype=dt))
+            if stack is None:
+                dt = cat.dtype
+                stack = Table(np.full(size, -1, dtype=dt))
 
-            # stack[iter_end:iter_end+lencat] = cat[:]
+            stack[iter_end:iter_end+lencat] = cat[:]
 
-            # nobjects += lencat
-            # iter_end += lencat
+            nobjects += lencat
+            iter_end += lencat
 
         if vb:
             print('Stacking catalogs...')
-        stack = vstack(tile_cats, join_type='exact')
+        # stack = vstack(tile_cats, join_type='exact')
 
-        # assert nobjects == size
+        assert nobjects == size
 
         if vb:
             print('Writing stacked catalog...')
