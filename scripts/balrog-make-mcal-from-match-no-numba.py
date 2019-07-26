@@ -6,7 +6,7 @@ from numpy.lib.recfunctions import merge_arrays, append_fields
 from glob import glob
 import os
 
-from mcal_to_h5 import mcal_to_h5
+from balrog_mcal_to_h5 import convert_mcal_to_h5
 
 parser = ArgumentParser()
 
@@ -69,11 +69,17 @@ parser.add_argument(
     type=str,
     help='Subdirectory of desired gold merged cat, if not in TILENAME'
 )
+# parser.add_argument(
+#     '--keep_cache',
+#     action='store_true',
+#     default=False,
+#     help='Keep cached individual value-added mcal fits'
+# )
 parser.add_argument(
-    '--cache',
+    '--write_fits',
     action='store_true',
     default=False,
-    help='Cache individual value-added mcals before stacking'
+    help='Set to write a fits version of the full stack'
 )
 parser.add_argument(
     '--clobber',
@@ -90,17 +96,35 @@ parser.add_argument(
 
 # The following can be modified for given needs; this is simply a way of reducing
 # the total number of saved columns / final product size
+mcal_flats = {'mcal_T_r':'T',
+              'mcal_T_err':'T_err',
+              'mcal_s2n_r':'snr'
+             }
+
+mcal_vec2 = {'psfrec_g':'psf_e',
+             'mcal_gpsf':'mcal_psf_e'
+            }
+mcal_vec2_ext = ['1','2']
+
+mcal_vec3 = {'nimage_tot':'nimage_tot_',
+             'nimage_use':'nimage_use_'
+            }
+mcal_vec3_ext = ['r','i','z']
+
+mcal_vec4 = {'nimage_tot':'nimage_tot_',
+             'nimage_use':'nimage_use_'
+            }
 single_cols = ['id',
                'flags',
                'mask_frac',
                'ra',
                'dec',
+               'psfrec_T',
+               'mcal_Tpsf',
                'nimage_tot',
                'nimage_use',
                'psfrec_g',
-               'psfrec_T',
                'mcal_gpsf',
-               'mcal_Tpsf',
                'gauss_flux',
                'gauss_flux_cov'
               ]
@@ -122,7 +146,6 @@ shear_cols = ['mcal_g',
 
 mcal_cols = single_cols + shear_cols + \
             [col+shear for shear in shear_types for col in shear_cols]
-
 
 # In principle we'd match gold catalogs directly. Until then, we may
 # want to include certain value-added cols from Gold-like cats in the
@@ -174,7 +197,8 @@ if __name__ == "__main__":
     basedir = args.basedir
     outdir = args.outdir
     save_det_only = args.save_det_only
-    cache = args.cache
+    # keep_cache = args.keep_cache
+    write_fits = args.write_fits
     gold_base = args.gold_base
     gold_subdir = args.gold_subdir
 
@@ -233,22 +257,22 @@ if __name__ == "__main__":
     #mcal_types = ('griz', True), ('griz', False), ('riz', True), ('riz', False)
     mcal_types = ('griz', True), ('riz', True)
 
-    if cache is True:
-        cache_dir = os.path.join(outdir, 'cache')
-        if not os.path.isdir(cache_dir):
-            os.mkdir(cache_dir)
+    cache_dir = os.path.join(outdir, 'cache')
+    if not os.path.isdir(cache_dir):
+        os.mkdir(cache_dir)
 
-        for mcal_type in mcal_types:
-            b, n = mcal_type[0], mcal_type[1]
-            if n is True:
-                nb = 'NB'
-            else:
-                nb = 'noNB'
-            type_dir = os.path.join(cache_dir, b+'_'+nb)
-            if not os.path.isdir(type_dir):
-                os.mkdir(type_dir)
+    for mcal_type in mcal_types:
+        b, n = mcal_type[0], mcal_type[1]
+        if n is True:
+            nb = 'NB'
+        else:
+            nb = 'noNB'
+        type_dir = os.path.join(cache_dir, b+'_'+nb)
+        if not os.path.isdir(type_dir):
+            os.mkdir(type_dir)
 
     Nt = len(tiles)
+    blacklisted = []
     tiledir = {}
     mcal_files = {}
     for bands, nbrs in mcal_types:
@@ -270,7 +294,8 @@ if __name__ == "__main__":
 
         for tile in tiles:
             if tile in _blacklisted_tiles:
-                Nt -= 1
+                if tile not in blacklisted:
+                    blacklisted.append(tile)
                 continue
 
             tdir = os.path.join(basedir, tile)
@@ -291,6 +316,8 @@ if __name__ == "__main__":
             except IOError:
                 print('Error: file {} does not exist! Skipping tile.'.format(mcal_file))
 
+        del h
+
         # ----------------------------------------------
         k = 0
         stack = None
@@ -299,18 +326,17 @@ if __name__ == "__main__":
         for tile, mcal_file in mcal_files[(bands, nbrs)].items():
             k += 1
             if vb:
-                print('Loading tile {} ({} of {})'.format(tile, k, Nt))
+                print('Loading tile {} ({} of {})'.format(tile, k, Nt-len(blacklisted)))
 
             if tile in _blacklisted_tiles:
                 print('Tile {} is in blacklist, skipping tile'.format(tile))
                 continue
 
-            if cache is True:
-                if nbrs is True:
-                    nb = 'NB'
-                else:
-                    nb = 'noNB'
-                type_dir = os.path.join(cache_dir, bands+'_'+nb)
+            if nbrs is True:
+                nb = 'NB'
+            else:
+                nb = 'noNB'
+            type_dir = os.path.join(cache_dir, bands+'_'+nb)
 
             # Grab detected meas_id's for balrog objects in this tile
             det_in_tile = det_cat[det_cat['meas_tilename']==tile]
@@ -362,38 +388,39 @@ if __name__ == "__main__":
 
             # tile_cats.append(cat)
 
-            if cache is True:
-                cache_filename = 'balrog_' + os.path.basename(mcal_file)
-                cache_file = os.path.join(type_dir, cache_filename)
+            cache_filename = 'balrog_' + os.path.basename(mcal_file)
+            cache_file = os.path.join(type_dir, cache_filename)
 
-                if vb is True:
-                    print('Writing cached file...')
-                cat.write(cache_file, overwrite=clobber)
+            if vb is True:
+                print('Writing cache file...')
+            cat.write(cache_file, overwrite=clobber)
 
-            if stack is None:
-                dt = cat.dtype
-                stack = Table(np.full(size, -1, dtype=dt))
+            if write_fits is True:
+                if stack is None:
+                    dt = cat.dtype
+                    stack = Table(np.full(size, -1, dtype=dt))
 
-            stack[iter_end:iter_end+lencat] = cat[:]
+                stack[iter_end:iter_end+lencat] = cat[:]
+                iter_end += lencat
 
             nobjects += lencat
-            iter_end += lencat
 
-        if vb:
-            print('Stacking catalogs...')
+        # if vb:
+        #     print('Stacking catalogs...')
         # stack = vstack(tile_cats, join_type='exact')
 
         assert nobjects == size
 
-        if vb:
-            print('Writing stacked catalog...')
-        fits_outfile = h5_outfile.replace('.h5', '.fits')
-        write_stack(stack, outfile=fits_outfile, clobber=clobber,
-                    save_det_only=save_det_only)
+        if write_fits is True:
+            if vb:
+                print('Writing stacked catalog...')
+            fits_outfile = h5_outfile.replace('.h5', '.fits')
+            write_stack(stack, outfile=fits_outfile, clobber=clobber,
+                        save_det_only=save_det_only)
 
         if vb:
-            print('Converting stacked Mcal to hdf5...')
-        mcal_to_h5(fits_outfile, h5_outfile, bands, balrog=True, max_shape=max_shape, vb=vb)
+            print('Converting Mcal\'s to hdf5 stack...')
+        convert_mcal_to_h5(type_dir, h5_outfile, bands)
 
 #------------------------------------------------------------------------------------
 # Old code, possibly useful in future:
