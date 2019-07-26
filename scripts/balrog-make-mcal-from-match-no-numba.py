@@ -153,8 +153,6 @@ def write_stack(stack, outfile=None, clobber=False, save_det_only=False):
 
         pass
 
-    import pudb
-    pudb.set_trace()
     if save_det_only is True:
         # Can't do this earlier, as we didn't yet have a mapping from
         # bal_id to meas_id
@@ -272,7 +270,7 @@ if __name__ == "__main__":
 
         for tile in tiles:
             if tile in _blacklisted_tiles:
-                print('Tile {} is in blacklist, skipping tile'.format(tile))
+                Nt -= 1
                 continue
 
             tdir = os.path.join(basedir, tile)
