@@ -255,7 +255,8 @@ if __name__ == "__main__":
 
     # We need to create 4 catalog types: [griz, riz] x [nbr, no-nbr]
     #mcal_types = ('griz', True), ('griz', False), ('riz', True), ('riz', False)
-    mcal_types = ('griz', True), ('riz', True)
+    #mcal_types = ('griz', True), ('riz', True)
+    mcal_types = ('griz', False), ('riz', False)
 
     cache_dir = os.path.join(outdir, 'cache')
     if not os.path.isdir(cache_dir):
