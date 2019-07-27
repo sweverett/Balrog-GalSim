@@ -380,7 +380,16 @@ if __name__ == "__main__":
                     print('Following IO error occured:\n{}\nSkipping tile.'.format(e))
                     continue
 
-                assert len(cat) == len(gold_cat)
+                # This used to be an assertion, but there are sometimes bugs with noNB runs that
+                # cause a discrepancy. We want to ignore those tiles
+                if len(cat) != len(gold_cat):
+                    mfile = os.path.basename(mcal_file)
+                    gfile = os.path.basename(gold_catfile)
+                    print('{} does not have the same number of rows as '.format(mfile) +
+                          '{}! Skipping tile'.format(gfile))
+                    size -= lencat
+                    continue
+
                 # Need the ID colnames to match
                 gold_cat.rename_column('COADD_OBJECT_ID', 'id')
                 cat = join(cat, gold_cat, keys='id', join_type='left')
