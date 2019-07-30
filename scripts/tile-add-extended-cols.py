@@ -17,6 +17,13 @@ parser.add_argument(
     help='ngmix or gold catalog to add classifier to'
 )
 parser.add_argument(
+    '--mode',
+    type=str,
+    default='all',
+    choices=['all', 'mof', 'sof'],
+    help='Can choose to include only one of MOF and SOF in merging & flattening'
+    )
+parser.add_argument(
     '--ngmix_only',
     action='store_true',
     default=False,
@@ -123,15 +130,17 @@ def add_ext_mash_sof(cat, fits, vb=False):
 
     return
 
-def add_ext_models(cat, fits, ngmix_only, vb=False):
+def add_ext_models(cat, fits, mode='all', ngmix_only=False, vb=False):
 
-    if vb:
-        print('Calculating EXTEND_CLASS_MOF...')
-        add_ext_mof(cat, fits, vb=vb)
+    if mode != 'sof':
+        if vb:
+            print('Calculating EXTEND_CLASS_MOF...')
+            add_ext_mof(cat, fits, vb=vb)
 
-    if vb:
-        print('Calculating EXTEND_CLASS_SOF...')
-        add_ext_sof(cat, fits, vb=vb)
+    if mode != 'mof':
+        if vb:
+            print('Calculating EXTEND_CLASS_SOF...')
+            add_ext_sof(cat, fits, vb=vb)
 
     if ngmix_only is not True:
 
@@ -143,13 +152,15 @@ def add_ext_models(cat, fits, ngmix_only, vb=False):
             print('Calculating EXTEND_CLASS_COADD...')
             add_ext_coadd(cat, fits, vb=vb)
 
-        if vb:
-            print('Calculating EXTEND_CLASS_MASH_MOF...')
-            add_ext_mash_mof(cat, fits, vb=vb)
+        if mode != 'sof':
+            if vb:
+                print('Calculating EXTEND_CLASS_MASH_MOF...')
+                add_ext_mash_mof(cat, fits, vb=vb)
 
-        if vb:
-            print('Calculating EXTEND_CLASS_MASH_SOF...')
-            add_ext_mash_sof(cat, fits, vb=vb)
+        if mode != 'mof':
+            if vb:
+                print('Calculating EXTEND_CLASS_MASH_SOF...')
+                add_ext_mash_sof(cat, fits, vb=vb)
 
     return
 
@@ -158,6 +169,7 @@ def main():
     vb = args.vb
     catfile = args.catfile
     ngmix_only = args.ngmix_only
+    mode = args.mode
 
     if not os.path.exists(catfile):
         raise IOError('{} does not exist!'.format(catfile))
@@ -166,8 +178,12 @@ def main():
     if vb:
         print('Grabbing col data...')
 
-    cols = ['mof_cm_T', 'mof_cm_T_err',
-            'sof_cm_T', 'sof_cm_T_err']
+    # Which cols are grabbed depends on the mode
+    cols = []
+    if (mode == 'all') or (mode == 'mof'):
+        cols += ['mof_cm_T', 'mof_cm_T_err']
+    if (mode == 'all') or (mode == 'sof'):
+        cols += ['sof_cm_T', 'sof_cm_T_err']
     if ngmix_only is not True:
         cols += ['wavg_spread_model_i', 'wavg_spreaderr_model_i',
                  'spread_model_i', 'spreaderr_model_i']
@@ -177,7 +193,7 @@ def main():
     # Used to write new cols
     fits = fitsio.FITS(catfile, 'rw')
 
-    add_ext_models(cat, fits, ngmix_only=ngmix_only, vb=vb)
+    add_ext_models(cat, fits, mode=mode, ngmix_only=ngmix_only, vb=vb)
 
     return
 
