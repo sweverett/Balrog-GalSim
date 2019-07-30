@@ -16,6 +16,13 @@ parser.add_argument(
     help='Base directory where tile directories are located'
 )
 parser.add_argument(
+    '--match_type',
+    default='default',
+    choices=['default', 'mof_only', 'sof_only'],
+    type=str,
+    help='Set the type of MatchedCatalog created (NB: not the same as ngmix_type!)'
+)
+parser.add_argument(
     '--version',
     default=None,
     type=str,
@@ -42,12 +49,14 @@ parser.add_argument(
 parser.add_argument(
     '--inj_type',
     default='gals',
+    choices=['gals', 'stars', 'both'],
     type=str,
     help='Injection type to match between catalogs (gals, stars, or both)'
 )
 parser.add_argument(
     '--ngmix_type',
-    default=None,
+    default='mof',
+    choices=['mof', 'sof'],
     type=str,
     help='ngmix type to match (mof or sof). Defaults to mof'
 )
@@ -134,16 +143,10 @@ def main():
             os.mkdir(args.outdir)
         outdir = args.outdir
 
-    if args.inj_type in ['gals', 'both']:
+    if args.inj_type == 'stars':
         if args.ngmix_type is not None:
-            if args.ngmix_type not in ['mof', 'sof']:
-                raise ValueError('ngmix_type can only be mof or sof!')
-        else:
-            # Default is mof
-            args.ngmix_type = 'mof'
-    else:
-        if args.ngmix_type is not None:
-            raise ValueError('Can\'t set an ngmix_type if matching star catalogs!')
+            # ngmix_type not relevant for star case
+            args.ngmix_type = None
 
     if args.gold_base is not None:
         if args.gold_base == 'base':
@@ -156,12 +159,6 @@ def main():
         if args.gold_base is None:
             raise ValueError('Can\'t set gold_subdir if gold_base isn\'t set!')
 
-    # if args.ext_file is not None:
-    #     ef = os.path.abspath(os.path.expanduser(args.ext_file))
-    #     if not os.path.exists(ef):
-    #         raise IOError('Passed extinction file {} does not exist!'.format(ef))
-    #     # Need to save `true_cm_mag` in det catalog to compute dereddened quantities
-    # ext_file = ef
     save_mags = args.save_mags
 
     if vb:
@@ -169,6 +166,7 @@ def main():
 
     # NOTE: Can pass lots of more parameters here. Use outside of script if desired.
     matched_cats = match.MatchedCatalogs(args.base,
+                                         match_type=args.match_type,
                                          meds_conf=args.conf,
                                          real=args.real,
                                          tile_list=args.tile_list,
@@ -211,17 +209,15 @@ def main():
                                                      save_mags=save_mags,
                                                      outfile=det_outfile)
 
-    # if ext_file:
-    #     if vb:
-    #         print('Calculating dereddened magnitudes...')
-    #     calc_dereddened_mags(det_outfile, ext_file)
-
     if not args.det_only:
         # Write out a concatonated true & meas matched catalog
         if vb:
             print('Writing combined stack...')
         match_outfile = add_version('balrog_matched_catalog.fits', args.version)
-        matched_cats.write_combined_stack(outdir=outdir, cache=args.cache, clobber=args.clobber)
+        matched_cats.write_combined_stack(outfile=match_outfile,
+                                          outdir=outdir,
+                                          cache=args.cache,
+                                          clobber=args.clobber)
 
     # To grab full truth catalog (detected or not), use the following:
     # full_truth_stack = matched_cats.get_full_true_stack()
