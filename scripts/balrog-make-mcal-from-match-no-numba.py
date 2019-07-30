@@ -157,13 +157,7 @@ _gold_cols = ['COADD_OBJECT_ID',
               'EXTENDED_CLASS_MOF',
               'EXTENDED_CLASS_SOF']
 
-# TODO: Move somewhere more central in the future
-_blacklisted_tiles = [
-    'DES0000-0333',
-    'DES0000-3706',
-    'DES0002-0207',
-    'DES0238-3457'
-]
+from blacklisted import _blacklisted_tiles
 
 def write_stack(stack, outfile=None, clobber=False, save_det_only=False):
     assert stack is not None
