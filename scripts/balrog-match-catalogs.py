@@ -188,7 +188,7 @@ def main():
 
         if not args.det_only:
             det_outdir = os.path.join(outdir, 'det_catalogs')
-            outdirs.append(det_outdirs)
+            outdirs.append(det_outdir)
 
         for d in outdirs:
             if not os.path.exists(d):
