@@ -15,6 +15,8 @@ from glob import glob
 import esutil.htm as htm
 rc = matplotlib.rcParams.update({'font.size': 20})
 
+from blacklisted import _blacklisted_tiles
+
 #-------------------------------------------------------------------------------
 # Photometry catalogs
 # TODO: When constructing MatchedCatalogs, grab the extinction factors, etc. from the truth catalogs!
@@ -23,7 +25,7 @@ class MatchedCatalogs(object):
 
     # TODO: Add stars into all of this!
     def __init__(self, basedir, meds_conf='y3v02', real=0, tile_list=None, inj_type='gals',
-                 ngmix_type='mof', vb=False, **kwargs):
+                 match_type='default', ngmix_type='mof', vb=False, **kwargs):
         if not isinstance(basedir, str):
             raise TypeError('basedir must be a string!')
         if not os.path.isdir(basedir):
@@ -68,6 +70,9 @@ class MatchedCatalogs(object):
                 raise ValueError('`ngmix_type` must be mof or sof!')
         self.ngmix_type = ngmix_type
 
+        # This is checked in `build_matched_catalog()`
+        self.match_type = match_type
+
         if not isinstance(vb, bool):
             raise TypeError('vb must be a bool!')
         self.vb = vb
@@ -105,11 +110,17 @@ class MatchedCatalogs(object):
         real = self.real
         self.nobjects = 0
         Nt = len(tiles)
+        removed = []
         k = 0
         for tile in tiles:
             k += 1
             if self.vb:
                 print('Matching tile {} ({} of {})'.format(tile, k, Nt))
+
+            if tile in _blacklisted_tiles:
+                removed.append(tile)
+                print('Tile is blacklisted - skipping tile')
+                continue
 
             tdir = os.path.join(self.basedir, tile)
             self.tiledir[tile] = tdir
@@ -138,16 +149,22 @@ class MatchedCatalogs(object):
             tile_kwargs['tilename'] = tile
             tile_kwargs['real'] = real
             try:
-                self.cats[tile] = MatchedCatalog(true_file, meas_file, **tile_kwargs)
+                self.cats[tile] = build_matched_catalog(self.match_type, true_file, meas_file, **tile_kwargs)
+                # self.cats[tile] = MatchedCatalog(true_file, meas_file, **tile_kwargs)
             except IOError as e:
                 print('Following IO error occured:\n{}\nSkipping tile.'.format(e))
+                removed.append(tile)
                 continue
             except AssertionError as e:
                 print('Following assertion error occured:\n{}nSkipping tile.'.format(e))
+                removed.append(tile)
                 continue
 
             assert len(self.cats[tile].meas) == len(self.cats[tile].true)
             self.nobjects += len(self.cats[tile].meas)
+
+        for t in removed:
+            tiles.remove(t)
 
         self.ntiles += len(tiles)
         self.tiles += tiles
@@ -877,6 +894,34 @@ class MatchedCatalog(object):
         Z = np.reshape(kernel(positions).T, X.shape)
         return X, Y, Z
 
+class MOFOnlyMatchedCatalog(MatchedCatalog):
+    '''
+    Use for MOF-only Balrog runs that won't have SOF columns for extra cols
+    '''
 
-#-------------------------------------------------------------------------------
-# Metacalibration catalogs
+    _allowed_extra_cols = ['COADD_OBJECT_ID',
+                           'FLAGS_GOLD_MOF_ONLY',
+                           'EXTENDED_CLASS_MOF']
+
+class SOFOnlyMatchedCatalog(MatchedCatalog):
+    '''
+    Use for SOF-only Balrog runs that won't have MOF columns for extra cols
+    '''
+
+    _allowed_extra_cols = ['COADD_OBJECT_ID',
+                           'FLAGS_GOLD_SOF_ONLY',
+                           'EXTENDED_CLASS_SOF']
+
+def build_matched_catalog(match_type, *args, **kwargs):
+    if match_type in MATCHED_CATALOG_TYPES:
+        return MATCHED_CATALOG_TYPES[match_type](*args, **kwargs)
+    else:
+        raise ValueError('{} is not a valid matched catalog type. Allowed tyes are: {}'.format(
+            match_type, MATCHED_CATALOG_TYPES.keys()))
+
+MATCHED_CATALOG_TYPES = {
+    'default' : MatchedCatalog,
+    'matched_catalog' : MatchedCatalog,
+    'mof_only' : MOFOnlyMatchedCatalog,
+    'sof_only' : SOFOnlyMatchedCatalog
+    }

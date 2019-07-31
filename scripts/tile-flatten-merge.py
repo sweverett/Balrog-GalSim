@@ -7,6 +7,7 @@ id file in coaddid_dir.
 Usage: python tile-flatten-merge.py -d [mof_dir] -i [coaddid_dir] -o [out_dir]
 
 Author: Nacho Sevilla (nsevilla@gmail.com) with some code from Erin Sheldon
+
 Further edited by Spencer Everett to add some new features and make a less IO intensive version,
 as we do not need intermediate flattened files for Balrog
 Saw ~25% clock time improvement using `save_all=False`, as well as 60% less disk space
@@ -53,6 +54,13 @@ parser.add_argument(
     action='store_true',
     default=False,
     help='Set to save all flattened files'
+    )
+parser.add_argument(
+    '--mode',
+    type=str,
+    default='all',
+    choices=['all', 'mof', 'sof'],
+    help='Can choose to include only one of MOF and SOF in merging & flattening'
     )
 parser.add_argument(
     '--vb',
@@ -595,17 +603,28 @@ def main():
     print('Reading data from {}'.format(args.data_dir))
     print('Writing files to upload to {}'.format(args.out_dir))
 
+    # Sometimes we will run on outputs that only run one of MOF or SOF
+    mode = args.mode
+    print('Running in mode {}'.format(mode))
+    check_string = ['g_cat','r_cat','i_cat','z_cat']
+    if mode == 'all':
+        check_string.append('-mof')
+        check_string.append('-sof')
+    elif mode == 'mof':
+        check_string.append('-mof')
+    elif mode == 'sof':
+        check_string.append('-sof')
+
     print('Getting list of files...')
     data_files = get_files(args.data_dir)
     if args.extra_data_dir is not None:
         data_files += get_files(args.extra_data_dir)
-    check_string = ['g_cat','r_cat','i_cat','z_cat','-mof','-sof']
 
     chk = 0
     select_files = []
     tilename = ''
     for check in check_string:
-        for data_file in data_files:
+        for n, data_file in enumerate(data_files):
             if tilename == '':
                 idx = data_file.find('DES')
                 tilename = data_file[idx:idx+12]
@@ -616,9 +635,8 @@ def main():
                 select_files.append(data_file)
                 print('Appending {}'.format(os.path.basename(data_file)))
                 break
-    if chk != len(check_string):
-        print('Missing file of one of these types: {}'.format(check_string))
-        sys.exit(1)
+            if n == (len(data_files)-1):
+                raise OSError('Cannot find file with {} for tile {}'.format(check, tilename))
 
     # New setup flattens during merge
     merge(args, tilename, select_files)

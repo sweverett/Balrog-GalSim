@@ -63,6 +63,13 @@ parser.add_argument(
     help='Use to only compute MOF & SOF EXTENDED classifiers.'
     )
 parser.add_argument(
+    '--mode',
+    type=str,
+    default='all',
+    choices=['all', 'mof', 'sof'],
+    help='Can choose to include only one of MOF and SOF in merging & flattening'
+    )
+parser.add_argument(
     '--save_all',
     action='store_true',
     default=False,
@@ -121,7 +128,19 @@ def main():
     save_all = args.save_all
     use_cached = args.use_cached
     ngmix_only = args.ngmix_extended_only
+    mode = args.mode
+    # mof_only = args.mof_only
+    # sof_only = args.sof_only
     vb = args.vb
+
+    # Can only have one of the following set
+    # opts = [mof_only, sof_only]
+    # opt_set = 0
+    # for opt in opts:
+    #     if opt is True:
+    #         opt_set += 1
+    # if opt_set > 1:
+    #     raise ValueError('Can only set one of --mof_only and --sof_only!')
 
     if os.path.isdir(basedir) is not True:
         raise OSError('{} does not exist!'.format(basedir))
@@ -173,15 +192,21 @@ def main():
             print('Flattening & merging...')
 
         script_file = os.path.join(script_dir, flatten_merge_filename)
-        cmd = 'python {} {}'.format(script_file, data_dir)
+        cmd = 'python {} {} --out_dir={} --mode={}'.format(script_file,
+                                                           data_dir,
+                                                           out_dir,
+                                                           mode)
 
         if extra_basedir is not None:
             extra_dir = os.path.join(extra_basedir, tile)
             cmd += ' --extra_data_dir={}'.format(extra_dir)
-        if merged_subdir is not None:
-            cmd += ' --out_dir={}'.format(out_dir)
         if save_all is True:
             cmd += ' --save_all'
+        # Already checked above that only one of the following are true
+        # if mof_only is True:
+        #     cmd += ' --mof_only'
+        # if sof_only is True:
+        #     cmd += ' --sof_only'
         if vb:
             cmd += ' --vb'
 
@@ -194,7 +219,7 @@ def main():
 
         script_file = os.path.join(script_dir, gold_flags_filename)
 
-        cmd = 'python {} {} '.format(script_file, merged_cat)
+        cmd = 'python {} {} --mode={}'.format(script_file, merged_cat, mode)
         if vb: cmd += ' --vb'
 
         run_cmd(cmd, vb)
@@ -205,7 +230,7 @@ def main():
             print('Computing EXTENDED_CLASS(es)')
 
         script_file = os.path.join(script_dir, extended_class_filename)
-        cmd = 'python {} {}'.format(script_file, merged_cat)
+        cmd = 'python {} {} --mode={}'.format(script_file, merged_cat, mode)
         if ngmix_only is True:
             cmd += ' --ngmix_only'
         if vb is True:
