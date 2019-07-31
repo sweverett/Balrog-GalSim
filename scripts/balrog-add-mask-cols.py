@@ -111,7 +111,7 @@ def main():
     fits[1].insert_column('flags_foreground', fore_mask)
 
     if vb:
-        print('Writing foreground mask...')
+        print('Writing badregions mask...')
     fits[1].insert_column('flags_badregions', badr_mask)
 
 if __name__=="__main__":
