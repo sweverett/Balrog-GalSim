@@ -62,7 +62,11 @@ class InputCatalog(BalInput):
 
         return
 
-    def _setup_proxy_catalog(self, save_proxy=False):
+    def _setup_proxy_catalog(self, save_proxy=False, get_subtype=False):
+        # Some input catalogs have additional subtypes, like ngmix_catalog
+        # Sometimes need to have this information for truth catalog updates, but
+        # can only do it here if save_proxy is False
+
         conf = deepcopy(self.gsconfig)
 
         # Need to remove other input types as they may not have been registered
@@ -86,6 +90,11 @@ class InputCatalog(BalInput):
         self.cat = cat_proxy.getCatalog()
         self.nobjects = cat_proxy.getNObjects()
 
+        if get_subtype is True:
+            self.sub_type = cat_proxy.getSubtype()
+        else:
+            self.sub_type = None
+
         # Need to load in additional parametric catalog for some input types
         try:
             self.parametric_cat = cat_proxy.getParamCatalog()
@@ -97,9 +106,11 @@ class InputCatalog(BalInput):
     def generate_inj_catalog(self, config, tile, realization, mixed, mixed_grid=None):
         inp_type = self.input_type
         inj_type = self.inj_type
+        sub_type = self.sub_type
 
         self.inj_catalog = balobject.build_bal_inject_cat(inp_type,
                                                           inj_type,
+                                                          sub_type,
                                                           tile,
                                                           needs_band=self.needs_band,
                                                           mixed=mixed)
@@ -146,7 +157,8 @@ class NGMIXInputCatalog(DESInputCatalog):
         # TODO: Can we grab the injection type from the registered GS catalog?
         self.inj_type = 'ngmixGalaxy'
 
-        self._setup_proxy_catalog()
+        # ngmix catalogs have additional subtypes, e.g. cm
+        self._setup_proxy_catalog(get_subtype=True)
 
         return
 

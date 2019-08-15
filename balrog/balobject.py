@@ -1,14 +1,14 @@
 import numpy as np
 import galsim
 import galsim.config.input as gsinput
+import ngmix
 import os
 import copy
+from numpy.lib.recfunctions import append_fields
 
 # Balrog files
 import mathutil as util
 import grid
-
-# import pudb
 
 # TODO: Implement as needed
 class BalObject(object):
@@ -20,9 +20,10 @@ class BalObject(object):
 
 class BalInjectionCatalog(object):
 
-    def __init__(self, input_type, inj_type, tile, needs_band=False, mixed=False):
+    def __init__(self, input_type, inj_type, sub_type, tile, needs_band=False, mixed=False):
         self.input_type = input_type
         self.inj_type = inj_type
+        self.sub_type = sub_type
         self.needs_band = needs_band
         self.mixed = False
 
@@ -276,8 +277,24 @@ class BalInjectionCatalog(object):
         self.truth_outfile[real] = os.path.join(base_outfile, truth_fname)
         return self.truth_outfile[real]
 
-    def write_new_positions(self, truth_cat, realization):
-        pos = self.pos[realization]
+    def update_truth_cols(self, config, truth_cat, real):
+        self.write_new_positions(truth_cat, real)
+        self.update_colnames(truth_cat, real)
+
+        if self.rotate[real] is not None:
+            self.update_truth_shapes(config, truth_cat, real)
+
+    def update_truth_shapes(self, config, truth_cat, real):
+        # Only here to be inherited by subclasses, but not bothering with
+        # a full abstract class for now
+        raise NotImplementedError('Need to implement `update_truth_shapes()` to apply rotations to ' +
+                                  'custom BalObjects!')
+
+    def update_colnames(self, truth_cat, real):
+        pass
+
+    def write_new_positions(self, truth_cat, real):
+        pos = self.pos[real]
 
         # If nothing is set for a given custom input, try the obvious
         try:
@@ -294,9 +311,6 @@ class BalInjectionCatalog(object):
 
         return
 
-    def update_colnames(self, truth_cat, realization):
-        pass
-
     def setup_chip_config(self, config, bal_config, chip, chip_indx):
         # Many injection types will requite nothing special in setup
         pass
@@ -308,10 +322,10 @@ class BalInjectionCatalog(object):
         pass
 
 class DESInjectionCatalog(BalInjectionCatalog):
-    def __init__(self, input_type, inj_type, tile, needs_band, mixed=False):
+    def __init__(self, input_type, inj_type, sub_type, tile, needs_band, mixed=False):
         # All catalogs require band input
         assert needs_band is True
-        super(DESInjectionCatalog, self).__init__(input_type, inj_type, tile, needs_band, mixed)
+        super(DESInjectionCatalog, self).__init__(input_type, inj_type, sub_type, tile, needs_band, mixed)
 
         return
 
@@ -354,6 +368,33 @@ class NGMIXInjectionCatalog(DESInjectionCatalog):
             self.single_obj_injection = True
 
         return mixed_grid
+
+    def update_truth_shapes(self, config, truth_cat, real):
+        g_colname = self.sub_type + '_g'
+        g1 = truth_cat[self.inj_type][g_colname][:,0]
+        g2 = truth_cat[self.inj_type][g_colname][:,1]
+
+        # Need to unpack array of '{rotation in deg} deg'
+        deg2rad = np.pi / 180.
+        theta = np.array([float(r.split()[0].strip()) for r in self.rotate[real]])
+
+        g1_rot, g2_rot = ngmix.shape.rotate_shape(g1, g2, deg2rad*theta)
+
+        # Update truth catalog shape information
+        truth_cat[self.inj_type][g_colname][:,0] = g1_rot
+        truth_cat[self.inj_type][g_colname][:,1] = g2_rot
+
+        # These values are also stored in pars
+        truth_cat[self.inj_type][self.sub_type+'_pars'][:,2] = g1_rot
+        truth_cat[self.inj_type][self.sub_type+'_pars'][:,3] = g2_rot
+
+        # Add rotation angles to truth catalog
+        truth_cat[self.inj_type] = append_fields(truth_cat[self.inj_type],
+                                                 'rotation',
+                                                 theta,
+                                                 usemask=False)
+
+        return
 
 class MEDSInjectionCatalog(DESInjectionCatalog):
     def generate_objects(self, config, realization, mixed_grid=None):
@@ -409,8 +450,8 @@ class MEDSInjectionCatalog(DESInjectionCatalog):
         return
 
 class DESStarInjectionCatalog(DESInjectionCatalog):
-    def __init__(self, input_type, inj_type, tile, needs_band=False, mixed=False):
-        super(DESStarInjectionCatalog, self).__init__(input_type, inj_type, tile, needs_band, mixed)
+    def __init__(self, input_type, inj_type, sub_type, tile, needs_band=False, mixed=False):
+        super(DESStarInjectionCatalog, self).__init__(input_type, inj_type, sub_type, tile, needs_band, mixed)
 
         # Might add something like this in the future, if we end up passing configs
         # during init...
@@ -488,6 +529,10 @@ class DESStarInjectionCatalog(DESInjectionCatalog):
                     self.nobjects[real] = len(inds)
 
         return
+
+    def update_truth_shapes(self, config, truth_cat, real):
+        # Stars are injected as delta functions, so no need to update shape info
+        pass
 
     def write_new_positions(self, truth_cat, realization):
         # Currently, all used DES star catalogs have Sahar's naming scheme anyway,
@@ -603,11 +648,12 @@ class Star(object):
     def __init__(self):
         pass
 
-def build_bal_inject_cat(input_type, inj_type, tile, needs_band, mixed=False):
+def build_bal_inject_cat(input_type, inj_type, sub_type, tile, needs_band, mixed=False):
     if input_type in BALROG_INJECTION_TYPES:
         # User-defined injection catalog construction
         inject_cat = BALROG_INJECTION_TYPES[input_type](input_type,
                                                         inj_type,
+                                                        sub_type,
                                                         tile,
                                                         needs_band,
                                                         mixed)

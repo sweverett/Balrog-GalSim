@@ -15,15 +15,11 @@ import config as Config
 import tile as Tile
 import fileio as io
 
-# Use for debugging
-# import pudb
-
 #-------------------------------------------------------------------------------
 # Important todo's:
 # TODO: Check pixel origin for transformations!
 
 # Some extra todo's:
-# TODO: Have code automatically check fitsio vs astropy
 # TODO: Add check for python path!
 # TODO: Fix some bugged multi-line print statements
 
