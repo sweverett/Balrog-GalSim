@@ -12,7 +12,6 @@ import numpy as np
 import logging
 import warnings
 from past.builtins import basestring # Python 2&3 compatibility
-# import pudb
 
 # TODO: Include noise, pixscale
 
@@ -54,29 +53,33 @@ class ngmixCatalog(object):
     _req_params = { 'file_name' : str, 'bands' : str}
     _opt_params = { 'dir' : str, 'catalog_type' : str, 'snr_min' : float, 'snr_max' : float,
                     't_frac' : float, 't_min' : float, 't_max' : float, 'version' : str,
-                    'de_redden' : bool}
+                    'de_redden' : bool, 'TdByTe' : float}
     _single_params = []
     _takes_rng = False
 
     # Only these ngmix catalog types currently supported
     # `gauss`: Single Gaussian fit
     # `cm`: Combined bulge+disk model
-    # `mof`: CM model with multi-object fitting
+    # `bdf`: CM model with buldge-disk ratio fixed
     # NOTE: In principle, should be able to handle any type supported by ngmix
-    _valid_catalog_types = ['gauss','cm','mof']
+    # See Issue #79
+    _valid_catalog_types = ['gauss','cm','bdf']
 
     # Only these color bands are currently supported for an ngmix catalog
     _valid_band_types = 'griz'
 
     # Dictionary of color band flux to array index in ngmix catalogs
+    # TODO: This should be grabbed from the fits header rather than be hardcoded
+    # See Issue #80
     _band_index = {'g' : 0, 'r' : 1, 'i' : 2, 'z' : 3}
 
-    # The catalog column name prefix doens't always match the catalog type (e.g. 'mof' has a prefix
-    # of 'cm' for most columns). Set this for each new supported catalog type.
-    _cat_col_prefix = {'gauss' : 'gauss', 'cm' : 'cm', 'mof' : 'cm'}
+    # NOTE: In previous versions, the catalog column name prefix didn't always
+    # match the catalog type (e.g. 'mof' had a prefix of 'cm' for most columns).
+    # This shouldn't be needed in the future but leaving for now
+    _cat_col_prefix = {'gauss' : 'gauss', 'cm' : 'cm', 'bdf' : 'bdf'}
 
     def __init__(self, file_name, bands, dir=None, catalog_type=None, snr_min=None, snr_max=None,
-                 t_frac=None, t_min=None, t_max=None, version=None, de_redden=False,
+                 t_frac=None, t_min=None, t_max=None, version=None, de_redden=False, TdByTe=None,
                  _nobjects_only=False):
 
         if dir:
@@ -102,10 +105,10 @@ class ngmixCatalog(object):
             # Attempt to determine catalog type from filename (this is generally true for DES ngmix
             # catalogs)
             match = 0
-            for type in self._valid_catalog_types:
-                if type in self.file_name:
+            for t in self._valid_catalog_types:
+                if t in self.file_name:
                     match +=1
-                    self.cat_type = type
+                    self.cat_type = t
             # Reject if multiple matches
             if match == 0:
                 raise ValueError("No inputted ngmix catalog type, and no matches in filename! "
@@ -114,8 +117,17 @@ class ngmixCatalog(object):
                 raise ValueError("No inputted ngmix catalog type, and multiple matches in filename!"
                                  " Please set a valid catalog type.")
 
+        if TdByTe is not None:
+            if self.cat_type != 'bdf':
+                raise ValueError('Can only set a constant `TdByTe` for ngmix type `bdf`!')
+            if TdByTe < 0:
+                raise ValueError('TdByTe must be non-negative!')
+        else:
+            # This should almost always be 1
+            TdByTe = 1.
+        self._TdByTe = TdByTe
+
         # Catalog column name prefixes don't always match catalog type
-        # (e.g. 'cm' is still used for many 'mof' columns)
         self.col_prefix = self._cat_col_prefix[self.cat_type]
 
         if isinstance(bands, basestring):
@@ -242,13 +254,13 @@ class ngmixCatalog(object):
         # General flags
         self.flags = self.catalog['flags']
 
-        # TODO: Look at these in more detail!
+        # We don't want to cut on these explicitly anymore:
+
         #self.obj_flags = self.catalog['obj_flags']
 
         # ngmix catalog-specific flags
         #self.ngmix_flags = self.catalog[self.col_prefix+'_flags']
 
-        # TODO: Check for additional flags
         # if self.cat_type == 'mof':
         #     # mof has additional flags
         #     self.mof_flags = self.catalog[self.col_prefix+'_mof_flags']
@@ -269,7 +281,8 @@ class ngmixCatalog(object):
 
         # For now, remove objects with any flags present
         mask[self.flags != 0] = False
-        # TODO: We probably want to remove these!
+
+        # No longer do these explicitly:
         # mask[self.obj_flags !=0] = False
         # mask[self.ngmix_flags !=0] = False
         # Extra flags for 'mof' catalogs
@@ -408,23 +421,42 @@ class ngmixCatalog(object):
 
         flux = self.catalog[flux_colname][index][self._band_index[band]]
 
-        # Gaussian-Mixture parameters are in the format of:
+        # NOTE: It used to be the case that all Gaussian-Mixture parameters
+        # were in the format of:
         # gm_pars = [centroid1, centroid2, g1, g2, T, flux]
-        # (this is identical to ngmix catalogs, except that flux is a vector
-        # of fluxes in all color bands)
-        gm_pars = [0.0, 0.0, g1, g2, T, flux]
+        # (this is identical to ngmix `pars`, except that flux is a vector
+        # of fluxes in all bands)
+        # However, this now depends on the gmix type, so we have to wait
+        # gm_pars = [0.0, 0.0, g1, g2, T, flux]
 
-        # Build the appropriate Gaussian mixture for a cm-model
-        fracdev = self.catalog[cp+'_fracdev'][index]
-        TdByTe = self.catalog[cp+'_TdByTe'][index]
-        gm = ngmix.gmix.GMixCM(fracdev, TdByTe, gm_pars)
+        # TODO: Implement this once we get a response back from Erin why
+        # CM isn't included in this function
+        # https://github.com/esheldon/ngmix/blob/master/ngmix/gmix.py#L39
+        # This allows us to construct the given gmix type without knowing
+        # gm.make_gmix_model(pars, model, **kw):
+
+        # Build the appropriate Gaussian mixture for a given model
+        if ct == 'gauss':
+            # Uses 'simple' pars scheme
+            gm_pars = [0.0, 0.0, g1, g2, T, flux]
+            gm = ngmix.gmix.GMixModel(gm_pars, 'gaussian')
+
+        elif ct == 'cm':
+            fracdev = self.catalog[cp+'_fracdev'][index]
+            TdByTe  = self.catalog[cp+'_TdByTe'][index]
+            # Uses 'simple' pars scheme
+            gm_pars = [0.0, 0.0, g1, g2, T, flux]
+            gm = ngmix.gmix.GMixCM(fracdev, TdByTe, gm_pars)
+
+        elif ct == 'bdf':
+            fracdev = self.catalog[cp+'_fracdev'][index]
+            TdByTe = self._TdByTe
+            # Uses different 'bdf' pars scheme
+            gm_pars = [0.0, 0.0, g1, g2, T, fracdev, flux]
+            gm = ngmix.gmix.GMixBDF(pars=gm_pars, TdByTe=TdByTe)
 
         # The majority of the conversion will be handled by `ngmix.gmix.py`
         gs_gal = gm.make_galsim_object(gsparams=gsp)
-
-        # NOTE: Can add any model-specific requirements in future if needed
-        # if ct == 'mof':
-        #     gal = ...
 
         return gs_gal
 
@@ -485,6 +517,11 @@ class ngmixCatalog(object):
                 return index[0]
 
     #----------------------------------------------------------------------------------------------
+
+    # The catalog type is referred to as a 'subtype' w.r.t BalInput types
+    # (i.e. the BalInput type is 'ngmix_catalog' with subtype self.catalog_type)
+    def getSubtype(self):
+        return self.cat_type
 
     def getNObjects(self):
         # Used by input/logger methods

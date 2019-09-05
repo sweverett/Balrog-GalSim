@@ -331,39 +331,41 @@ def get_fits_type(name):
         format = 'D'
     elif "_T" in name:
         format = 'D'
-    elif "_mag" in name: 
+    elif "_mag" in name:
         format = 'D'
-    elif "nimage_use" in name: 
+    elif "nimage_use" in name:
         format = 'J'
-    elif "frac" in name: 
+    elif "frac" in name:
         format = 'D'
-    elif "_g" in name: 
+    elif "_g" in name:
         format = 'D'
-    elif "pars" in name: 
+    elif "pars" in name:
         format = 'D'
-    elif "_flux" in name: 
+    elif "_flux" in name:
         format = 'D'
-    elif "_logsb" in name: 
+    elif "gapflux" in name:
+        format = 'D'
+    elif "_logsb" in name:
         format = 'D'
     elif "fracdev" in name:
         format = 'D'
-    elif name == "cm_weight": 
+    elif name == "cm_weight":
         format = 'D'
-    elif name == "cm_chi2per": 
+    elif name == "cm_chi2per":
         format = 'D'
-    elif name == "cm_dof": 
+    elif name == "cm_dof":
         format = 'D'
-    elif name == "cm_TdByTe": 
+    elif name == "cm_TdByTe":
         format = 'E'
-    elif name == "cm_mof_num_itr": 
+    elif name == "cm_mof_num_itr":
         format = 'J'
-    elif "cm_mof_abs_diff" in name: 
+    elif "cm_mof_abs_diff" in name:
         format = 'D'
-    elif "cm_mof_err_diff" in name: 
+    elif "cm_mof_err_diff" in name:
         format = 'D'
     elif name == "bdf_nfev":
         format = 'J'
-    elif name == 'fofind': 
+    elif name == 'fofind':
         format = 'K'
     else:
         print('{} not found'.format(name))
@@ -446,7 +448,7 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
         formats = [d[2] for d in alldefs]
         cols = []
         prev_colname = ''
-        prev_colname_add = '' 
+        prev_colname_add = ''
         prev_colname_band = ''
         prev_colname_multi = ''
         prev_colname_multi_add = ''

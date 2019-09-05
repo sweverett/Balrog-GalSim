@@ -20,8 +20,6 @@ import mathutil as util
 import balobject as balobj
 import grid
 
-# import pudb
-
 #-------------------------------------------------------------------------------
 # Tile class and functions
 
@@ -856,8 +854,7 @@ class Tile(object):
                 # Parametric truth catalog previously loaded in `load_input_catalogs()`
                 truth[inj_type] = inpt.parametric_cat[inj.indx[real]]
 
-            self._write_new_positions(truth, inj)
-            self._update_colnames(truth, inj)
+            self._update_truth_cols(config, truth, inj)
 
         for inj_type, outfile in outfiles.items():
             try:
@@ -866,8 +863,6 @@ class Tile(object):
                     truth_table.write(truth[inj_type])
 
                     # Fill primary HDU with simulation metadata
-                    # hdr = fits.Header()
-                    # TODO: Add ext_fact and ext_mag !
                     hdr = {}
                     hdr['run_name'] = config.run_name
                     hdr['config_file'] = config.args.config_file
@@ -901,17 +896,10 @@ class Tile(object):
 
         return
 
-    def _write_new_positions(self, truth_cat, inj_cat):
-        # Position re-writing (including default behaviour) has been moved to class
+    def _update_truth_cols(self, config, truth_cat, inj_cat):
+        # Column re-writing (including positions) has been moved to class
         # methods in `balobject.py`
-        inj_cat.write_new_positions(truth_cat, self.curr_real)
-
-        return
-
-    def _update_colnames(self, truth_cat, inj_cat):
-        # Column re-writing (including default behaviour) has been moved to class
-        # methods in `balobject.py`
-        inj_cat.update_colnames(truth_cat, self.curr_real)
+        inj_cat.update_truth_cols(config, truth_cat, self.curr_real)
 
         return
 
