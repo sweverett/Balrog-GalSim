@@ -24,19 +24,19 @@ parser.add_argument(
 )
 parser.add_argument(
     '--footprint',
-    default='y3a2_footprint_griz_1exp_v2.0.fits.gz',
+    default='y3a2_footprint_griz_1exp_v2.0.fits',
     type=str,
     help='Filename of the footprint mask'
 )
 parser.add_argument(
     '--foreground',
-    default='y3a2_foreground_mask_v2.1.fits.gz',
+    default='y3a2_foreground_mask_v2.1.fits',
     type=str,
     help='Filename of the foreground mask'
 )
 parser.add_argument(
     '--badregions',
-    default='y3a2_badregions_mask_v2.0.fits.gz',
+    default='y3a2_badregions_mask_v2.0.fits',
     type=str,
     help='Filename of the badregions mask'
 )
