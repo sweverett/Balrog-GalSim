@@ -19,7 +19,6 @@ from blacklisted import _blacklisted_tiles
 
 #-------------------------------------------------------------------------------
 # Photometry catalogs
-# TODO: When constructing MatchedCatalogs, grab the extinction factors, etc. from the truth catalogs!
 class MatchedCatalogs(object):
     _extra_basename = 'TILENAME_merged.fits'
 
@@ -82,8 +81,6 @@ class MatchedCatalogs(object):
         self.full_true_stack = None
 
         self._has_matched = False
-
-        # TODO: Can add things from the kwargs here as well!
 
         self.tiledir = {}
         self.cats = {}

@@ -5,8 +5,9 @@ along with detection and extinction information
 """
 
 from argparse import ArgumentParser
-import match
 import os
+
+from balrog import match
 
 parser=ArgumentParser()
 
