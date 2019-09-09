@@ -21,6 +21,13 @@ parser.add_argument(
     help='Filename of a Balrog detection catalog (created with a given matching criterion)'
     )
 parser.add_argument(
+    '--mcal_types',
+    default='riz-noNB',
+    choices=['all', 'griz', 'griz-noNB', 'riz', 'riz-noNB'],
+    type=str,
+    help='Set the type of MatchedCatalog created (NB: not the same as ngmix_type!)'
+)
+parser.add_argument(
     '--version',
     default=None,
     type=str,
@@ -69,12 +76,6 @@ parser.add_argument(
     type=str,
     help='Subdirectory of desired gold merged cat, if not in TILENAME'
 )
-# parser.add_argument(
-#     '--keep_cache',
-#     action='store_true',
-#     default=False,
-#     help='Keep cached individual value-added mcal fits'
-# )
 parser.add_argument(
     '--write_fits',
     action='store_true',
@@ -191,10 +192,10 @@ if __name__ == "__main__":
     basedir = args.basedir
     outdir = args.outdir
     save_det_only = args.save_det_only
-    # keep_cache = args.keep_cache
     write_fits = args.write_fits
     gold_base = args.gold_base
     gold_subdir = args.gold_subdir
+    mcal_types = args.mcal_types
 
     if outdir is None:
         outdir = ''
@@ -226,29 +227,21 @@ if __name__ == "__main__":
     det_cols = ['bal_id', 'meas_id', 'meas_tilename']
     det_cat = fitsio.read(det_filename, columns=det_cols)
 
-    # OLD: Only worked if meas_id was part of bal_id
-        # if vb:
-        #     print('Recovering meas_id...')
-
-        # # bal_id is defined in the following way:
-        # # bal_id = '1' + realization + tilename (w/o 'DES' and +/- mapped to 1/0)
-        #            + truth_cat_index
-        # # As long as we stick to 10 realizations max (hah!), the following will work
-
-        # # Doing this correctly with numpy is actually fairly complex, but this is still
-        # # quick even with ~11 million rows
-        # dt = [('meas_id', '>i8')]
-        # # meas_id = np.array([i[11:] for i in det_cat['bal_id'].astype(str)], dtype=dt)
-        # meas_id = np.array([int(i[11:]) for i in det_cat['bal_id'].astype(str)])
-        # det_cat = append_fields(det_cat, 'meas_id', meas_id, usemask=False)
-
     # Grab all tiles from base directory
     tilepaths = glob(basedir+'/*/')
     tiles = [os.path.basename(os.path.normpath(tilepath)) for tilepath in tilepaths
                 if 'DES' in tilepath]
 
-    # We need to create 4 catalog types: [griz, riz] x [nbr, no-nbr]
-    mcal_types = ('griz', True), ('griz', False), ('riz', True), ('riz', False)
+    if mcal_types == 'all':
+        mcal_types = ('griz', True), ('griz', False), ('riz', True), ('riz', False)
+    else:
+        import pudb
+        pudb.set_trace()
+        s = mcal_types.split('-')
+        if len(s) == 1:
+            mcal_types = (s[0], True)
+        else:
+            mcal_types = (s[0], False)
 
     cache_dir = os.path.join(outdir, 'cache')
     if not os.path.isdir(cache_dir):
