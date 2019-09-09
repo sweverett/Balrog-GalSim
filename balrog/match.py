@@ -3,17 +3,17 @@ from astropy.table import Table, Column, vstack, hstack, join
 from astropy.io import fits
 #import corner
 import numpy as np
-from scipy.stats import norm
-import scipy.stats as stats
-import matplotlib.mlab as mlab
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-import matplotlib
+#from scipy.stats import norm
+#import scipy.stats as stats
+#import matplotlib.mlab as mlab
+#import matplotlib.pyplot as plt
+#import matplotlib.colors as colors
+#import matplotlib
+#rc = matplotlib.rcParams.update({'font.size': 20})
 
 import os
 from glob import glob
 import esutil.htm as htm
-rc = matplotlib.rcParams.update({'font.size': 20})
 
 from blacklisted import _blacklisted_tiles
 
@@ -125,7 +125,7 @@ class MatchedCatalogs(object):
             tdir = os.path.join(self.basedir, tile)
             self.tiledir[tile] = tdir
             true_name = '{}_{}_balrog_truth_cat_{}.fits'.format(tile, real, self.inj_type)
-            meas_name = 'real_{}_{}-{}-{}.fits'.format(real, tile, self.meds_conf, self.ngmix_type)
+            meas_name = 'real_{}_{}-{}-{}_gap.fits'.format(real, tile, self.meds_conf, self.ngmix_type)
             true_file = os.path.join(tdir, true_name)
             meas_file = os.path.join(tdir, meas_name)
 
@@ -155,10 +155,10 @@ class MatchedCatalogs(object):
                 print('Following IO error occured:\n{}\nSkipping tile.'.format(e))
                 removed.append(tile)
                 continue
-            except AssertionError as e:
-                print('Following assertion error occured:\n{}nSkipping tile.'.format(e))
-                removed.append(tile)
-                continue
+            #except AssertionError as e:
+            #    print('Following assertion error occured:\n{}\nSkipping tile.'.format(e))
+            #    removed.append(tile)
+            #    continue
 
             assert len(self.cats[tile].meas) == len(self.cats[tile].true)
             self.nobjects += len(self.cats[tile].meas)
@@ -186,7 +186,11 @@ class MatchedCatalogs(object):
             #     full_true_stack = cat.det_cat
             # else:
             #     full_true_stack = vstack([full_true_stack, cat.det_cat])
+	    #print("REMOVE SOON")
+	    #if cat.tilename == 'DES0121-5831':
+	    #    continue
             cats.append(cat.det_cat)
+	    #print(len(cat.det_cat.dtype))
 
         if self.vb:
             print('Stacking all...')
@@ -359,7 +363,8 @@ class MatchedCatalogs(object):
         det_cat['bal_id'] = cat['bal_id']
         det_cat['true_id'] = cat['id']
         det_cat['meas_tilename'] = cat['meas_tilename']
-        det_cat['true_number'] = cat['number'] # 'number' is a reserved name in DB
+	#NOTE: Not present in prerun2
+        #det_cat['true_number'] = cat['number'] # 'number' is a reserved name in DB
         det_cat['true_ra'] = cat['ra']
         det_cat['true_dec'] = cat['dec']
         det_cat['meas_id'] = cat['meas_id']
@@ -633,7 +638,11 @@ class MatchedCatalog(object):
         if self.extra_catfile is not None:
             extra_cat = Table(fitsio.read(self.extra_catfile,
                                           columns=self._allowed_extra_cols))
-            assert len(meas_cat) == len(extra_cat)
+	    # TODO: FIX!!!
+	    #print('Tilename = {}'.format(self.tilename))
+	    #print('extra_catfile = {}'.format(self.extra_catfile))
+	    print('len(meas_cat)={}, len(extra_cat)={}'.format(len(meas_cat), len(extra_cat)))
+            #assert len(meas_cat) == len(extra_cat)
             # Need the ID colnames to match
             extra_cat.rename_column('COADD_OBJECT_ID', 'id')
             meas_cat = join(meas_cat, extra_cat, keys='id', join_type='left')
