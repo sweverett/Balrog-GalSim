@@ -28,6 +28,13 @@ parser.add_argument(
     help='Set the type of MatchedCatalog created (NB: not the same as ngmix_type!)'
 )
 parser.add_argument(
+    '--match_type',
+    default='default',
+    choices=['default', 'mof_only', 'sof_only'],
+    type=str,
+    help='Set the type of MatchedCatalog used (NB: not the same as ngmix_type!)'
+)
+parser.add_argument(
     '--version',
     default=None,
     type=str,
@@ -152,11 +159,22 @@ mcal_cols = single_cols + shear_cols + \
 # want to include certain value-added cols from Gold-like cats in the
 # matched ngmix catalogs
 _gold_basename = 'TILENAME_merged.fits'
-_gold_cols = ['COADD_OBJECT_ID',
-              'TILENAME',
-              'FLAGS_GOLD',
-              'EXTENDED_CLASS_MOF',
-              'EXTENDED_CLASS_SOF']
+_gold_cols_default = ['COADD_OBJECT_ID',
+                      'TILENAME',
+                      'FLAGS_GOLD',
+                      'EXTENDED_CLASS_MOF',
+                      'EXTENDED_CLASS_SOF']
+_gold_cols_sof_only = ['COADD_OBJECT_ID',
+                       'TILENAME',
+                       'FLAGS_GOLD_SOF_ONLY',
+                       'EXTENDED_CLASS_SOF']
+_gold_cols_mof_only = ['COADD_OBJECT_ID',
+                       'TILENAME',
+                       'FLAGS_GOLD_MOF_ONLY',
+                       'EXTENDED_CLASS_MOF']
+_gold_cols = {'default':_gold_cols_default,
+              'sof_only':_gold_cols_sof_only,
+              'mof_only':_gold_cols_mof_only,}
 
 from blacklisted import _blacklisted_tiles
 
@@ -196,6 +214,7 @@ if __name__ == "__main__":
     gold_base = args.gold_base
     gold_subdir = args.gold_subdir
     mcal_types = args.mcal_types
+    match_type = args.match_type
 
     if outdir is None:
         outdir = ''
@@ -233,15 +252,13 @@ if __name__ == "__main__":
                 if 'DES' in tilepath]
 
     if mcal_types == 'all':
-        mcal_types = ('griz', True), ('griz', False), ('riz', True), ('riz', False)
+        mcal_types = [('griz', True), ('griz', False), ('riz', True), ('riz', False)]
     else:
-        import pudb
-        pudb.set_trace()
         s = mcal_types.split('-')
         if len(s) == 1:
-            mcal_types = (s[0], True)
+            mcal_types = [(s[0], True)]
         else:
-            mcal_types = (s[0], False)
+            mcal_types = [(s[0], False)]
 
     cache_dir = os.path.join(outdir, 'cache')
     if not os.path.isdir(cache_dir):
@@ -361,8 +378,10 @@ if __name__ == "__main__":
                                             gold_filename)
 
                 try:
+                    import pudb
+                    pudb.set_trace()
                     gold_cat = Table(fitsio.read(gold_catfile,
-                                                columns=_gold_cols))
+                                                columns=_gold_cols[match_type]))
                 except IOError as e:
                     print('Following IO error occured:\n{}\nSkipping tile.'.format(e))
                     continue
