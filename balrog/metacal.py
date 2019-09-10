@@ -4,12 +4,24 @@ import h5py
 import glob
 import sys
 
+gold_cols_default = {'FLAGS_GOLD':'flags_gold',
+                     'EXTENDED_CLASS_MOF':'extended_class_mof',
+                     'EXTENDED_CLASS_SOF':'extended_class_sof',
+                     'TILENAME':'tilename'
+                     }
+
+gold_cols_mof = {'FLAGS_GOLD_MOF_ONLY':'flags_gold',
+                 'EXTENDED_CLASS_MOF':'extended_class_mof',
+                 'TILENAME':'tilename'
+                 }
+
+gold_cols_sof= {'FLAGS_GOLD_SOF_ONLY':'flags_gold',
+                'EXTENDED_CLASS_SOF':'extended_class_sof',
+                'TILENAME':'tilename'
+                }
+
 mcal_flat = {'id':'coadd_object_id',
              'bal_id':'bal_id',
-             'FLAGS_GOLD':'flags_gold',
-             'EXTENDED_CLASS_MOF':'extended_class_mof',
-             'EXTENDED_CLASS_SOF':'extended_class_sof',
-             'TILENAME':'tilename',
              'flags':'flags',
              'mask_frac':'mask_frac',
              'ra':'ra',
@@ -38,7 +50,12 @@ mcal_vec4 = {'nimage_tot':'nimage_tot_',
             }
 mcal_vec4_ext = ['g','r','i','z']
 
-def convert_mcal_to_h5(catdir, outfile, bands, version_tag=None, vb=False):
+def merge_two_dicts(x, y):
+    z = x.copy()
+    z.update(y)
+    return z
+
+def convert_mcal_to_h5(catdir, outfile, bands, version_tag=None, match_type='default', vb=False):
     """
     Converts metacal fits files into a single h5 file with separate tables for each of the unsheared and four sheared values.
     This form is much faster to access, but doesn't preserve the complete recarray table structure. Instead, each column is a different data array in the h5 file. The output of this function is sorted by coadd id.
@@ -60,6 +77,15 @@ def convert_mcal_to_h5(catdir, outfile, bands, version_tag=None, vb=False):
         mcal_pars_bindx = dict(zip('griz', [5,6,7,8]))
     else:
         raise ValueError('Only `riz` and `griz` currently allowed for arg `bands`!')
+
+    if match_type == 'default':
+        mcal_flat = merge_two_dicts(mcal_flat, gold_cols_default)
+    elif match_type == 'mof_only':
+        mcal_flat = merge_two_dicts(mcal_flat, gold_cols_gold)
+    elif match_type == 'sof_only':
+        mcal_flat = merge_two_dicts(mcal_flat, gold_cols_sof)
+    else:
+        raise ValueError('Not a valid match_type!')
 
     if version_tag is None:
         version_tag = ''
