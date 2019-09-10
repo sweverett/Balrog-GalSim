@@ -4,52 +4,6 @@ import h5py
 import glob
 import sys
 
-gold_cols_default = {'FLAGS_GOLD':'flags_gold',
-                     'EXTENDED_CLASS_MOF':'extended_class_mof',
-                     'EXTENDED_CLASS_SOF':'extended_class_sof',
-                     'TILENAME':'tilename'
-                     }
-
-gold_cols_mof = {'FLAGS_GOLD_MOF_ONLY':'flags_gold',
-                 'EXTENDED_CLASS_MOF':'extended_class_mof',
-                 'TILENAME':'tilename'
-                 }
-
-gold_cols_sof= {'FLAGS_GOLD_SOF_ONLY':'flags_gold',
-                'EXTENDED_CLASS_SOF':'extended_class_sof',
-                'TILENAME':'tilename'
-                }
-
-mcal_flat = {'id':'coadd_object_id',
-             'bal_id':'bal_id',
-             'flags':'flags',
-             'mask_frac':'mask_frac',
-             'ra':'ra',
-             'dec':'dec',
-             'psfrec_T':'psf_T',
-             'mcal_Tpsf':'mcal_psf_T'
-            }
-
-mcal_flats = {'mcal_T_r':'T',
-              'mcal_T_err':'T_err',
-              'mcal_s2n_r':'snr'
-             }
-
-mcal_vec2 = {'psfrec_g':'psf_e',
-             'mcal_gpsf':'mcal_psf_e'
-            }
-mcal_vec2_ext = ['1','2']
-
-mcal_vec3 = {'nimage_tot':'nimage_tot_',
-             'nimage_use':'nimage_use_'
-            }
-mcal_vec3_ext = ['r','i','z']
-
-mcal_vec4 = {'nimage_tot':'nimage_tot_',
-             'nimage_use':'nimage_use_'
-            }
-mcal_vec4_ext = ['g','r','i','z']
-
 def merge_two_dicts(x, y):
     z = x.copy()
     z.update(y)
@@ -63,6 +17,54 @@ def convert_mcal_to_h5(catdir, outfile, bands, version_tag=None, match_type='def
     This is a modified version of Troxel's convert_mcal_to_h5 to work with Balrog outputs
     See original at https://github.com/des-science/y3_matched_cat/blob/master/make.py
     """
+
+    # Some mcal col definitions
+    # TODO: Wrap this up in config classes
+    gold_cols_default = {'FLAGS_GOLD':'flags_gold',
+                        'EXTENDED_CLASS_MOF':'extended_class_mof',
+                        'EXTENDED_CLASS_SOF':'extended_class_sof',
+                        'TILENAME':'tilename'
+                        }
+
+    gold_cols_mof = {'FLAGS_GOLD_MOF_ONLY':'flags_gold',
+                    'EXTENDED_CLASS_MOF':'extended_class_mof',
+                    'TILENAME':'tilename'
+                    }
+
+    gold_cols_sof= {'FLAGS_GOLD_SOF_ONLY':'flags_gold',
+                    'EXTENDED_CLASS_SOF':'extended_class_sof',
+                    'TILENAME':'tilename'
+                    }
+
+    mcal_flat = {'id':'coadd_object_id',
+                'bal_id':'bal_id',
+                'flags':'flags',
+                'mask_frac':'mask_frac',
+                'ra':'ra',
+                'dec':'dec',
+                'psfrec_T':'psf_T',
+                'mcal_Tpsf':'mcal_psf_T'
+                }
+
+    mcal_flats = {'mcal_T_r':'T',
+                'mcal_T_err':'T_err',
+                'mcal_s2n_r':'snr'
+                }
+
+    mcal_vec2 = {'psfrec_g':'psf_e',
+                'mcal_gpsf':'mcal_psf_e'
+                }
+    mcal_vec2_ext = ['1','2']
+
+    mcal_vec3 = {'nimage_tot':'nimage_tot_',
+                'nimage_use':'nimage_use_'
+                }
+    mcal_vec3_ext = ['r','i','z']
+
+    mcal_vec4 = {'nimage_tot':'nimage_tot_',
+                'nimage_use':'nimage_use_'
+                }
+    mcal_vec4_ext = ['g','r','i','z']
 
     # Determine if using vec3 or vec4 (riz or griz)
     if bands == 'riz':
