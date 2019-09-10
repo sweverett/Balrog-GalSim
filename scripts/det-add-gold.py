@@ -22,6 +22,13 @@ parser.add_argument(
     help='Matched catalog filename'
 )
 parser.add_argument(
+    '--match_type',
+    default='default',
+    choices=['default', 'mof_only', 'sof_only'],
+    type=str,
+    help='Set the type of MatchedCatalog created (NB: not the same as ngmix_type!)'
+)
+parser.add_argument(
     '--vb',
     action='store_true',
     default=False,
@@ -33,6 +40,7 @@ def main():
     args = parser.parse_args()
     det_file = args.detfile
     match_file = args.matchfile
+    match_type = args.match_type
     vb = args.vb
 
     if vb is True:
@@ -41,7 +49,15 @@ def main():
     det_cat = Table.read(det_file)
 
     # Can add more later
-    gold_cols = ['bal_id', 'meas_FLAGS_GOLD', 'meas_EXTENDED_CLASS_MOF', 'meas_EXTENDED_CLASS_SOF']
+    gold_cols = ['bal_id']
+    if match_type == 'default':
+        gold_cols.append(['meas_FLAGS_GOLD', 'meas_EXTENDED_CLASS_MOF', 'meas_EXTENDED_CLASS_SOF'])
+    elif match_type == 'mof_only':
+        gold_cols.append(['meas_FLAGS_GOLD_MOF_ONLY', 'meas_EXTENDED_CLASS_MOF'])
+    elif match_type == 'sof_only':
+        gold_cols.append(['meas_FLAGS_GOLD_SOF_ONLY', 'meas_EXTENDED_CLASS_SOF'])
+    else:
+        raise ValueError('Not a valid match_type!')
     match_cat = Table(fitsio.read(match_file, columns=gold_cols))
 
     if vb is True:
