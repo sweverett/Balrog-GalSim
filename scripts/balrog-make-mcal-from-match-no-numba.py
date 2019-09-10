@@ -6,7 +6,7 @@ from numpy.lib.recfunctions import merge_arrays, append_fields
 from glob import glob
 import os
 
-from balrog_mcal_to_h5 import convert_mcal_to_h5
+from balrog.metacal import convert_mcal_to_h5
 
 parser = ArgumentParser()
 
