@@ -431,7 +431,7 @@ if __name__ == "__main__":
 
         if vb:
             print('Converting Mcal\'s to hdf5 stack...')
-        convert_mcal_to_h5(type_dir, h5_outfile, bands)
+        convert_mcal_to_h5(type_dir, h5_outfile, bands, match_type=match_type)
 
 #------------------------------------------------------------------------------------
 # Old code, possibly useful in future:
