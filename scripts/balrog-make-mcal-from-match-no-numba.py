@@ -303,7 +303,9 @@ if __name__ == "__main__":
             tdir = os.path.join(basedir, tile)
             tiledir[(bands, nbrs)][tile] = tdir
             if nbrs is True:
-                mcal_name = 'real_{}_{}-{}-{}-mcal.fits'.format(real, tile, conf, bands)
+		# TODO: For prerun2 only!
+                mcal_name = '{}-{}-{}-mcal.fits'.format(tile, conf, bands)
+                #mcal_name = 'real_{}_{}-{}-{}-mcal.fits'.format(real, tile, conf, bands)
             else:
                 mcal_name = 'real_{}_{}-{}-{}-noNB-mcal.fits'.format(real, tile, conf, bands)
 
