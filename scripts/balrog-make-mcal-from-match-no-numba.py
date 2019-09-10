@@ -379,8 +379,6 @@ if __name__ == "__main__":
                                             gold_filename)
 
                 try:
-                    import pudb
-                    pudb.set_trace()
                     gold_cat = Table(fitsio.read(gold_catfile,
                                                 columns=_gold_cols[match_type]))
                 except IOError as e:
