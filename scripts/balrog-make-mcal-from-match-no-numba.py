@@ -7,6 +7,7 @@ from glob import glob
 import os
 
 from balrog.metacal import convert_mcal_to_h5
+from balrog.blacklisted import _blacklisted_tiles
 
 parser = ArgumentParser()
 
@@ -175,8 +176,6 @@ _gold_cols_mof_only = ['COADD_OBJECT_ID',
 _gold_cols = {'default':_gold_cols_default,
               'sof_only':_gold_cols_sof_only,
               'mof_only':_gold_cols_mof_only,}
-
-from blacklisted import _blacklisted_tiles
 
 def write_stack(stack, outfile=None, clobber=False, save_det_only=False):
     assert stack is not None
