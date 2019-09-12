@@ -97,6 +97,12 @@ parser.add_argument(
     help='Use to overwrite existing match files'
 )
 parser.add_argument(
+    '--test',
+    action='store_true',
+    default=False,
+    help='Set to only stack a few tiles'
+)
+parser.add_argument(
     '--vb',
     action='store_true',
     default=False,
@@ -214,6 +220,7 @@ if __name__ == "__main__":
     gold_subdir = args.gold_subdir
     mcal_types = args.mcal_types
     match_type = args.match_type
+    test = args.test
 
     if outdir is None:
         outdir = ''
@@ -249,6 +256,9 @@ if __name__ == "__main__":
     tilepaths = glob(basedir+'/*/')
     tiles = [os.path.basename(os.path.normpath(tilepath)) for tilepath in tilepaths
                 if 'DES' in tilepath]
+
+    if test is True:
+        tiles = tiles[::20]
 
     if mcal_types == 'all':
         mcal_types = [('griz', True), ('griz', False), ('riz', True), ('riz', False)]
