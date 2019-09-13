@@ -534,6 +534,8 @@ def flatten(data_dir, filelist, out_dir, tilename, save_all=False):
                 newname = names[i].upper()+'_'+fileband.upper()
                 cols.append(fits.Column(name=mofsofstr+newname,format=get_fits_type(names[i]),array=data_tab[names[i]]))
                 prev_colname_add = colname_add
+	    elif 'gap' in names[i]:
+		continue
             else:
                 if names[i] == "id":
                     newname = "COADD_OBJECT_ID"
