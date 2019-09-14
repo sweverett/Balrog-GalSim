@@ -197,10 +197,8 @@ def write_stack(stack, outfile=None, clobber=False, save_det_only=False):
     if save_det_only is True:
         # Can't do this earlier, as we didn't yet have a mapping from
         # bal_id to meas_id
-        # fitsio.write(outfile, stack[stack['bal_id'] >= 0])
         stack[stack['bal_id'] >= 0].write(outfile, overwrite=clobber)
     else:
-        # fitsio.write(outfile, stack)
         stack.write(outfile, overwrite=clobber)
 
     return
@@ -313,11 +311,11 @@ if __name__ == "__main__":
             tdir = os.path.join(basedir, tile)
             tiledir[(bands, nbrs)][tile] = tdir
             if nbrs is True:
-		# TODO: For prerun2 only!
                 mcal_name = '{}-{}-{}-mcal.fits'.format(tile, conf, bands)
                 #mcal_name = 'real_{}_{}-{}-{}-mcal.fits'.format(real, tile, conf, bands)
             else:
-                mcal_name = 'real_{}_{}-{}-{}-noNB-mcal.fits'.format(real, tile, conf, bands)
+                mcal_name = '{}-{}-{}-noNB-mcal.fits'.format(tile, conf, bands)
+                #mcal_name = 'real_{}_{}-{}-{}-noNB-mcal.fits'.format(real, tile, conf, bands)
 
             mcal_file = os.path.join(tdir, mcal_name)
             mcal_files[(bands, nbrs)][tile] = mcal_file
@@ -336,7 +334,6 @@ if __name__ == "__main__":
         k = 0
         stack = None
         iter_end = 0
-        # tile_cats = []
         for tile, mcal_file in mcal_files[(bands, nbrs)].items():
             k += 1
             if vb:
@@ -409,8 +406,6 @@ if __name__ == "__main__":
                 gold_cat.rename_column('COADD_OBJECT_ID', 'id')
                 cat = join(cat, gold_cat, keys='id', join_type='left')
 
-            # tile_cats.append(cat)
-
             cache_filename = 'balrog_' + os.path.basename(mcal_file)
             cache_file = os.path.join(type_dir, cache_filename)
 
@@ -428,10 +423,6 @@ if __name__ == "__main__":
 
             nobjects += lencat
 
-        # if vb:
-        #     print('Stacking catalogs...')
-        # stack = vstack(tile_cats, join_type='exact')
-
         assert nobjects == size
 
         if write_fits is True:
@@ -444,21 +435,3 @@ if __name__ == "__main__":
         if vb:
             print('Converting Mcal\'s to hdf5 stack...')
         convert_mcal_to_h5(type_dir, h5_outfile, bands, match_type=match_type)
-
-#------------------------------------------------------------------------------------
-# Old code, possibly useful in future:
-
-    # temp = tilename (w/o 'DES' and +/- mapped to 1/0) + meas_id
-    # temp = np.array([i[2:] for i in bid])
-    # print t
-
-    # tile_id, meas_id = temp[]
-    # print bid
-    # print 'type 1: ', type(bid)
-    # print 'dtype 1: ', bid.dtype
-    # temp  = np.char.lstrip(bid, '1')
-    # print 'type 2: ',type(temp)
-    # temp2 = np.char.lstrip(temp, '0')
-    # print 'type 3: ',type(temp2)
-    # print temp2[0:10]
-
