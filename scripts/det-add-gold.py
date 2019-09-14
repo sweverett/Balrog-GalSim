@@ -51,11 +51,11 @@ def main():
     # Can add more later
     gold_cols = ['bal_id']
     if match_type == 'default':
-        gold_cols + ['meas_FLAGS_GOLD', 'meas_EXTENDED_CLASS_MOF', 'meas_EXTENDED_CLASS_SOF']
+        gold_cols += ['meas_FLAGS_GOLD', 'meas_EXTENDED_CLASS_MOF', 'meas_EXTENDED_CLASS_SOF']
     elif match_type == 'mof_only':
-        gold_cols + ['meas_FLAGS_GOLD_MOF_ONLY', 'meas_EXTENDED_CLASS_MOF']
+        gold_cols += ['meas_FLAGS_GOLD_MOF_ONLY', 'meas_EXTENDED_CLASS_MOF']
     elif match_type == 'sof_only':
-        gold_cols + ['meas_FLAGS_GOLD_SOF_ONLY', 'meas_EXTENDED_CLASS_SOF']
+        gold_cols += ['meas_FLAGS_GOLD_SOF_ONLY', 'meas_EXTENDED_CLASS_SOF']
     else:
         raise ValueError('Not a valid match_type!')
     match_cat = Table(fitsio.read(match_file, columns=gold_cols))
