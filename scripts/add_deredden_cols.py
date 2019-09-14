@@ -22,7 +22,7 @@ parser.add_argument(
     help='Filename of catalog that contains extinction information'
 )
 parser.add_argument(
-    '--verbose',
+    '--vb',
     action='store_true',
     default=False,
     help='Set to print out more information'

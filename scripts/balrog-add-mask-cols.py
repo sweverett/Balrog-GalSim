@@ -41,7 +41,7 @@ parser.add_argument(
     help='Filename of the badregions mask'
 )
 parser.add_argument(
-    '--verbose',
+    '--vb',
     action='store_true',
     default=False,
     help='Set to print out more information'
