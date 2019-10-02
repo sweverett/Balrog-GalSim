@@ -30,7 +30,7 @@ parser.add_argument(
 
 def main():
     args = parser.parse_args()
-    vb = args.verbose
+    vb = args.vb
 
     if vb:
         print('Reading in catalog info...')
