@@ -78,7 +78,7 @@ def get_masks(mask_files, det_catalog, vb):
 
 def main():
     args = parser.parse_args()
-    vb = args.verbose
+    vb = args.vb
     basedir = args.basedir
     catfile = args.catfile
 
