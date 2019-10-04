@@ -183,8 +183,8 @@ _gold_cols = {'default':_gold_cols_default,
               'sof_only':_gold_cols_sof_only,
               'mof_only':_gold_cols_mof_only,}
 
-def write_stack(stack, outfile=None, clobber=False, save_det_only=False):
-    assert stack is not None
+def write_cat(cat, outfile=None, clobber=False, save_det_only=False):
+    assert cat is not None
 
     if os.path.exists(outfile):
         if clobber is True:
@@ -197,9 +197,9 @@ def write_stack(stack, outfile=None, clobber=False, save_det_only=False):
     if save_det_only is True:
         # Can't do this earlier, as we didn't yet have a mapping from
         # bal_id to meas_id
-        stack[stack['bal_id'] >= 0].write(outfile, overwrite=clobber)
+        cat[cat['bal_id'] >= 0].write(outfile, overwrite=clobber)
     else:
-        stack.write(outfile, overwrite=clobber)
+        cat.write(outfile, overwrite=clobber)
 
     return
 
@@ -394,7 +394,7 @@ if __name__ == "__main__":
 
                 # This used to be an assertion, but there are sometimes bugs with noNB runs that
                 # cause a discrepancy. We want to ignore those tiles
-                if len(cat) != len(gold_cat):
+                if lencat != len(gold_cat):
                     mfile = os.path.basename(mcal_file)
                     gfile = os.path.basename(gold_catfile)
                     print('{} does not have the same number of rows as '.format(mfile) +
@@ -411,7 +411,8 @@ if __name__ == "__main__":
 
             if vb is True:
                 print('Writing cache file...')
-            cat.write(cache_file, overwrite=clobber)
+            write_cat(cat, outfile=cache_file, clobber=clobber,
+                      save_det_only=save_det_only)
 
             if write_fits is True:
                 if stack is None:
@@ -429,8 +430,8 @@ if __name__ == "__main__":
             if vb:
                 print('Writing stacked catalog...')
             fits_outfile = h5_outfile.replace('.h5', '.fits')
-            write_stack(stack, outfile=fits_outfile, clobber=clobber,
-                        save_det_only=save_det_only)
+            write_cat(stack, outfile=fits_outfile, clobber=clobber,
+                      save_det_only=save_det_only)
 
         if vb:
             print('Converting Mcal\'s to hdf5 stack...')
