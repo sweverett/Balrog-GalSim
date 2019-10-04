@@ -256,7 +256,10 @@ if __name__ == "__main__":
                 if 'DES' in tilepath]
 
     if test is True:
-        tiles = tiles[::20]
+        nt = len(tiles)
+        if nt >= 5:
+            dt = len(tiles) / 5
+            tiles = tiles[::dt]
 
     if mcal_types == 'all':
         mcal_types = [('griz', True), ('griz', False), ('riz', True), ('riz', False)]
