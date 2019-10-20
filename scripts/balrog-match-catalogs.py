@@ -62,6 +62,12 @@ parser.add_argument(
     help='ngmix type to match (mof or sof). Defaults to mof'
 )
 parser.add_argument(
+    '--ngmix_profile',
+    default='bdf',
+    type=str,
+    help='ngmix profile type used as col prefix'
+)
+parser.add_argument(
     '--gold_base',
     default=None,
     type=str,
@@ -176,6 +182,8 @@ def main():
                                          match_radius=args.match_radius/3600.0,
                                          extra_base=args.gold_base,
                                          extra_subdir=args.gold_subdir,
+                                         prefix=args.ngmix_profile+'_',
+                                         de_reddened=True,
                                          vb=vb)
 
     if args.cache:

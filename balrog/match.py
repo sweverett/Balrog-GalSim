@@ -263,11 +263,11 @@ class MatchedCatalogs(object):
         return
 
     def write_truth_det_stack(self, outfile='truth_det_stack.fits', outdir=None, clobber=False,
-                              save_mags=False):
+                              save_mags=True):
         stack, outfile = self._write_truth_base(outfile=outfile, outdir=outdir, clobber=clobber)
 
         # Detection stack only needs limited information
-        det_stack = self._setup_det_cat(stack)
+        det_stack = self._setup_det_cat(stack, save_mags=save_mags)
         det_stack.write(outfile)
 
         # TODO: Add some metadata information to PHU!
@@ -354,7 +354,7 @@ class MatchedCatalogs(object):
 
         return
 
-    def _setup_det_cat(self, cat):
+    def _setup_det_cat(self, cat, save_mags=True):
         # Detection stack only needs limited information
         det_cat= Table()
         det_cat['bal_id'] = cat['bal_id']
@@ -367,9 +367,13 @@ class MatchedCatalogs(object):
         det_cat['meas_id'] = cat['meas_id']
         det_cat['detected'] = cat['detected']
 
+        if save_mags is True:
+            det_cat['true_'+self.true_mag_colname] = cat[self.true_mag_colname]
+
         return det_cat
 
-    def write_det_cats(self, outdir=None, outbase='balrog_det_cat', clobber=False):
+    def write_det_cats(self, outdir=None, outbase='balrog_det_cat', save_mags=save_mags,
+                       clobber=False):
         if outdir is None:
             outdir = self.basedir
 
@@ -385,7 +389,7 @@ class MatchedCatalogs(object):
                 os.remove(outfile)
 
             det = cat.det_cat
-            det_cat = self._setup_det_cat(det)
+            det_cat = self._setup_det_cat(det, save_mags=save_mags)
             det_cat.write(outfile)
 
         return
@@ -636,10 +640,6 @@ class MatchedCatalog(object):
             extra_cat = Table(fitsio.read(self.extra_catfile,
                                           columns=self._allowed_extra_cols))
 
-            # TODO: Check!
-            print('Tilename = {}'.format(self.tilename))
-            print('extra_catfile = {}'.format(self.extra_catfile))
-            print('len(meas_cat)={}, len(extra_cat)={}'.format(len(meas_cat), len(extra_cat)))
             assert len(meas_cat) == len(extra_cat)
             # Need the ID colnames to match
             extra_cat.rename_column('COADD_OBJECT_ID', 'id')
@@ -659,7 +659,6 @@ class MatchedCatalog(object):
         det_cat_ids = np.where(self.det_cat['id'] in ids)
         self.det_cat['detected'][det_cat_ids] = -1
 
-#         cuts = np.ones(len(self.meas['flags']), ctype=bool)
         self.true = self.true[cuts]
         self.meas = self.meas[cuts]
         self.dist = self.dist[cuts]
