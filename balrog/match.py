@@ -263,11 +263,12 @@ class MatchedCatalogs(object):
         return
 
     def write_truth_det_stack(self, outfile='truth_det_stack.fits', outdir=None, clobber=False,
-                              save_mags=True):
+                              save_mags=True, save_gap_flux=False):
         stack, outfile = self._write_truth_base(outfile=outfile, outdir=outdir, clobber=clobber)
 
         # Detection stack only needs limited information
-        det_stack = self._setup_det_cat(stack, save_mags=save_mags)
+        det_stack = self._setup_det_cat(stack, save_mags=save_mags,
+                                        save_gap_flux=save_gap_flux)
         det_stack.write(outfile)
 
         # TODO: Add some metadata information to PHU!
@@ -354,7 +355,7 @@ class MatchedCatalogs(object):
 
         return
 
-    def _setup_det_cat(self, cat, save_mags=True):
+    def _setup_det_cat(self, cat, save_mags=True, save_gap_flux=False):
         # Detection stack only needs limited information
         det_cat= Table()
         det_cat['bal_id'] = cat['bal_id']
@@ -370,10 +371,13 @@ class MatchedCatalogs(object):
         if save_mags is True:
             det_cat['true_'+self.true_mag_colname] = cat[self.true_mag_colname]
 
+        if save_gap_brightness is True:
+            det_cat['true_gap_riz_flux_deredden'] = cat['gap_riz_flux_deredden']
+
         return det_cat
 
     def write_det_cats(self, outdir=None, outbase='balrog_det_cat', save_mags=save_mags,
-                       clobber=False):
+                       clobber=False, save_gap_flux=False):
         if outdir is None:
             outdir = self.basedir
 
@@ -389,7 +393,8 @@ class MatchedCatalogs(object):
                 os.remove(outfile)
 
             det = cat.det_cat
-            det_cat = self._setup_det_cat(det, save_mags=save_mags)
+            det_cat = self._setup_det_cat(det, save_mags=save_mags,
+                                          save_gap_flux=save_gap_flux)
             det_cat.write(outfile)
 
         return
@@ -540,7 +545,7 @@ class MatchedCatalog(object):
     def __init__(self, true_file, meas_file, prefix='cm_', ratag='ra', dectag='dec',
                  match_radius=1.0/3600, depth=14, de_reddened=False, ext_flux=None,
                  ext_mag=None, tilename=None, real=None, make_cuts=False,
-                 extra_catfile=None):
+                 extra_catfile=None, save_gap_flux=False):
 
         self.true_file = true_file
         self.meas_file = meas_file
@@ -550,6 +555,7 @@ class MatchedCatalog(object):
         self.match_radius = match_radius
         self.depth = depth
         self.de_reddened = de_reddened
+        self.save_gap_flux = save_gap_flux
 
         p = prefix
         if self.de_reddened is True:
@@ -618,6 +624,11 @@ class MatchedCatalog(object):
         self.det_cat['detected'][id_t] = 1
         self.det_cat['meas_id'][id_t] = self.meas['id']
 
+        # Sometimes want to compute an avg dereddened riz Gaussian
+        # aperture flux for brightness comparisons
+        if self.save_gap_flux is True:
+            self._compute_gap_flux()
+
         if self.tilename is not None:
             L = len(self.det_cat)
             tilenames = np.array(L * [self.tilename])
@@ -648,6 +659,23 @@ class MatchedCatalog(object):
         self._assign_bal_id(true_cat)
 
         return true_cat, meas_cat
+
+    def _compute_gap_flux(self):
+        gap_riz_deredden = Column(name='gap_riz_flux_deredden',
+                                  data=-1.*np.ones(len(self.det_cat)),
+                                  dtype=float)
+
+        flux_factor = self.det_cat['bdf_flux_deredden'] /
+                      self.det_cat['bdf_flux']
+
+        gap_deredden = self.det_cat['gap_flux'] * flux_factor
+
+        # Average over riz gap fluxes
+        gap_riz_deredden[:] = np.mean(gap_deredden[:,1:], axis=1)
+
+        self.det_cat.add_column(gap_riz_deredden)
+
+        return
 
     def _make_cuts(self):
         # TODO: Add more flexibility in future!

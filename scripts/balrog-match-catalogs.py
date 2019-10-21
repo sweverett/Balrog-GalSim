@@ -94,9 +94,15 @@ parser.add_argument(
 )
 parser.add_argument(
     '--save_mags',
-    action='store_true',
-    default=False,
+    default=True,
+    type=bool,
     help='Use to save truth mags to detection catalog'
+)
+parser.add_argument(
+    '--save_gap_flux',
+    default=False,
+    type=bool,
+    help='Use to save avg riz Gaussian aperture fluxes in detection catalog'
 )
 parser.add_argument(
     '--clobber',
@@ -167,6 +173,7 @@ def main():
             raise ValueError('Can\'t set gold_subdir if gold_base isn\'t set!')
 
     save_mags = args.save_mags
+    save_gap_flux = args.save_gap_flux
 
     if vb:
         print('Matching catalogs...')
@@ -184,6 +191,7 @@ def main():
                                          extra_subdir=args.gold_subdir,
                                          prefix=args.ngmix_profile+'_',
                                          de_reddened=True,
+                                         save_gap_flux=save_gap_flux,
                                          vb=vb)
 
     if args.cache:
@@ -216,6 +224,7 @@ def main():
     det_outfile = matched_cats.write_truth_det_stack(outdir=outdir,
                                                      clobber=args.clobber,
                                                      save_mags=save_mags,
+                                                     save_gap_flux=save_gap_flux,
                                                      outfile=det_outfile)
 
     if not args.det_only:
