@@ -376,7 +376,7 @@ class MatchedCatalogs(object):
 
         return det_cat
 
-    def write_det_cats(self, outdir=None, outbase='balrog_det_cat', save_mags=save_mags,
+    def write_det_cats(self, outdir=None, outbase='balrog_det_cat', save_mags=True,
                        clobber=False, save_gap_flux=False):
         if outdir is None:
             outdir = self.basedir
@@ -665,8 +665,7 @@ class MatchedCatalog(object):
                                   data=-1.*np.ones(len(self.det_cat)),
                                   dtype=float)
 
-        flux_factor = self.det_cat['bdf_flux_deredden'] /
-                      self.det_cat['bdf_flux']
+        flux_factor = self.det_cat['bdf_flux_deredden'] / self.det_cat['bdf_flux']
 
         gap_deredden = self.det_cat['gap_flux'] * flux_factor
 
