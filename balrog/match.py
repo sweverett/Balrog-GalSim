@@ -369,7 +369,9 @@ class MatchedCatalogs(object):
         det_cat['detected'] = cat['detected']
 
         if save_mags is True:
-            det_cat['true_'+self.true_mag_colname] = cat[self.true_mag_colname]
+            # TODO: Generalize for the future
+            # det_cat['true_'+self.true_mag_colname] = cat[self.true_mag_colname]
+            det_cat['true_bdf_mag_deredden'] = cat['true_bdf_mag_deredden']
 
         if save_gap_brightness is True:
             det_cat['true_gap_riz_flux_deredden'] = cat['gap_riz_flux_deredden']
