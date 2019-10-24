@@ -27,7 +27,7 @@ class MatchedCatalogs(object):
 
     # TODO: Add stars into all of this!
     def __init__(self, basedir, meds_conf='y3v02', real=0, tile_list=None, inj_type='gals',
-                 match_type='default', ngmix_type='mof', vb=False, **kwargs):
+                 match_type='default', ngmix_type='mof', vb=False, test=False, **kwargs):
         if not isinstance(basedir, str):
             raise TypeError('basedir must be a string!')
         if not os.path.isdir(basedir):
@@ -79,6 +79,10 @@ class MatchedCatalogs(object):
             raise TypeError('vb must be a bool!')
         self.vb = vb
 
+        if not isinstance(test, bool):
+            raise TypeError('test must be a bool!')
+        self.test = test
+
         self.true_stack = None
         self.meas_stack = None
         self.full_true_stack = None
@@ -106,6 +110,12 @@ class MatchedCatalogs(object):
                 tilepaths = glob(self.basedir+'/*/')
                 tiles = [os.path.basename(os.path.normpath(tilepath)) for tilepath in tilepaths
                          if 'DES' in tilepath]
+
+        if self.test is True:
+            nt = len(tiles)
+            if nt >= 5:
+                dt = len(tiles) / 5
+                tiles = tiles[::dt]
 
         real = self.real
         self.nobjects = 0
@@ -355,7 +365,8 @@ class MatchedCatalogs(object):
 
         return
 
-    def _setup_det_cat(self, cat, save_mags=True, save_gap_flux=False):
+    def _setup_det_cat(self, cat, save_mags=True, save_gap_flux=False,
+                       save_gap_flux=False):
         # Detection stack only needs limited information
         det_cat= Table()
         det_cat['bal_id'] = cat['bal_id']
@@ -373,7 +384,7 @@ class MatchedCatalogs(object):
             # det_cat['true_'+self.true_mag_colname] = cat[self.true_mag_colname]
             det_cat['true_bdf_mag_deredden'] = cat['bdf_mag_deredden']
 
-        if save_gap_brightness is True:
+        if save_gap_flux is True:
             det_cat['true_gap_riz_flux_deredden'] = cat['gap_riz_flux_deredden']
 
         return det_cat
@@ -669,7 +680,7 @@ class MatchedCatalog(object):
 
         flux_factor = self.det_cat['bdf_flux_deredden'] / self.det_cat['bdf_flux']
 
-        gap_deredden = self.det_cat['gap_flux'] * flux_factor
+        gap_deredden = self.det_cat['gap_flux_fwhm4asec'] * flux_factor
 
         # Average over riz gap fluxes
         gap_riz_deredden[:] = np.mean(gap_deredden[:,1:], axis=1)

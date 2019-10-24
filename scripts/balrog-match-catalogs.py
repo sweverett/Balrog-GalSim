@@ -128,11 +128,11 @@ parser.add_argument(
     default=False,
     help='Set to print out more information'
 )
-# TODO: Implement!
 parser.add_argument(
-    '--clean',
+    '--test',
     action='store_true',
-    help=('Remove all existing matched catalogs in base'),
+    default=False,
+    help='Set to only stack a few tiles'
 )
 
 def add_version(fname, version):
@@ -142,6 +142,7 @@ def add_version(fname, version):
 
 def main():
     args = parser.parse_args()
+    test = args.test
     vb = args.vb
 
     if args.clean is True:
@@ -192,6 +193,7 @@ def main():
                                          prefix=args.ngmix_profile+'_',
                                          de_reddened=True,
                                          save_gap_flux=save_gap_flux,
+                                         test=test,
                                          vb=vb)
 
     if args.cache:
