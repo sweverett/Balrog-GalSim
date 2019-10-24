@@ -365,8 +365,7 @@ class MatchedCatalogs(object):
 
         return
 
-    def _setup_det_cat(self, cat, save_mags=True, save_gap_flux=False,
-                       save_gap_flux=False):
+    def _setup_det_cat(self, cat, save_mags=True, save_gap_flux=False):
         # Detection stack only needs limited information
         det_cat= Table()
         det_cat['bal_id'] = cat['bal_id']
