@@ -145,11 +145,6 @@ def main():
     test = args.test
     vb = args.vb
 
-    if args.clean is True:
-        # Clean out existing matched catalogs
-        # ...
-        pass
-
     if args.outdir is None:
         outdir = os.getcwd()
     else:
