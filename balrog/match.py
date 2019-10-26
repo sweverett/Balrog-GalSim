@@ -679,7 +679,9 @@ class MatchedCatalog(object):
 
         flux_factor = self.det_cat['bdf_flux_deredden'] / self.det_cat['bdf_flux']
 
-        gap_deredden = self.det_cat['gap_flux_fwhm4asec'] * flux_factor
+        # Clip to match ngmix def, apply redenning correction correctly
+        # (otherwise would make *more* negative!)
+        gap_deredden = self.det_cat['gap_flux_fwhm4asec'].clip(0.001) * flux_factor
 
         # Average over riz gap fluxes
         gap_riz_deredden[:] = np.mean(gap_deredden[:,1:], axis=1)
