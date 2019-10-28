@@ -27,7 +27,8 @@ class MatchedCatalogs(object):
 
     # TODO: Add stars into all of this!
     def __init__(self, basedir, meds_conf='y3v02', real=0, tile_list=None, inj_type='gals',
-                 match_type='default', ngmix_type='mof', vb=False, test=False, **kwargs):
+                 profile='bdf', match_type='default', ngmix_type='mof', vb=False, test=False,
+                 **kwargs):
         if not isinstance(basedir, str):
             raise TypeError('basedir must be a string!')
         if not os.path.isdir(basedir):
@@ -74,6 +75,8 @@ class MatchedCatalogs(object):
 
         # This is checked in `build_matched_catalog()`
         self.match_type = match_type
+
+        self.profile = profile
 
         if not isinstance(vb, bool):
             raise TypeError('vb must be a bool!')
@@ -380,8 +383,8 @@ class MatchedCatalogs(object):
 
         if save_mags is True:
             # TODO: Generalize for the future
-            # det_cat['true_'+self.true_mag_colname] = cat[self.true_mag_colname]
-            det_cat['true_bdf_mag_deredden'] = cat['bdf_mag_deredden']
+            prof = self.profile
+            det_cat['true_{}_mag_deredden'.format(prof)] = cat['{}_mag_deredden'.format(prof)]
 
         if save_gap_flux is True:
             det_cat['true_gap_riz_flux_deredden'] = cat['gap_riz_flux_deredden']
