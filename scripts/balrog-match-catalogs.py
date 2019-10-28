@@ -185,6 +185,7 @@ def main():
                                          match_radius=args.match_radius/3600.0,
                                          extra_base=args.gold_base,
                                          extra_subdir=args.gold_subdir,
+                                         profile=args.ngmix_profile,
                                          prefix=args.ngmix_profile+'_',
                                          de_reddened=True,
                                          save_gap_flux=save_gap_flux,
