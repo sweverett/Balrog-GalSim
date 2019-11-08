@@ -152,11 +152,6 @@ def main():
             os.mkdir(args.outdir)
         outdir = args.outdir
 
-    if args.inj_type == 'stars':
-        if args.ngmix_type is not None:
-            # ngmix_type not relevant for star case
-            args.ngmix_type = None
-
     if args.gold_base is not None:
         if args.gold_base == 'base':
             args.gold_base = args.base
