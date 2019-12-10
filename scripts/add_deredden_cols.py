@@ -46,6 +46,8 @@ def main():
     # Create de-reddened columns
     flux_deredden = np.zeros(np.shape(cat['meas_cm_flux']))
     mag_deredden  = np.zeros(np.shape(cat['meas_cm_mag']))
+    ext_fact      = np.zeros(len(cat))
+    ext_mag       = np.zeros(len(cat))
 
     tiles = np.unique(cat['meas_tilename'])
     Nt = len(tiles)
@@ -62,14 +64,16 @@ def main():
                   .format(tile, k, Nt))
         indices = np.where(cat['meas_tilename'] == tile)
         cat_tile = cat[indices]
-        ext_fact = ext[ext['REDTILE']==tile]['EXTFACT']
-        ext_mag  = ext[ext['REDTILE']==tile]['EXTMAG']
+        exfact = ext[ext['REDTILE']==tile]['EXTFACT']
+        exmag  = ext[ext['REDTILE']==tile]['EXTMAG']
 
-        flux = cat_tile['meas_cm_flux'] / ext_fact
-        mag  = cat_tile['meas_cm_mag'] - ext_mag
+        flux = cat_tile['meas_cm_flux'] / exfact
+        mag  = cat_tile['meas_cm_mag'] - exmag
 
         flux_deredden[indices] = flux
         mag_deredden[indices] = mag
+        ext_fact[indices] = exfact
+        ext_mag[indices] = exmags
 
     if vb:
         print 'flux len: ', len(flux_deredden[flux_deredden==0])
@@ -82,6 +86,12 @@ def main():
     if vb:
         print('Writing dereddened mags...')
     fits[1].insert_column('meas_cm_mag_deredden', mag_deredden)
+    if vb:
+        print('Writing extinction factors...')
+    fits[1].insert_column('ext_fact', ext_fact)
+    if vb:
+        print('Writing extinction mags...')
+    fits[1].insert_column('ext_mag', ext_mag)
 
     return
 

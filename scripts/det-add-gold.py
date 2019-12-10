@@ -29,6 +29,12 @@ parser.add_argument(
     help='Set the type of MatchedCatalog created (NB: not the same as ngmix_type!)'
 )
 parser.add_argument(
+    '--ignore_ext',
+    action-'store_true'
+    default=False
+    help='Set to skip saving the extinction factors to the detection catalog'
+)
+parser.add_argument(
     '--vb',
     action='store_true',
     default=False,
@@ -41,6 +47,7 @@ def main():
     det_file = args.detfile
     match_file = args.matchfile
     match_type = args.match_type
+    ignore_ext = args.ignore_ext
     vb = args.vb
 
     if vb is True:
@@ -58,13 +65,15 @@ def main():
         gold_cols += ['meas_FLAGS_GOLD_SOF_ONLY', 'meas_EXTENDED_CLASS_SOF']
     else:
         raise ValueError('Not a valid match_type!')
+    if ignore_ext is False :
+        gold_cols += ['ext_fact', 'ext_mag']
+
     match_cat = Table(fitsio.read(match_file, columns=gold_cols))
 
     if vb is True:
         print('Joining catalogs...')
 
     new_det_cat = join(det_cat, match_cat, join_type='left', keys='bal_id')
-
 
     if vb is True:
         print('Writing new detection catalog...')

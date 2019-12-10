@@ -37,7 +37,8 @@ def convert_mcal_to_h5(catdir, outfile, bands, version_tag=None, match_type='def
                     }
 
     mcal_flat = {'id':'coadd_object_id',
-                'bal_id':'bal_id',
+                'bal_id':'bal_id',       #added for Balrog
+                'ext_fact':'ext_fact',   #added for Balrog
                 'flags':'flags',
                 'mask_frac':'mask_frac',
                 'ra':'ra',
@@ -250,17 +251,22 @@ def convert_mcal_to_h5(catdir, outfile, bands, version_tag=None, match_type='def
     # c[f['catalog']['unsheared']['coadd_object_id'][:]==0] += 2**28
     # f['catalog']['unsheared']['flags'][:] = c
 
-    # NOTE: We don't apply calibrations to the fluxes in Balrog as we can't compute them.
-    # But this is where flux_err is properly square rooted in the data, so we will do it
+    # NOTE: We don't apply chromatic calibrations to the fluxes in Balrog as we can't compute them.
+    # But this is where dereddening & flux_err is properly square rooted in the data, so we will do it
     # here as well
     # Calibrate fluxes
     # f2 = h5py.File(goldfile, 'r')
     # s  = np.argsort(f2['catalog']['gold']['coadd_object_id'][:])
+    if vb is True:
+        print('Calibrating fluxes...')
     for band in bands:
         # corr = 10**(-0.4*(f2['catalog/gold/delta_mag_chrom_'+band][:]+f2['catalog/gold/delta_mag_y4_'+band][:]-f2['catalog/gold/a_sed_sfd98_'+band][:]))[s]
+        # We can't do the above correction as it depends on chromatic SED modeling that we skip in Balrog
+        # We apply the following approximate extinction correction instead:
+        corr = f['catalog/unsheared/ext_fact'][:]
         for table in ['unsheared','sheared_1p','sheared_1m','sheared_2p','sheared_2m']:
-            # c = f['catalog/'+table+'/flux_'+band][:]
-            # f['catalog/'+table+'/flux_'+band][:]  = c*corr
+            c = f['catalog/'+table+'/flux_'+band][:]
+            f['catalog/'+table+'/flux_'+band][:] = c / corr
             c = f['catalog/'+table+'/flux_err_'+band][:]
             f['catalog/'+table+'/flux_err_'+band][:]  = np.sqrt(c)
 

@@ -247,7 +247,7 @@ if __name__ == "__main__":
         print('Loading detection catalog cols...')
 
     det_filename = args.det_catalog
-    det_cols = ['bal_id', 'meas_id', 'meas_tilename']
+    det_cols = ['bal_id', 'meas_id', 'meas_tilename', 'ext_fact']
     det_cat = fitsio.read(det_filename, columns=det_cols)
 
     # Grab all tiles from base directory
@@ -364,6 +364,7 @@ if __name__ == "__main__":
 
             lencat = len(cat)
             cat_bal_id = -1 * np.ones(lencat, dtype='i8')
+            cat_ext_fact = -1 * np.ones(lencat, dtype='i8')
 
             bal_ids = det_in_tile['bal_id'].astype('i8')
             meas_ids = det_in_tile['meas_id'].astype('i8')
@@ -374,9 +375,11 @@ if __name__ == "__main__":
                 indx = np.where(mid == cat['id'])
                 assert len(indx) == 1
                 cat_bal_id[indx] = bid
+                cat_ext_fact[indx] = det_obj['ext_fact']
 
             # cat = append_fields(cat, 'bal_id', cat_bal_id, usemask=False)
             cat.add_column(Column(cat_bal_id, name='bal_id'))
+            cat.add_column(Column(cat_ext_fact, name='ext_fact'))
 
             # Add certain gold value-adds if desired
             if gold_base is not None:
