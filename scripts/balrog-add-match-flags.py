@@ -13,7 +13,8 @@ parser.add_argument(
     help='Filename of a Balrog detection catalog (created with a given matching criterion)'
     )
 parser.add_argument(
-    'gold_catalog',
+    '--gold_catalog',
+    default='/data/des90.a/data/yanny/gapc/Y3GaussAps0m.fits',
     type=str,
     help='Filename of a DES gold catalog to match to as a reference catalog.'
     )
@@ -25,7 +26,7 @@ parser.add_argument(
     )
 parser.add_argument(
     '--gold_bright_col',
-    default='AVG_RIZ_GAP_FLUX_DEREDDEN'
+    default='AVG_RIZ_GAP_FLUX_DEREDDEN',
     type=str,
     help='Name of brightness col to compare by in the gold catalog'
     )
@@ -104,7 +105,7 @@ def main():
     det_ratag = args.det_ratag
     det_dectag = args.det_dectag
     gold_ratag = args.gold_ratag
-    gold_dettag = args.gold_dettag
+    gold_dectag = args.gold_dectag
     depth = args.depth
     # clobber = args.clobber
     vb = args.vb
