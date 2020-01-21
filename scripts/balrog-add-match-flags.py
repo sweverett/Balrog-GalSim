@@ -100,9 +100,9 @@ def main():
     args = parser.parse_args()
     det_file = args.det_catalog
     gold_file = args.gold_catalog
-    min_radius = args.min_radius / 3600. # arcsec2deg
-    max_radius = args.max_radius / 3600. # arcsec2deg
-    drad = args.radius_step / 3600. # arcsec2deg
+    min_radius = args.min_radius
+    max_radius = args.max_radius
+    drad = args.radius_step
     det_ratag = args.det_ratag
     det_dectag = args.det_dectag
     gold_ratag = args.gold_ratag
@@ -127,15 +127,16 @@ def main():
 
     radii = np.arange(min_radius, max_radius+drad, drad)
     if vb is True:
-        print('Matching the following radii: {}'.format(3600.*radii))
+        print('Matching the following radii: {}'.format(radii))
 
-    for match_radius in radii:
+    for r in radii:
         if vb is True:
-            print('Initializing match_flag for radius {:.2f}...'.format(3600.*match_radius))
+            print('Initializing match_flag for radius {:.2f}...'.format(r))
         match_flag = np.zeros(len(det), dtype='i4')
 
         if vb is True:
             print('Matching...')
+        match_radius = r / 3600. # arcsec2deg
         h = htm.HTM(depth)
         matcher = htm.Matcher(depth=depth, ra=det[det_ratag], dec=det[det_dectag])
         id_gold, id_det, dist = matcher.match(ra=gold[gold_ratag], dec=gold[gold_dectag],
@@ -167,7 +168,7 @@ def main():
             if det[det_bright_col][idet] < gold[gold_bright_col][igold]:
                match_flag[idet] = 2
 
-        det['match_flag_{}_asec'] = match_flag
+        det['match_flag_{}_asec'.format(r)] = match_flag
 
     if vb is True:
         print('Writing to {}...'.format(outfile))
