@@ -1,6 +1,7 @@
 import numpy as np
 import fitsio
 from astropy.table import Table, join
+import esutil.htm as htm
 import os
 from glob import glob
 from argparse import ArgumentParser
@@ -13,7 +14,7 @@ parser.add_argument(
     help='Filename of a Balrog detection catalog (created with a given matching criterion)'
     )
 parser.add_argument(
-    'gold_catalog',
+    '--gold_catalog',
     type=str,
     help='Filename of a DES gold catalog to match to as a reference catalog.'
     )
@@ -25,7 +26,7 @@ parser.add_argument(
     )
 parser.add_argument(
     '--gold_bright_col',
-    default='AVG_RIZ_GAP_FLUX_DEREDDEN'
+    default='AVG_RIZ_GAP_FLUX_DEREDDEN',
     type=str,
     help='Name of brightness col to compare by in the gold catalog'
     )
@@ -104,7 +105,7 @@ def main():
     det_ratag = args.det_ratag
     det_dectag = args.det_dectag
     gold_ratag = args.gold_ratag
-    gold_dettag = args.gold_dettag
+    gold_dectag = args.gold_dectag
     depth = args.depth
     # clobber = args.clobber
     vb = args.vb
@@ -125,11 +126,11 @@ def main():
 
     radii = np.arange(min_radius, max_radius+drad, drad)
     if vb is True:
-        print('Matching the following radii: {}'.format(radii))
+        print('Matching the following radii: {:.2f}'.format(3600.*radii))
 
     for match_radius in radii:
         if vb is True:
-            print('Initializing match_flag for radius {}...'.format(match_radius))
+            print('Initializing match_flag for radius {:.2f}...'.format(3600.*match_radius))
         match_flag = np.zeros(len(det), dtype='i4')
 
         if vb is True:
