@@ -364,7 +364,7 @@ if __name__ == "__main__":
 
             lencat = len(cat)
             cat_bal_id = -1 * np.ones(lencat, dtype='i8')
-            cat_ext_fact = -1 * np.ones(lencat, dtype='i8')
+            cat_ext_fact = -1 * np.ones(lencat)
 
             bal_ids = det_in_tile['bal_id'].astype('i8')
             meas_ids = det_in_tile['meas_id'].astype('i8')
