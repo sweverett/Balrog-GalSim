@@ -127,7 +127,7 @@ def main():
 
     radii = np.arange(min_radius, max_radius+drad, drad)
     if vb is True:
-        print('Matching the following radii: {:.2f}'.format(3600.*radii))
+        print('Matching the following radii: {}'.format(3600.*radii))
 
     for match_radius in radii:
         if vb is True:
