@@ -63,6 +63,11 @@ class MatchedCatalogs(object):
             self.inj_type = 'ngmixGalaxy'
         elif inj_type == 'stars':
             self.inj_type = 'desStar'
+            # This is a bit awkward, but needed until we
+            # figure out a generalized scheme for class
+            # hierarchy between injection type & gold type
+            kwargs['true_ratag'] = Y3Stars.ra_tag
+            kwargs['true_dectag'] = Y3Stars.dec_tag
         # TODO: Implement!
         # elif inj_type.lower() == 'both':
         else:
@@ -372,22 +377,43 @@ class MatchedCatalogs(object):
         # Detection stack only needs limited information
         det_cat= Table()
         det_cat['bal_id'] = cat['bal_id']
-        det_cat['true_id'] = cat['id']
         det_cat['meas_tilename'] = cat['meas_tilename']
         # NOTE: Not present in prerun2
         #det_cat['true_number'] = cat['number'] # 'number' is a reserved name in DB
-        det_cat['true_ra'] = cat['ra']
-        det_cat['true_dec'] = cat['dec']
         det_cat['meas_id'] = cat['meas_id']
         det_cat['detected'] = cat['detected']
+
+        if self.inj_type == 'ngmixGalaxy':
+            det_cat['true_id'] = cat['id']
+	    det_cat['true_ra'] = cat['ra']
+	    det_cat['true_dec'] = cat['dec']
+
+        elif self.inj_type == 'desStar':
+	    det_cat['true_ra'] = cat['RA_new']
+	    det_cat['true_dec'] = cat['DEC_new']
+
+        else:
+            try:
+		det_cat['true_ra'] = cat['ra']
+		det_cat['true_dec'] = cat['dec']
+            except:
+                raise Exception('No ra, dec columns found!')
 
         if save_mags is True:
             # TODO: Generalize for the future
             prof = self.profile
-            det_cat['true_{}_mag_deredden'.format(prof)] = cat['{}_mag_deredden'.format(prof)]
+            if self.inj_type == 'ngmixGalaxy':
+                col = '{}_mag_deredden'.format(prof)
+                det_cat['true_{}'.format(col)] = cat[col]
+            elif self.inj_type == 'desStar':
+                cols = ['g_Corr', 'gr_Corr', 'ri_Corr', 'iz_Corr', 'gi_Corr']
+                for col in cols:
+                    det_cat['true_{}'.format(col)] = cat[col]
 
         if save_gap_flux is True:
-            det_cat['true_gap_riz_flux_deredden'] = cat['gap_riz_flux_deredden']
+            if self.inj_type == 'ngmixGalaxy':
+                col = 'gap_riz_flux_deredden'
+                det_cat['true_{}'.format(col)] = cat[col]
 
         return det_cat
 
@@ -565,8 +591,10 @@ class MatchedCatalog(object):
         self.true_file = true_file
         self.meas_file = meas_file
         self.prefix = prefix
-        self.ratag = ratag
-        self.dectag = dectag
+        self.true_ratag = true_ratag
+        self.true_dectag = true_dectag
+        self.meas_ratag = meas_ratag
+        self.meas_dectag = meas_dectag
         self.match_radius = match_radius
         self.depth = depth
         self.de_reddened = de_reddened
@@ -616,8 +644,11 @@ class MatchedCatalog(object):
     def _match(self):
         true_cat, meas_cat = self._load_cats()
         h = htm.HTM(self.depth)
-        self.matcher = htm.Matcher(depth=self.depth, ra=true_cat[self.ratag], dec=true_cat[self.dectag])
-        id_m, id_t, dist = self.matcher.match(ra=meas_cat[self.ratag], dec=meas_cat[self.dectag],
+        self.matcher = htm.Matcher(depth=self.depth,
+                                   ra=true_cat[self.true_ratag],
+                                   dec=true_cat[self.true_dectag])
+        id_m, id_t, dist = self.matcher.match(ra=meas_cat[self.meas_ratag],
+                                              dec=meas_cat[self.meas_dectag],
                                               radius=self.match_radius)
         self.true = true_cat[id_t]
         self.meas = meas_cat[id_m]
@@ -961,6 +992,19 @@ class SOFOnlyMatchedCatalog(MatchedCatalog):
     _allowed_extra_cols = ['COADD_OBJECT_ID',
                            'FLAGS_GOLD_SOF_ONLY',
                            'EXTENDED_CLASS_SOF']
+
+class Y3Stars(object):
+    '''
+    We eventually need to generalize this, but we cant make a simple
+    subclass of MatchedCatalog without making 3 new classes to deal
+    with the different Gold types. For now, we'll just store some
+    Y3 parameters here and could swap with a future parameter class
+    if needed.
+    '''
+
+    ra_tag = 'RA_new'
+    dec_tag = 'DEC_new'
+    
 
 def build_matched_catalog(match_type, *args, **kwargs):
     if match_type in MATCHED_CATALOG_TYPES:
