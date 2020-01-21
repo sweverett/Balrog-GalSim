@@ -30,8 +30,8 @@ parser.add_argument(
 )
 parser.add_argument(
     '--ignore_ext',
-    action-'store_true'
-    default=False
+    action='store_true',
+    default=False,
     help='Set to skip saving the extinction factors to the detection catalog'
 )
 parser.add_argument(
