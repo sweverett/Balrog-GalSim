@@ -46,8 +46,8 @@ def main():
     # Create de-reddened columns
     flux_deredden = np.zeros(np.shape(cat['meas_cm_flux']))
     mag_deredden  = np.zeros(np.shape(cat['meas_cm_mag']))
-    ext_fact      = np.zeros(len(cat))
-    ext_mag       = np.zeros(len(cat))
+    ext_fact      = np.zeros(np.shape(cat['meas_cm_flux']))
+    ext_mag       = np.zeros(np.shape(cat['meas_cm_mag']))
 
     tiles = np.unique(cat['meas_tilename'])
     Nt = len(tiles)
@@ -73,7 +73,7 @@ def main():
         flux_deredden[indices] = flux
         mag_deredden[indices] = mag
         ext_fact[indices] = exfact
-        ext_mag[indices] = exmags
+        ext_mag[indices] = exmag
 
     if vb:
         print 'flux len: ', len(flux_deredden[flux_deredden==0])
