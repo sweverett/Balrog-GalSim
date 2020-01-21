@@ -1,6 +1,7 @@
 import numpy as np
 import fitsio
 from astropy.table import Table, join
+import esutil.htm as htm
 import os
 from glob import glob
 from argparse import ArgumentParser
@@ -126,11 +127,11 @@ def main():
 
     radii = np.arange(min_radius, max_radius+drad, drad)
     if vb is True:
-        print('Matching the following radii: {}'.format(radii))
+        print('Matching the following radii: {:.2f}'.format(3600.*radii))
 
     for match_radius in radii:
         if vb is True:
-            print('Initializing match_flag for radius {}...'.format(match_radius))
+            print('Initializing match_flag for radius {:.2f}...'.format(3600.*match_radius))
         match_flag = np.zeros(len(det), dtype='i4')
 
         if vb is True:
