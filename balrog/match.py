@@ -557,10 +557,10 @@ class MatchedCatalog(object):
     b_indx   = {'g':0, 'r':1, 'i':2,  'z':3}
     cov_indx = {'g':0, 'r':5, 'i':10, 'z':15}
 
-    def __init__(self, true_file, meas_file, prefix='cm_', ratag='ra', dectag='dec',
-                 match_radius=1.0/3600, depth=14, de_reddened=False, ext_flux=None,
-                 ext_mag=None, tilename=None, real=None, make_cuts=False,
-                 extra_catfile=None, save_gap_flux=False):
+    def __init__(self, true_file, meas_file, prefix='cm_', true_ratag='ra', true_dectag='dec',
+                 meas_ratag='ra', meas_dectag='dec', match_radius=1.0/3600, depth=14,
+                 de_reddened=False, ext_flux=None, ext_mag=None, tilename=None, real=None,
+                 make_cuts=False,   extra_catfile=None, save_gap_flux=False):
 
         self.true_file = true_file
         self.meas_file = meas_file
