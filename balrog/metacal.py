@@ -175,8 +175,10 @@ def convert_mcal_to_h5(catdir, outfile, bands, version_tag=None, match_type='def
                 # mcal -> gauss for dtype as columns are not natively created for mcal (but share dtype)
                 f.create_dataset( 'catalog/unsheared/flux_'+mcal_vecb_ext[j], maxshape=(total_length,), shape=(total_length,), dtype=cat['gauss_flux'].dtype, chunks=(chunk_size,) )
                 f.create_dataset( 'catalog/unsheared/flux_err_'+mcal_vecb_ext[j], maxshape=(total_length,), shape=(total_length,), dtype=cat['gauss_flux_cov'].dtype, chunks=(chunk_size,) )
+                f.create_dataset( 'catalog/unsheared/ext_fact_'+mcal_vecb_ext[j], maxshape=(total_length,), shape=(total_length,), dtype=cat['gauss_flux'].dtype, chunks=(chunk_size,) )
             f['catalog/unsheared/flux_'+mcal_vecb_ext[j]][iter_end:iter_end+lencat] = cat['mcal_pars'][:,5+j]
             f['catalog/unsheared/flux_err_'+mcal_vecb_ext[j]][iter_end:iter_end+lencat] = cat['mcal_pars_cov'][:,5+j,5+j]
+            f['catalog/unsheared/ext_fact_'+mcal_vecb_ext[j]][iter_end:iter_end+lencat] = cat['ext_fact'][:,j]
 
         for sheared in ['_1p','_1m','_2p','_2m']:
             if vb is True:
@@ -263,7 +265,7 @@ def convert_mcal_to_h5(catdir, outfile, bands, version_tag=None, match_type='def
         # corr = 10**(-0.4*(f2['catalog/gold/delta_mag_chrom_'+band][:]+f2['catalog/gold/delta_mag_y4_'+band][:]-f2['catalog/gold/a_sed_sfd98_'+band][:]))[s]
         # We can't do the above correction as it depends on chromatic SED modeling that we skip in Balrog
         # We apply the following approximate extinction correction instead:
-        corr = f['catalog/unsheared/ext_fact'][:]
+        corr = f['catalog/unsheared/ext_fact_'+band][:]
         for table in ['unsheared','sheared_1p','sheared_1m','sheared_2p','sheared_2m']:
             c = f['catalog/'+table+'/flux_'+band][:]
             f['catalog/'+table+'/flux_'+band][:] = c / corr

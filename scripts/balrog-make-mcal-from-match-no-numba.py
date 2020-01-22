@@ -363,8 +363,8 @@ if __name__ == "__main__":
                 continue
 
             lencat = len(cat)
-            cat_bal_id = -1 * np.ones(lencat, dtype='i8')
-            cat_ext_fact = -1 * np.ones(lencat)
+            cat_bal_id = -1. * np.ones(lencat, dtype='i8')
+            cat_ext_fact = -1. * np.ones((lencat, len(bands)))
 
             bal_ids = det_in_tile['bal_id'].astype('i8')
             meas_ids = det_in_tile['meas_id'].astype('i8')
@@ -375,7 +375,12 @@ if __name__ == "__main__":
                 indx = np.where(mid == cat['id'])
                 assert len(indx) == 1
                 cat_bal_id[indx] = bid
-                cat_ext_fact[indx] = det_obj['ext_fact']
+
+                if bands == 'riz':
+                    # skip g-band
+                    cat_ext_fact[indx] = det_obj['ext_fact'][1:]
+                elif bands == 'griz':
+                    cat_ext_fact[indx] = det_obj['ext_fact']
 
             # cat = append_fields(cat, 'bal_id', cat_bal_id, usemask=False)
             cat.add_column(Column(cat_bal_id, name='bal_id'))
