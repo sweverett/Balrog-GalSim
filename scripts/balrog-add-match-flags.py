@@ -15,6 +15,7 @@ parser.add_argument(
     )
 parser.add_argument(
     '--gold_catalog',
+    default='/data/des90.a/data/yanny/gapc/Y3GaussAps0m.fits',
     type=str,
     help='Filename of a DES gold catalog to match to as a reference catalog.'
     )
@@ -126,7 +127,7 @@ def main():
 
     radii = np.arange(min_radius, max_radius+drad, drad)
     if vb is True:
-        print('Matching the following radii: {:.2f}'.format(radii))
+        print('Matching the following radii: {}'.format(radii))
 
     for r in radii:
         if vb is True:
