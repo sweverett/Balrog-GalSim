@@ -37,6 +37,7 @@ def convert_mcal_to_h5(catdir, outfile, bands, version_tag=None, match_type='def
                     }
 
     mcal_flat = {'id':'coadd_object_id',
+                'bal_id':'bal_id',       #added for Balrog
                 'flags':'flags',
                 'mask_frac':'mask_frac',
                 'ra':'ra',
