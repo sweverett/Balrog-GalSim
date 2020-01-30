@@ -364,23 +364,25 @@ if __name__ == "__main__":
 
             lencat = len(cat)
             cat_bal_id = -1. * np.ones(lencat, dtype='i8')
-            cat_ext_fact = -1. * np.ones((lencat, len(bands)), dtype='f8')
 
             bal_ids = det_in_tile['bal_id'].astype('i8')
             meas_ids = det_in_tile['meas_id'].astype('i8')
             cat_ids = cat['id'].astype('i8')
+
+            # In principle this could be set up for individual corrections,
+            # but for now we do tile-level dereddening
+            cat_ext_fact = np.ones((lencat, len(bands)), dtype='f8')
+            if bands == 'riz':
+                # skip g-band
+                cat_ext_fact *= det_in_tile[0]['ext_fact'][1:]
+            elif bands == 'griz':
+                cat_ext_fact *= det_in_tile[0]['ext_fact']
 
             for det_obj in det_in_tile:
                 bid, mid = det_obj['bal_id'], det_obj['meas_id']
                 indx = np.where(mid == cat['id'])
                 assert len(indx) == 1
                 cat_bal_id[indx] = bid
-
-                if bands == 'riz':
-                    # skip g-band
-                    cat_ext_fact[indx] = det_obj['ext_fact'][1:]
-                elif bands == 'griz':
-                    cat_ext_fact[indx] = det_obj['ext_fact']
 
             # cat = append_fields(cat, 'bal_id', cat_bal_id, usemask=False)
             cat.add_column(Column(cat_bal_id, name='bal_id'))
