@@ -372,11 +372,21 @@ if __name__ == "__main__":
             # In principle this could be set up for individual corrections,
             # but for now we do tile-level dereddening
             cat_ext_fact = np.ones((lencat, len(bands)), dtype='f8')
-            if bands == 'riz':
-                # skip g-band
-                cat_ext_fact *= det_in_tile[0]['ext_fact'][1:]
-            elif bands == 'griz':
-                cat_ext_fact *= det_in_tile[0]['ext_fact']
+
+            try:
+                if bands == 'riz':
+                    # skip g-band
+                    cat_ext_fact *= det_in_tile[0]['ext_fact'][1:]
+                elif bands == 'griz':
+                    cat_ext_fact *= det_in_tile[0]['ext_fact']
+            except IndexError:
+                # In case there are no detections in that tile
+                ef = det_cat[det_cat['meas_tilename']==tile][0]['ext_fact']
+                if bands == 'riz':
+                    # skip g-band
+                    cat_ext_fact *= ef[1:]
+                elif bands == 'griz':
+                    cat_ext_fact *= ef['ext_fact']
 
             for det_obj in det_in_tile:
                 bid, mid = det_obj['bal_id'], det_obj['meas_id']
