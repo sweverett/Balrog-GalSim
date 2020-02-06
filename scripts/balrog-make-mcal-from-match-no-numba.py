@@ -380,13 +380,8 @@ if __name__ == "__main__":
                 elif bands == 'griz':
                     cat_ext_fact *= det_in_tile[0]['ext_fact']
             except IndexError:
-                # In case there are no detections in that tile
-                ef = det_cat[det_cat['meas_tilename']==tile][0]['ext_fact']
-                if bands == 'riz':
-                    # skip g-band
-                    cat_ext_fact *= ef[1:]
-                elif bands == 'griz':
-                    cat_ext_fact *= ef['ext_fact']
+                print('Issue with tile (no detections). Skipping tile...')
+                continue
 
             for det_obj in det_in_tile:
                 bid, mid = det_obj['bal_id'], det_obj['meas_id']
