@@ -363,8 +363,18 @@ if __name__ == "__main__":
                 continue
 
             lencat = len(cat)
-            cat_bal_id = -1. * np.ones(lencat, dtype='i8')
 
+            # Want to skip any tiles that failed to save a truth catalog
+            # (1 known in run2a)
+            tdir = os.path.join(basedir, tile)
+            truth_cat = '{}_{}_balrog_truth_cat_ngmixGalaxy.fits'.format(tile, real)
+            truth_file = os.path.join(tdir, truth_cat)
+            if not os.path.exists(truth_file):
+                print('Tile {} does not have a truth catalog; skipping tile'.format(tile))
+                size -= lencat
+                continue
+
+            cat_bal_id = -1. * np.ones(lencat, dtype='i8')
             bal_ids = det_in_tile['bal_id'].astype('i8')
             meas_ids = det_in_tile['meas_id'].astype('i8')
             cat_ids = cat['id'].astype('i8')
