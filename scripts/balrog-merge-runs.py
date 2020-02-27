@@ -1,5 +1,6 @@
 import fitsio
 import numpy as np
+import h5py
 from astropy.table import Table, Column, vstack, join
 import os
 from argparse import ArgumentParser
@@ -7,19 +8,21 @@ from argparse import ArgumentParser
 parser = ArgumentParser()
 
 parser.add_argument(
-    'run_list',
-    type=list,
-    help='list of run_names to merge'
-    )
-parser.add_argument(
-    'version_list',
-    type=list,
-    help='list of run versions corresponding to run_list'
-    )
-parser.add_argument(
-    'version'
+    'version',
     type=str,
     help='version of merged stack'
+    )
+parser.add_argument(
+    '-run_list',
+    nargs='+',
+    type=str,
+    help='list of run_names to merge (e.g. run2, run2a)'
+    )
+parser.add_argument(
+    '-version_list',
+    nargs='+',
+    type=float,
+    help='list of run versions corresponding to run_list (e.g. 1.4 1.4)'
     )
 parser.add_argument(
     '--basedir',
@@ -30,15 +33,9 @@ parser.add_argument(
 parser.add_argument(
     '--ngmixer_type',
     type=str,
-    default='sof'
+    default='sof',
     help='ngmixer photometry type to merge'
     )
-# parser.add_argument(
-#     '--outfile',
-#     type=str,
-#     default=None,
-#     help='Output filename for merged catalogs'
-#     )
 parser.add_argument(
     '--outdir',
     default=None,
@@ -99,7 +96,7 @@ def compute_injection_counts(det_catalog):
     freq['true_id'] = unique
     freq['injection_counts'] = ucounts
 
-    joined = join(det_catalog, freq, keys='true_id', how='left')
+    joined = join(det_catalog, freq, keys='true_id', join_type='left')
 
     assert len(det_catalog) == len(joined)
 
@@ -132,7 +129,7 @@ def stack_mcal_files(mcal_list, run_list, outfile, vb=True):
     if os.path.exists(outfile):
         raise OSError('File already exists!')
 
-    mcal_stack = h5py.File(outfile, 'a')
+    mcal_stack = h5py.File(outfile, 'w')
 
     k = 0
     Nmcal = len(mcal_list)
@@ -202,24 +199,26 @@ def stack_mcal_files(mcal_list, run_list, outfile, vb=True):
 
 def main():
     args = parser.parse_args()
-    run_list = args.run_list
-    version_list = args.version_list
+    run_list = list(args.run_list)
+    version_list = list(args.version_list)
     version = args.version
     basedir = args.basedir
     ngtype = args.ngmixer_type
-    outfile = args.outfile
     outdir = args.outdir
     vb = args.vb
 
     if outdir is None:
         outdir = os.getcwd()
 
-    det_outfile = os.path.join(outdir, 'balrog_detection_catalog_{}_merged_v{}.fits'.format(
+    det_outdir = os.path.join(outdir, version, ngtype)
+    det_outfile = os.path.join(det_outdir, 'balrog_detection_catalog_{}_y3-merged_v{}.fits'.format(
         ngtype, version))
-    match_outfile = os.path.join(outdir, 'balrog_matched_catalog_{}_merged_v{}.fits'.format(
+    match_outdir = os.path.join(outdir, version, ngtype)
+    match_outfile = os.path.join(match_outdir, 'balrog_matched_catalog_{}_y3-merged_v{}.fits'.format(
         ngtype, version))
-    mcal_outfile = os.path.join(outdir, 'balrog_mcal_stack-y3v02-0-riz-noNB-merged_v{}.h5'.format(
-        ngtype, version))
+    mcal_outdir = os.path.join(outdir, version, 'mcal')
+    mcal_outfile = os.path.join(mcal_outdir, 'balrog_mcal_stack-y3v02-0-riz-noNB_y3-merged_v{}.h5'.format(
+        version))
 
     Nobjects = {}
     det_list   = []
@@ -231,7 +230,10 @@ def main():
 
     k = 0
     Nruns = len(run_list)
+    Ndetections = {}
+    Nmatches = {}
     for run, ver in zip(run_list, version_list):
+        ver = str(ver)
         k += 1
         if vb is True:
             print('Starting {} v{} ({} of {})'.format(run, ver, k, Nruns))
@@ -239,18 +241,18 @@ def main():
         # Get the needed catalog file paths
         det_fname   = 'balrog_detection_catalog_sof_{}_v{}.fits'.format(run, ver)
         match_fname = 'balrog_matched_catalog_sof_{}_v{}.fits'.format(run, ver)
-        mcal_fname  = 'balrog_mcal_stack-y3v02-0-riz-noNB-{}_mcal_v{}.h5'.format(run, ver)
+        mcal_fname  = 'balrog_mcal_stack-y3v02-0-riz-noNB-mcal_{}_v{}.h5'.format(run, ver)
         det_file   = os.path.join(basedir, run, 'stacked_catalogs', ver, ngtype, det_fname)
         match_file = os.path.join(basedir, run, 'stacked_catalogs', ver, ngtype, match_fname)
         mcal_file  = os.path.join(basedir, run, 'stacked_catalogs', ver, 'mcal', mcal_fname)
 
         if vb is True:
             print('Loading sof detection catalog...')
-        det = Table(fitsio.read(det_fname))
+        det = Table(fitsio.read(det_file))
         Ndetections[run] = len(det)
         if vb is True:
             print('Loading sof matched catalog...')
-        match = Table(fitsio.read(match_fname))
+        match = Table(fitsio.read(match_file))
         Nmatches[run] = len(match)
         if vb is True:
             print('Grabbing mcal catalog...')
@@ -258,9 +260,9 @@ def main():
 
         if vb is True:
             print('Adding new columns...')
-        det.add_column(Column(len(det)*[run]), name='run_name', dtype='S10')
-        match.add_column(Column(len(match)*[run]), name='run_name', dtype='S10')
-        # NOTE: Column added to stacked h5 file later in stack_mcal_files()
+        det.add_column(Column(len(det)*[run], name='run_name', dtype='S10'))
+        match.add_column(Column(len(match)*[run], name='run_name', dtype='S10'))
+        ## NOTE: Column added to stacked h5 file later in stack_mcal_files()
 
         det_list.append(det)
         match_list.append(match)
@@ -282,9 +284,9 @@ def main():
     det_stack = compute_injection_counts(det_stack)
 
     # Look for and remove any duplicate entries
-    dup_ids1 = remove_duplicates(det)
-    dup_ids2 = remove_duplicates(match)
-    assert dup_ids1 == dup_ids2
+    dup_ids1 = remove_duplicates(det_stack)
+    dup_ids2 = remove_duplicates(match_stack)
+    assert (dup_ids1 == dup_ids2).all()
     # NOTE: The bug that causes duplicates in the fits tables doesn't appear
     # in the mcal stack, so not needed there (which is good, as h5 files are
     # much more complicated to remove rows from)
