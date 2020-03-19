@@ -120,12 +120,12 @@ def main():
             print('Computing weight column...')
         weights = apply_loggrid(snr_corr, size_ratio_corr, w)
 
-        max_shape = 450000000
+        maxshape = 450000000
         lencat = len(weights)
         dtype = weights.dtype
         chunks = 1000000
 
-        mcal.create_dataset(base+'weight', max_shape=(max_shape,), shape=(lencat,), dtype=dtype, chunks=(chunks,))
+        mcal.create_dataset(base+'weight', maxshape=(maxshape,), shape=(lencat,), dtype=dtype, chunks=(chunks,))
         mcal[base+'weight'][:] = weight
 
     return
