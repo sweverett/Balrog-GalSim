@@ -126,7 +126,7 @@ def main():
         chunks = 1000000
 
         mcal.create_dataset(base+'weight', maxshape=(maxshape,), shape=(lencat,), dtype=dtype, chunks=(chunks,))
-        mcal[base+'weight'][:] = weight
+        mcal[base+'weight'][:] = weights
 
     return
 
