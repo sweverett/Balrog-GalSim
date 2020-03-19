@@ -56,6 +56,10 @@ def assign_loggrid(x, y, xmin=snmin, xmax=snmax, xsteps=steps, ymin=sizemin, yma
     indexx = np.minimum(indexx, xsteps-1)
     indexy = np.minimum(indexy, ysteps-1)
 
+    # Need to handle some NaNs
+    indexx = np.maximum(indexx, 0)
+    indexy = np.maximum(indexy, 0)
+
     return indexx, indexy
 
 def mesh_average(quantity, indexx, indexy, steps, count):
