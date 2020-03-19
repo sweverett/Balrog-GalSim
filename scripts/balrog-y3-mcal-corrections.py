@@ -1,4 +1,12 @@
+# The Y3 Balrog catalogs have inherited a few bugs or cut choices
+# that have since been changed. We apply the following here:
+#
+# (1) Scale the mcal snr by 1/sqrt(2) [metacalibration bug]
+# (2) Re-define size_ratio
+# (3) Compute a new weight column based off of mcal properties
+#
 # Adapted from code by Daniel Gruen
+
 import numpy as np
 import h5py
 from argparse import ArgumentParser
@@ -6,28 +14,15 @@ from argparse import ArgumentParser
 parser = ArgumentParser()
 
 parser.add_argument(
-    'mcal_file',
+    'bal_mcal_file',
     type=str,
     help='Balrog mcal file to add weights to'
     )
-# parser.add_argument(
-#     '--max_percentile',
-#     default=97.5,
-#     type=float,
-#     help='Maximum percentile before pileup'
-#     )
 parser.add_argument(
-    '--make_plots',
-    action='store_true',
-    default=False,
-    help='Set to make plots'
-    )
-parser.add_argument(
-    '--save_weight_table',
-    action='store_true',
-    default=False,
-    help='Set to save weight table as a txt file'
-    )
+    '--weight_file',
+    type=str,
+    default='/global/cscratch1/sd/troxel/cats_des_y3/y3_shape_w_grid_03_16_20_highsnr.txt',
+    help='txt file that contains the weight grid')
 parser.add_argument(
     '--vb',
     action='store_true',
@@ -37,6 +32,7 @@ parser.add_argument(
 
 def assign_loggrid(x, y, xmin=snmin, xmax=snmax, xsteps=steps, ymin=sizemin, ymax=sizemax, ysteps=steps):
     # return x and y indices of data (x,y) on a log-spaced grid that runs from [xy]min to [xy]max in [xy]steps
+
     x = np.maximum(x, xmin)
     x = np.minimum(x, xmax)
 
@@ -68,89 +64,61 @@ def apply_loggrid(x, y, grid, xmin=snmin, xmax=snmax, xsteps=steps, ymin=sizemin
 
 def main():
     args = parser.parse_args()
-    mcal_file = args.mcal_file
-    make_plots = args.make_plots
+    bal_mcal_file = args.bal_mcal_file
+    weight_file = args.weight_file
     vb = args.vb
-    size_ratio=np.array(f['catalog/metacal/unsheared/size_ratio'])[:]
-    if vb is True:
-        print('read R')
-    R11=np.array(f['catalog/metacal/unsheared/R11'])[:]
-    R22=np.array(f['catalog/metacal/unsheared/R22'])[:]
-    if vb is True:
-        print('read e')
-    e1=np.array(f['catalog/metacal/unsheared/e_1'])[:]
-    e2=np.array(f['catalog/metacal/unsheared/e_2'])[:]
-    f.close()
 
-    # NOTE: The below is taken from Y3 values that we need to reproduce.
-    # Can generalize in the future if needed
-    max_percentile = 97.5
-    np.percentile(snr, max_percentile)
-    np.percentile(size_ratio, max_percentile)
-    # definitions of grid - span inner 95% of range (i.e., upper limit is 97.5th percentile)
-    snmin = 10
-    snmax = 275
-    sizemin = 0.5
-    sizemax = 5
-    steps = 20
-    save_weight_table = True
-    indexx, indexy = assign_loggrid(snr, size_ratio, snmin, snmax, steps, sizemin, sizemax, steps)
-    count = np.zeros((steps,steps))
-    np.add.at(count,(indexx,indexy), 1)
-    meanes = mesh_average(np.sqrt(e1**2+e2**2)/2, indexx, indexy, steps, count)
-    response = mesh_average((R11+R22)/2, indexx, indexy, steps, count)
-    w = 1/(meanes/response)**2
-    if save_weight_table:
-            np.savetxt("balrog_y3_shape_w_grid.txt")
+    # Weight grid
+    w = np.genfromtxt(weight_file)
 
-    if make_plots is True:
-        H, xedges, yedges = np.histogram2d(snr,
-                                           size_ratio,
-                                           bins=[np.logspace(np.log10(snmin),np.log10(snmax),steps+1),
-                                                 np.logspace(np.log10(sizemin),np.log10(sizemax),steps+1)]
-                                           )
-        X, Y = np.meshgrid(xedges, yedges)
-        plt.pcolormesh(Y, X, H.transpose())
-        plt.xscale('log')
-        plt.yscale('log')
-        plt.colorbar(label="number of galaxies in Y3")
-        plt.xlabel("metacal size_ratio")
-        plt.ylabel("metacal SNR")
-        plt.tight_layout()
-        plt.savefig("y3_sn_size.png", dpi=300)
+    # Balrog mcal file (will overwrite some columns)
+    mcal = h5py.File(bal_mcal_file, 'r+')
 
-        plt.figure()
-        logmeshplot(count, xedges, yedges, r"count in Y3")
-        plt.tight_layout()
-        plt.savefig("y3_count.png", dpi=200)
+    shear_types = ['unsheared',
+                   'sheared_1m',
+                   'sheared_1p',
+                   'sheared_2m',
+                   'sheared_2p'
+                   ]
 
-        plt.figure()
-        logmeshplot(response, xedges, yedges, r"$(R11+R22)/2$ in Y3")
-        plt.tight_layout()
-        plt.savefig("y3_response.png", dpi=200)
+    for stype in shear_types:
+        if vb is True:
+            print('Starting {}'.format(stype))
 
-        plt.figure()
-        logmeshplot(meanes, xedges, yedges, r"$\sqrt{e_1^2+e_2^2}$ in Y3")
-        plt.tight_layout()
-        plt.savefig("y3_ellipticity_noise.png", dpi=200)
+        base = 'catalog/' + stype + '/'
 
-        plt.figure()
-        logmeshplot(meanes/response, xedges, yedges, r"$\sqrt{e_1^2+e_2^2}/\langle R\rangle$ in Y3")
-        plt.tight_layout()
-        plt.savefig("y3_shape_noise.png", dpi=200)
+        # (1) Apply mcal snr correction
+        if vb is True:
+            print('Applying snr correction...')
+        snr_orig = np.array(mcal[base+'snr'])
+        snr_corr = snr_orig / np.sqrt(2)
+        mcal[base+'snr'][:] = snr_corr
 
-        plt.figure()
-        logmeshplot(w, xedges, yedges, r"$w=1/[(e_1^2+e_2^2)/2/\langle R\rangle]$")
-        plt.tight_layout()
-        plt.savefig("y3_weight.png", dpi=200)
+        # (2) Re-define size_ratio
+        # in mcal_to_h5.py, it is defined as: mcal_T_r / psfrec_T
+        # we are redefining it to be: mcal_T_r / mcal_Tpsf
+        # NOTE: the column names mcal_T_r and mcal_Tpsf get renamed to
+        # T and mcal_psf_T respectively in that same file
+        # so we use that here: T / mcal_psf_T
+        if vb is True:
+            print('Re-defining size_ratio...')
+        T = np.array(mcal['catalog/unsheared/T'])
+        mcal_psf_T = np.array(mcal['catalog/unsheared/mcal_psf_T'])
+        size_ratio_corr = T / mcal_psf_T
+        mcal[base+'size_ratio'][:] = size_ratio_corr
 
-    # Step 2 - assign weight to each galaxy
-    w = np.genfromtxt("y3_shape_w_grid.txt")
-    weights = apply_loggrid(snr, size_ratio, w)
+        # (3) Compute relative weight column
+        if vb is True:
+            print('Computing weight column...')
+        weights = apply_loggrid(snr_corr, size_ratio_corr, w)
 
-    # TODO: Save to cols...
-    f = h5py.File(mcal_file, 'r+')
-    f[wgt_colname] = weights
+        max_shape = 450000000
+        lencat = len(weights)
+        dtype = weights.dtype
+        chunks = 1000000
+
+        mcal.create_dataset(base+'weight', max_shape=(max_shape,), shape=(lencat,), dtype=dtype, chunks=(chunks,))
+        mcal[base+'weight'][:] = weight
 
     return
 
