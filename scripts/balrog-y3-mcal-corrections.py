@@ -30,6 +30,14 @@ parser.add_argument(
     help='Set to print out more information'
     )
 
+
+# Some grid params from Daniel
+snmin=10
+snmax=300
+sizemin=0.5
+sizemax=5
+steps=20
+
 def assign_loggrid(x, y, xmin=snmin, xmax=snmax, xsteps=steps, ymin=sizemin, ymax=sizemax, ysteps=steps):
     # return x and y indices of data (x,y) on a log-spaced grid that runs from [xy]min to [xy]max in [xy]steps
 
