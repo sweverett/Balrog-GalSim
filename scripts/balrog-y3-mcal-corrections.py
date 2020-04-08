@@ -21,7 +21,7 @@ parser.add_argument(
 parser.add_argument(
     '--weight_file',
     type=str,
-    default='/global/cscratch1/sd/troxel/cats_des_y3/y3_shape_w_grid_03_16_20_highsnr.txt',
+    default='/global/u1/d/dgruen/work/sompz/test/full_run_on_data/y3_shape_w_grid_03_31_20.txt'
     help='txt file that contains the weight grid')
 parser.add_argument(
     '--vb',
