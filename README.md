@@ -4,8 +4,7 @@ Balrog is an image simulation tool for making randoms and characterizing systema
 
 While Balrog is not specific to DES, the current version of this code only *supports* DES chip images and [ngmix](https://github.com/esheldon/ngmix) galaxy catalogs for injection inputs. Hopefully this generalization will be added soon; in the meantime, you can start a branch and one of the developers will help guide you on what small changes need to be made. Most changes can be made in the input GalSim config file.
 
-The archived repository for the DES Year 3 (Y3) cosmology analysis calibration can be found below:
-https://zenodo.org/badge/DOI/10.5281/zenodo.5154103.svg
+The archived repository for the DES Year 3 (Y3) cosmology analysis calibration can be found here: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5154103.svg)](https://doi.org/10.5281/zenodo.5154103)
 
 ## Installation
 
