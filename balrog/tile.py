@@ -371,12 +371,11 @@ class Tile(object):
         Checks if passed file is an appropriate chip injection image given data version.
         '''
 
-        if config.data_version == 'y3v02':
-            # TODO: Make more generic in future
-            if chip_file.endswith('nullwt.fits'):
-                return True
-            else:
-                return False
+        # TODO: Make more generic in future
+        if chip_file.endswith('nullwt.fits'):
+            return True
+        else:
+            return False
 
     def set_realization(self, i):
         '''

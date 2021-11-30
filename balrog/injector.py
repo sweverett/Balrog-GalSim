@@ -260,8 +260,9 @@ def parse_bal_image_inputs(config, base):
     # Process input 'version'
     if 'version' not in config:
         # Warn user, but assume y3v02 for now
-        print('DEFAULT WARNING: Data version not passed in config! Assuming y3v02.')
-        config['data_version'] = 'y3v02'
+        print('DEFAULT WARNING: Data version not passed in config! ' +\,
+              'Using none, which may cause problems')
+        config['data_version'] = ''
 
     # Process input 'run_name'
     try:
