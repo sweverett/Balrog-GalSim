@@ -54,6 +54,12 @@ parser.add_argument(
     help='Only stack objects with a valid bal_id'
 )
 parser.add_argument(
+    '--remove_injections',
+    action='store_true',
+    default=False,
+    help='Only stack objects not associated with an injection'
+)
+parser.add_argument(
     '--real',
     default=0,
     type=int,
@@ -183,8 +189,10 @@ _gold_cols = {'default':_gold_cols_default,
               'sof_only':_gold_cols_sof_only,
               'mof_only':_gold_cols_mof_only,}
 
-def write_cat(cat, outfile=None, clobber=False, save_det_only=False):
+def write_cat(cat, outfile=None, clobber=False, save_det_only=False,
+              remove_injections=False):
     assert cat is not None
+    assert (save_det_only is False) or (remove_injections is False)
 
     if os.path.exists(outfile):
         if clobber is True:
@@ -198,6 +206,14 @@ def write_cat(cat, outfile=None, clobber=False, save_det_only=False):
         # Can't do this earlier, as we didn't yet have a mapping from
         # bal_id to meas_id
         cat[cat['bal_id'] >= 0].write(outfile, overwrite=clobber)
+    elif remove_injections is True:
+        if 'match_flag_1.5_asec' in cat.colnames:
+            real_gals = np.where(
+                (cat['bal_id'] < 0) or (cat['match_flag_1.5_asec'] == 2)
+                )
+            cat[real_gals].write(outfile, overwrite=clobber)
+        else:
+            cat[cat['bal_id'] < 0].write(outfile, overwrite=clobber)
     else:
         cat.write(outfile, overwrite=clobber)
 
@@ -213,6 +229,7 @@ if __name__ == "__main__":
     basedir = args.basedir
     outdir = args.outdir
     save_det_only = args.save_det_only
+    remove_injections = args.remove_injections
     write_fits = args.write_fits
     gold_base = args.gold_base
     gold_subdir = args.gold_subdir
@@ -241,6 +258,11 @@ if __name__ == "__main__":
     if gold_subdir is not None:
         if gold_base is None:
             raise ValueError('Can\'t set gold_subdir if gold_base isn\'t set!')
+
+    # Can't do save_det_only & remove_injections at the same time!
+    if (save_det_only is True) and (remove_injections is True):
+        raise ValueError('Only one of `save_det_only` and `remove_injections` ' +\
+                         'can be True!')
 
     # Grab needed truth info for Balrog matches
     if vb:
