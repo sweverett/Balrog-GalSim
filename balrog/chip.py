@@ -139,13 +139,17 @@ class Chip(object):
         self.decmin, self.decmax = hdr['DECCMIN'], hdr['DECCMAX']
         rc = [hdr['RAC1'], hdr['RAC2'], hdr['RAC3'], hdr['RAC4']]
         dc = [hdr['DECC1'], hdr['DECC2'], hdr['DECC3'], hdr['DECC4']]
-        self.corners = zip(rc,dc)
-
+        #self.corners = zip(rc,dc)
+        self.corners = [[hdr['RAC1'], hdr['DECC1']], [hdr['RAC2'], hdr['DECC2']], 
+                        [hdr['RAC3'], hdr['DECC3']], [hdr['RAC4'], hdr['DECC4']]] #MEGAN changed this to avoid error:
+        # TypeError: Cannot cast array data from dtype('O') to dtype('float64') according to the rule 'safe' 
+        
         # Round to nearest pixel (very slight offset)
         #NOTE: Should always be (2048x4096), but in principle could allow
         # different sizes
-        self.corners_im = np.round(self.wcs.wcs_world2pix(self.corners,1))
-
+        
+        self.corners_im = np.round(self.wcs.wcs_world2pix(self.corners, 1))
+        #print("self.corners_im", self.corners_im)
         # Set naxis_im ranges (not (RA,DEC) ranges due to NOTE above)
         #NOTE: should be able to retrieve from header NAXISi, but just
         # to be sure...

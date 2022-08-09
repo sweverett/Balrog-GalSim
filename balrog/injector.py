@@ -254,20 +254,20 @@ def parse_bal_image_inputs(config, base):
             if not isinstance(band, str):
                 raise TypeError('Each passed band must be a string!')
     except KeyError:
-        print 'config[bands]=',config['bands']
+        print('config[bands]=',config['bands'])
         raise KeyError('Must specify which bands are to be used for injection!')
 
     # Process input 'version'
     if 'version' not in config:
         # Warn user, but assume y3v02 for now
-        print('DEFAULT WARNING: Data version not passed in config! ' +\,
+        print('DEFAULT WARNING: Data version not passed in config! ' +\
               'Using none, which may cause problems')
         config['data_version'] = ''
 
     # Process input 'run_name'
     try:
         rname = config['run_name']
-        if not isinstance(rname, basestring):
+        if not isinstance(rname, str): #Megan changed "basestring" to "str"
             raise ValueError('The input `run_name` must be a string!')
     except KeyError:
         # TODO: Maybe come up with sensible default run name?
@@ -280,7 +280,7 @@ def parse_bal_image_inputs(config, base):
     valid_rot_types = ['Random']
     try:
         rotate = config['rotate_objs']
-        if isinstance(rotate, basestring):
+        if isinstance(rotate, str):
             if rotate not in valid_rot_types:
                 raise ValueError('`{}` is not a valid rotation type! '.format(rotate) +
                                  'For now, only {} are valid.'.format(valid_rot_types))
@@ -350,7 +350,7 @@ def parse_bal_image_inputs(config, base):
             } for inpt in input_list}
         ps = config['pos_sampling']
 
-    if isinstance(ps, basestring):
+    if isinstance(ps, str):
         # Then the string is the input type
         if ps not in valid_pos_sampling:
             raise ValueError('{} is not a valid position sampling method. '.format(ps) +

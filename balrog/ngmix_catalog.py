@@ -436,24 +436,30 @@ class ngmixCatalog(object):
         # gm.make_gmix_model(pars, model, **kw):
 
         # Build the appropriate Gaussian mixture for a given model
+        
+        # MEGAN changed these calls according to API update: 
+        # https://github.com/esheldon/ngmix/blob/89b687b4adacd44b76ffcf13f442da655fc011fb/ngmix/gmix/gmix.py#L46
         if ct == 'gauss':
             # Uses 'simple' pars scheme
             gm_pars = [0.0, 0.0, g1, g2, T, flux]
-            gm = ngmix.gmix.GMixModel(gm_pars, 'gaussian')
+            #gm = ngmix.gmix.GMixModel(gm_pars, 'gaussian')
+            gm = ngmix.GMixModel(gm_pars, "gauss")
 
         elif ct == 'cm':
             fracdev = self.catalog[cp+'_fracdev'][index]
             TdByTe  = self.catalog[cp+'_TdByTe'][index]
             # Uses 'simple' pars scheme
             gm_pars = [0.0, 0.0, g1, g2, T, flux]
-            gm = ngmix.gmix.GMixCM(fracdev, TdByTe, gm_pars)
+            #gm = ngmix.gmix.GMixCM(fracdev, TdByTe, gm_pars)
+            gm = ngmix.GMixModel(gm_pars, "cm")
 
         elif ct == 'bdf':
             fracdev = self.catalog[cp+'_fracdev'][index]
             TdByTe = self._TdByTe
             # Uses different 'bdf' pars scheme
             gm_pars = [0.0, 0.0, g1, g2, T, fracdev, flux]
-            gm = ngmix.gmix.GMixBDF(pars=gm_pars, TdByTe=TdByTe)
+            #gm = ngmix.gmix.GMixBDF(pars=gm_pars, TdByTe=TdByTe)
+            gm = ngmix.GMixModel(gm_pars, "bdf")
 
         # The majority of the conversion will be handled by `ngmix.gmix.py`
         gs_gal = gm.make_galsim_object(gsparams=gsp)

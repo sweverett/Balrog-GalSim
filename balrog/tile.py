@@ -12,6 +12,7 @@ import warnings
 import subprocess
 import datetime
 import time
+import shutil # Megan added
 
 # Balrog files
 from chip import Chip
@@ -179,18 +180,18 @@ class Tile(object):
         for band in self.bands:
             self.band_dir[band] = os.path.join(self.dir, 'nullwt-{}'.format(band))
             # Make band directory if it doesn't already exist
-	    try:
-	        os.makedirs(self.band_dir[band])
+            try:
+                os.makedirs(self.band_dir[band])
             except OSError as e:
-                if e.errno == errno.EACCES:
-                    # ok if directory already exists
-                    # print('permission error')
-                    pass
-                elif e.errno == errno.EEXIST:
-                    # ok if directory already exists
-                    pass
-                else:
-                    raise e
+                    if e.errno == errno.EACCES:
+                        # ok if directory already exists
+                        # print('permission error')
+                        pass
+                    elif e.errno == errno.EEXIST:
+                        # ok if directory already exists
+                        pass
+                    else:
+                        raise e
 
         return
 
@@ -499,7 +500,7 @@ class Tile(object):
                 print('No objects of type {} were passed on injection '.format(inj_type) +
                 'to chip {}. Skipping injection.'.format(chip.name))
             chip.types_injected += 1
-            if (Ninput==chip.types_injected) and (np.sum(chip.nobjects.values())>0):
+            if (Ninput==chip.types_injected) and (np.sum(list(chip.nobjects.values()))>0): #MEGAN added list()
                 self._final_config_check(config, chip, Ninput, inj_type)
 
             return
@@ -738,7 +739,7 @@ class Tile(object):
         i = self.bal_config_len - 1
 
         for inj, ninj in chip.nobjects.items():
-            input_type = {v:k for k, v in self.inj_types.iteritems()}[inj]
+            input_type = {v:k for k, v in self.inj_types.items()}[inj] # MEGAN changed from iteritems()
             inj_cat = self.inj_cats[input_type]
             if (ninj == 0) and (inj_cat.needs_band is True):
                 # Need the inverse map of {input_type : inj_type}
@@ -822,7 +823,7 @@ class Tile(object):
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
 
         if vb>0:
-            for line in iter(process.stdout.readline, ''): print(line.replace('\n', ''))
+            for line in iter(process.stdout.readline, b''): print(line.replace(b'\n', b'')) #MEGAN added bytes
 
         # Needed to get the return code from GalSim
         streamdata = process.communicate()[0]
@@ -930,6 +931,47 @@ class Tile(object):
                 io.combine_fits_extensions(combined_fits, bal_fits, orig_fits, config=config)
 
         return
+    
+    
+    
+    def copy_empty_nullwt_images(self, config, tile_dir, vb):
+        '''
+        Megan added: Need to go through the input nullwt images and copy
+        over any that did not get injections added to them, so that the 
+        extensions and coadding script will work. 
+        '''
+        for band in self.bands:
+            
+            nullwt_dir = os.path.join(tile_dir, self.tile_name, "nullwt-" + band)
+            
+            total = 0
+            missing = 0
+            for chip_nullwt_im in os.listdir(nullwt_dir):
+                total += 1
+                chip_name = chip_nullwt_im[:-21]
+                
+                bal_im_file = io.return_output_fname(config.output_dir,
+                                                     'balrog_images',
+                                                     str(self.curr_real),
+                                                     config.data_version,
+                                                     self.tile_name,
+                                                     band,
+                                                     chip_name)
+                
+                # If the injection file does not exist copy the nullwt into the folder and rename:
+                if not os.path.isfile(bal_im_file):
+                    missing += 1
+                    if vb:
+                        print(bal_im_file)
+                    #print(os.path.join(nullwt_dir, chip_nullwt_im))
+                    shutil.copy(os.path.join(nullwt_dir, chip_nullwt_im), os.path.join(bal_im_file))
+             
+            if vb:
+                print("Total nullwt in ", band, "-band: ", total, " . Missing: ", missing, 
+                      " . Percent missing: ", round(missing/total*100, 4))
+        
+
+        return
 
 #-------------------------
 # Related Tile functions
@@ -966,4 +1008,7 @@ def load_tile_list(tile_list_file, vb=0):
         print('Loaded {} tiles...'.format(len(tile_list)))
 
     return tile_list
+
+
+
 

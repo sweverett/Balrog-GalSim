@@ -177,8 +177,8 @@ class MEDSGalaxy(GSObject):
         elif id is not None:
             if random:
                 raise AttributeError('Too many methods for selecting a galaxy!')
-            print '\n id = %i' % id
-            print '\n iobj = %i\n' % iobj
+            print('\n id = %i' % id)
+            print('\n iobj = %i\n' % iobj)
             iobj = meds_catalog.getIobjForID(id)
         elif random:
             ud = galsim.UniformDeviate(self.rng)

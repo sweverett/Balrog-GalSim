@@ -70,8 +70,7 @@ def RunBalrog():
     args = parse_args()
 
     vb = args.verbose
-    if vb: print('Input arguments: {}'.format(args), flush=True) #MEGAN 
-    #if vb: print('Input arguments: {}'.format(args))
+    if vb: print('Input arguments: {}'.format(args))
 
     if vb: print('Setting up configuration...')
     config = Config.setup_config(args)
@@ -93,54 +92,44 @@ def RunBalrog():
         # Can simulate many injection realizations per tile
         for real in config.realizations:
             if vb: print('Injecting Tile {}; realization {}'.format(tile.tile_name, real))
-            tile.set_realization(real)
-            tile.reset_bal_config(config)
-            tile.generate_objects(config, real)
+            #tile.set_realization(real)
+            #tile.reset_bal_config(config)
+            #tile.generate_objects(config, real)
             bands = tile.bands
             for band in bands:
                 for chip in tile.chips[band]:
-                    # Reset injection counter
-                    chip.reset_config()
+                    pass
 
-                    for inpt in config.input_types:
-                        tile.add_gs_injection(config, chip, inpt, real)
-
-                    if (config.inj_objs_only['value'] is False) and np.sum(chip.nobjects.values()) == 0:
-                        # Don't want to skip image for a blank run; need to blank out the image!
-                        # NOTE: The first check isn't actually required, as a dummy injection is
-                        # added for 'inj_objs_only'=True cases that have no injections. This is
-                        # needed to correct the background image in `injector.py`
-                        outfile = io.return_output_fname(config.output_dir,
-                                                         'balrog_images',
-                                                         str(tile.curr_real),
-                                                         config.data_version,
-                                                         tile.tile_name,
-                                                         chip.band,
-                                                         chip.name)
-                        chip.save_without_injection(outfile)
 
             # Once all chips in tile have had Balrog injections, run modified config file
             # with GalSim
             if vb: print('Writing Balrog config...')
-            tile.write_bal_config()
+            #tile.write_bal_config()
             if vb: print('Running GalSim for tile...')
-            rc = tile.run_galsim(tile.tile_name, real, vb=vb)
-            if rc != 0:
-                raise Exception('\nYou shall not pass! GalSim failed to complete successfully.')
+            #rc = tile.run_galsim(tile.tile_name, real, vb=vb)
+            #if rc != 0:
+                #raise Exception('\nYou shall not pass! GalSim failed to complete successfully.')
             
             # Megan is adding in a step here. If there are no injections on some chips, those
             # need to be copied over to the output area in order for the extensions and coadd
             # to work properly. 
             if vb: print('Copying nullwt images with no injections into output area...')
             tile.copy_empty_nullwt_images(config, args.tile_dir, vb)
+            #if vb: print('Copying extra image planes...')
+            #tile.copy_extensions(config)
             
-            
-            if vb: print('Copying extra image planes...')
-            tile.copy_extensions(config)
             if vb: print('Truth Catalog...')
             tile.write_truth_catalog(config)
-
+            
+            
     return 0
+
+            #if vb: print('Copying extra image planes...')
+            #tile.copy_extensions(config)
+            #if vb: print('Truth Catalog...')
+            #tile.write_truth_catalog(config)
+
+    #return 0
 
 if __name__ == '__main__':
     ret = RunBalrog()
