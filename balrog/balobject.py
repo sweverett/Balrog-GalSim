@@ -161,7 +161,7 @@ class BalInjectionCatalog(object):
                     raise ValueError('Position sampling type {} is not valid!'.format(gtype))
 
                 # Generate object indices (in input catalog)
-                indices = np.random.choice(xrange(input_nobjects), size=inj_nobjs)
+                indices = np.random.choice(range(input_nobjects), size=inj_nobjs) #MEGAN changed from xrange()
                 self.indx[real] = indices
 
                 # Generate object rotation angles, if desired

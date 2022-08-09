@@ -189,7 +189,7 @@ class HexGrid(Grid):
             starty += 2*p
             row += 1
 
-        polygons = [zip(x, y) for x in xs for y in ys]
+        polygons = [list(zip(x, y)) for x in xs for y in ys] #MEGAN added list() 
         hexgrid = cls.polygons2coords(polygons)
 
         # Some hexagonal elements go beyond boundary; cut these out
@@ -310,7 +310,8 @@ class MixedGrid(BaseGrid):
 
             indx = np.setdiff1d(indx, i)
 
-        assert(np.sum(self.nobjects.values()) == N)
+
+        assert(np.sum(list(self.nobjects.values())) == N) #MEGAN added list()
         assert(len(indx) == 0)
 
         self.assigned_objects = True

@@ -1,0 +1,187 @@
+###################################################################################################
+# This is a short config file for testing the injection of ngmix catalog objects into existing fits
+# images as part of the Y3 Balrog pipeline. No promises are made (yet) for its completeness or
+# working state!
+#
+# Balrog yaml files are slightly different than their normal GalSim counterparts. It cannot be run
+# with a standard galsim executable of the form `galsim balrog_config.yaml`; instead, it is passed
+# as an input to the python script `balrog_injection.py`. This serves as the base of a multi-output
+# yaml file that all of the individual chip simulations will inherit from. Do not set any fields or
+# variables here that are not universal for all simulations.
+#
+# Spencer Everett
+# USCS
+# 1/30/2018
+###################################################################################################
+
+modules :
+  - galsim.des
+  - injector
+  - ngmix_catalog
+  - des_star_catalog
+
+# These variables are not directly processed by GalSim; this simply allows a convenient way
+# to change multiple variable instances quickly throughout the config file.
+some_variables :
+  # Pick a maximum fft size
+  - &max_fft 16384
+  # - &max_fft 32768
+  # - &max_fft 16384
+  # - &max_fft 8192
+  # - &max_fft 4096 # GalSim default (likely want higher)
+  - &bal_dir '/data/des81.a/data/mtabbutt/Y6_integrations/Balrog-GalSim/'
+  - &ngmix_dir '/data/des81.a/data/mtabbutt/Y6_integrations/inputs/'
+  - &ngmix_file 'BALROG_RUN2_DEEP_CAT_FLAG0INVHS1BDFLT245.fits'
+  - &star_dir '/data/des81.a/data/mtabbutt/Y6_integrations/inputs/'
+
+# Define the input files
+input :
+    ngmix_catalog :
+      # Replace with your desired ngmix catalog!
+      dir : *ngmix_dir
+      file_name : *ngmix_file
+
+      # Choose which type of ngmix catalog you are inputting
+      # NB: for now, only Gauss, CM, and CM-MOF are accepted
+      #catalog_type : 'mof'
+      catalog_type : 'bdf'
+      de_redden : True
+      # catalog_type : 'gauss'
+      # NOTE: If you don't specify an input type, the loader will attempt to determine the type
+      # from the filename as standard ngmix catalogs include 'gauss', 'cm', or 'mof' in name. Still
+      # safer to specify, however.
+
+      # NOTE: Do not set bands here! They are set for each image simulation separately.
+
+      # Set masking / selection thresholds for catalog
+      #t_frac : 0.5
+      #t_min : 0.001
+      t_max : 100
+      #snr_min : 20.0
+
+    des_star_catalog :
+      base_dir : *star_dir
+      model_type :  'Model_16.5-26.5' # Can select which of Sahar's catalogs you want here
+      data_version : 'des-pizza-slices-y6-v13'
+
+# The gal field defines what kind of galaxy profile to use.
+gal :
+    type : List
+    items :
+        - # Galaxy component
+          type : ngmixGalaxy
+          # NOTE: Rotations do not currently work, as they are not consistent between different
+          # exposures. This will be added in a future update!
+          #rotate :
+          #    # Random means uniform within 0-2pi rads
+          #    type : Random
+        - # Star component
+          type : desStar
+
+    # Here you would normally define various fields such as index to choose which galaxies
+    # are injected. The balrog injection script takes care of position / index sampling, so
+    # you will likely leave the rest of the field blank.
+
+psf :
+    # For DES chip images with PSFEx files
+    # In future, Piff PSFs may be used instead
+    type : DES_PSFEx
+
+    # If for some reason you want to use a different PSF model, any standard GalSim
+    # PSF's are allowed (but you might get a warning!)
+    # type : Gaussian
+    # sigma : 0.5  # arcsec
+    # No need to specify a flux, since flux=1 is the right thing for a PSF.
+
+stamp :
+    type : Balrog
+    # Nothing required here, but feel free to add additional config options
+    gsparams :
+      # fft size is the most likely change you'll want to make
+      maximum_fft_size : *max_fft
+    # Since we are using observed PSFs that already include pixel response:
+    draw_method : no_pixel
+
+image :
+    # For injected images:
+    noise : {}
+    type : Balrog # Same as AddOn, but with some additional input attributes and checking
+
+    rotate_objs : True
+    # Can add some of the command-line arguments here as well; see README
+    # OK to pass either way or both, as long as they are consistent
+    # geom_file : '/path/to/geom_file.fits'
+    # tile_list : /path/to/tile_list.csv'
+    # tile_dir : /path/to/tiles/'
+    # psf_dir : 'psfs' # Default for DES; don't need to include
+
+    # To use all bands:
+    # NOTE: y-band currently not supported
+    bands : 'griz'
+    # To use a subset:
+    # bands : 'g'
+
+    #version : 'y3v02'
+    version : 'des-pizza-slices-y6-v13'
+    run_name : 'TEST'
+
+    # Can choose to ignore existing image data and only include injected objects
+    # inj_objs_only : True
+    # Or if you want to include chip noise:
+    # NOTE: Currently allowed noise models for `inj_objs_only` are:
+    # 'CCD', 'BKG', 'BKG+CCD', 'BKG+RN', 'BKG+SKY', and 'None'
+    # inj_obs_only : {val : True, noise : CCD}
+    #
+    extinct_objs : True
+
+    # Can inject objects onto a grid
+    pos_sampling :
+        ngmix_catalog:
+            type : 'MixedGrid'
+            grid_type : 'HexGrid'
+            grid_spacing : 20 # arcsec
+            inj_frac : 0.9 # its fraction not arcsec
+            offset : 'Random'
+            rotate : 'Random'
+        des_star_catalog:
+            type : 'MixedGrid'
+            inj_frac : 0.1 # 
+
+    # Load WCS from DES chip file
+    wcs :
+      type : Fits
+
+    # Must set galaxy density or total number of injected galaxies per tile
+    # NOTE: Set the desired density or number PER realization!
+    # NOTE: This is ignored for grid runs in which it doesn't equal the required grid points
+    # gal_density : 10 # per arcmin^2
+    #n_galaxies : 5000 # per tile
+
+    # Set the realizations to be done
+    # NOTE: This replaces the old version of the keyword `n_realizations` (although it will
+    # still be processed correctly for now). You can pass a single realization value, a range
+    # using a dictionary filled with min/max, or a list of individual values:
+    realizations : [0]
+    # realizations : [4]
+    # realizations : {'min' : 2, 'max' : 4}
+    # realizations : [1, 3, 5]
+    # Redefined from earlier versions; now the total number of realizations for this
+    # simulation *across all simulations/jobs*!
+    # For example, split up injections between 5 realizations but only simulate
+    # reals 1, 3, 5 *in this job*. This is needed for consistent catalog sampling
+    # for some inputs
+    # n_realizations : 5 # for example
+    n_realizations : 1
+
+    xsize: 2048 # DES nullwt chip
+    ysize: 4096 # DES nullwt chip
+
+#output :
+    # Number of processors to be used on GalSim injection step
+    # NOTE: It is more efficient t put `nproc` here for Balrog, as it will
+    # parallelize accross files rather than stamps
+    #nproc : 4
+    # nproc : -1 # To use all available cores
+
+    # Can include parent-level output directory here as well
+    # dir : '/path/to/outdir/'
